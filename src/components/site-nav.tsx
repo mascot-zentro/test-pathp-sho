@@ -8,11 +8,16 @@ import { Button } from "@/components/ui/button";
 export function SiteNav() {
   const { user } = useAuth();
   const [storeName, setStoreName] = useState("Store");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    supabase.from("app_settings").select("value").eq("key", "store_name").maybeSingle()
-      .then(({ data }) => data?.value && setStoreName(data.value));
+    supabase.from("app_settings").select("key,value").in("key", ["store_name", "logo_url"]).then(({ data }) => {
+      (data ?? []).forEach((r) => {
+        if (r.key === "store_name" && r.value) setStoreName(r.value);
+        if (r.key === "logo_url" && r.value) setLogoUrl(r.value);
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -25,8 +30,14 @@ export function SiteNav() {
     <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-40">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-display text-xl">
-          <ShoppingBag className="size-5 text-accent" />
-          <span className="tracking-tight">{storeName}</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt={storeName} className="h-8 w-auto object-contain" />
+          ) : (
+            <>
+              <ShoppingBag className="size-5 text-accent" />
+              <span className="tracking-tight">{storeName}</span>
+            </>
+          )}
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Link to="/" className="px-3 py-2 hover:text-accent" activeProps={{ className: "text-accent" }}>Shop</Link>

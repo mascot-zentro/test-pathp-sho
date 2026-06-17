@@ -18,18 +18,32 @@ type Product = { id: string; name: string; price: number; sale_price: number | n
 function Index() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hero, setHero] = useState({ title: "Considered objects for everyday life.", subtitle: "A small collection, refreshed seasonally. Cash on delivery available across the country.", image: "" });
 
   useEffect(() => {
     supabase.from("products").select("id,name,price,sale_price,on_sale,image_url").eq("active", true).order("created_at", { ascending: false })
       .then(({ data }) => { setProducts((data as Product[]) ?? []); setLoading(false); });
   }, []);
 
+  useEffect(() => {
+    supabase.from("app_settings").select("key,value").in("key", ["hero_title", "hero_subtitle", "hero_image_url"]).then(({ data }) => {
+      const obj: Record<string, string> = {};
+      (data ?? []).forEach((r) => { if (r.value) obj[r.key] = r.value; });
+      setHero((h) => ({ title: obj.hero_title || h.title, subtitle: obj.hero_subtitle || h.subtitle, image: obj.hero_image_url || "" }));
+    });
+  }, []);
+
   return (
     <div className="min-h-screen">
       <SiteNav />
-      <section className="container mx-auto px-6 py-20 md:py-28 text-center">
-        <h1 className="text-5xl md:text-7xl font-display tracking-tight max-w-3xl mx-auto">Considered objects for everyday life.</h1>
-        <p className="mt-6 text-muted-foreground max-w-xl mx-auto">A small collection, refreshed seasonally. Cash on delivery available across the country.</p>
+      <section className="relative container mx-auto px-6 py-20 md:py-28 text-center overflow-hidden">
+        {hero.image && (
+          <div className="absolute inset-0 -z-10">
+            <img src={hero.image} alt="" className="w-full h-full object-cover opacity-20" />
+          </div>
+        )}
+        <h1 className="text-5xl md:text-7xl font-display tracking-tight max-w-3xl mx-auto">{hero.title}</h1>
+        <p className="mt-6 text-muted-foreground max-w-xl mx-auto">{hero.subtitle}</p>
       </section>
       <section className="container mx-auto px-6 pb-24">
         <div className="flex items-end justify-between mb-8">

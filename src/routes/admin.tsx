@@ -13,6 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Trash2 } from "lucide-react";
+import { ImageUpload } from "@/components/image-upload";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -65,8 +67,9 @@ function Admin() {
       <SiteNav />
       <div className="container mx-auto px-6 py-10">
         <h1 className="text-3xl font-display mb-6">Admin panel</h1>
-        <Tabs defaultValue="products">
-          <TabsList><TabsTrigger value="products">Products</TabsTrigger><TabsTrigger value="orders">Orders / Sales</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
+        <Tabs defaultValue="dashboard">
+          <TabsList><TabsTrigger value="dashboard">Dashboard</TabsTrigger><TabsTrigger value="products">Products</TabsTrigger><TabsTrigger value="orders">Orders / Sales</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
+          <TabsContent value="dashboard" className="mt-6"><DashboardTab /></TabsContent>
           <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
           <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
           <TabsContent value="settings" className="mt-6"><SettingsTab /></TabsContent>
@@ -80,11 +83,13 @@ function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [colors, setColors] = useState<ProductColor[]>([]);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const load = () => supabase.from("products").select("*").order("created_at", { ascending: false }).then(({ data }) => setProducts((data as Product[]) ?? []));
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
+    setImageUrl(editing?.image_url ?? null);
     if (!editing) { setColors([]); return; }
     supabase.from("product_colors").select("*").eq("product_id", editing.id).then(({ data }) => setColors((data as ProductColor[]) ?? []));
   }, [editing]);
@@ -98,7 +103,7 @@ function ProductsTab() {
       price: Number(f.get("price")),
       sale_price: f.get("sale_price") ? Number(f.get("sale_price")) : null,
       on_sale: f.get("on_sale") === "on",
-      image_url: String(f.get("image_url") || "") || null,
+      image_url: imageUrl,
       whatsapp_number: String(f.get("whatsapp_number") || "") || null,
       weight: Number(f.get("weight") || 0.5),
       active: f.get("active") !== null,
@@ -112,6 +117,7 @@ function ProductsTab() {
       if (error) return toast.error(error.message);
       toast.success("Product added");
       (e.currentTarget as HTMLFormElement).reset();
+      setImageUrl(null);
     }
     load();
   };
@@ -151,7 +157,7 @@ function ProductsTab() {
           </div>
           <div className="flex items-center gap-2"><input id="on_sale" name="on_sale" type="checkbox" defaultChecked={editing?.on_sale} /><Label htmlFor="on_sale">Mark as on sale</Label></div>
           <div className="flex items-center gap-2"><input id="active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="active">Active (visible in shop)</Label></div>
-          <div><Label>Image URL</Label><Input name="image_url" type="url" defaultValue={editing?.image_url ?? ""} placeholder="https://..." /></div>
+          <ImageUpload bucket="product-images" value={imageUrl} onChange={setImageUrl} label="Product image" />
           <div><Label>WhatsApp number (override)</Label><Input name="whatsapp_number" defaultValue={editing?.whatsapp_number ?? ""} placeholder="8801XXXXXXXXX" /></div>
           <div className="flex gap-2">
             <Button>{editing ? "Save changes" : "Add product"}</Button>
@@ -195,6 +201,86 @@ function ProductsTab() {
             </div>
           ))}
           {products.length === 0 && <div className="p-6 text-sm text-muted-foreground">No products yet.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardTab() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.from("orders").select("*").order("created_at", { ascending: false })
+      .then(({ data }) => { setOrders((data as Order[]) ?? []); setLoading(false); });
+  }, []);
+
+  if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
+
+  const validOrders = orders.filter((o) => o.status !== "cancelled");
+  const totalRevenue = validOrders.reduce((s, o) => s + Number(o.total), 0);
+  const avgOrder = validOrders.length ? totalRevenue / validOrders.length : 0;
+  const pending = orders.filter((o) => o.status === "pending").length;
+
+  const days: { date: string; revenue: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dayStr = d.toDateString();
+    const revenue = validOrders.filter((o) => new Date(o.created_at).toDateString() === dayStr).reduce((s, o) => s + Number(o.total), 0);
+    days.push({ date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), revenue });
+  }
+
+  const byProduct = new Map<string, { qty: number; revenue: number }>();
+  validOrders.forEach((o) => {
+    const cur = byProduct.get(o.product_name) ?? { qty: 0, revenue: 0 };
+    cur.qty += o.quantity;
+    cur.revenue += Number(o.total);
+    byProduct.set(o.product_name, cur);
+  });
+  const topProducts = [...byProduct.entries()].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5).map(([name, v]) => ({ name, ...v }));
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Stat label="Total revenue" value={`৳${totalRevenue.toFixed(0)}`} />
+        <Stat label="Total orders" value={orders.length.toString()} />
+        <Stat label="Avg order value" value={`৳${avgOrder.toFixed(0)}`} />
+        <Stat label="Pending" value={pending.toString()} />
+      </div>
+
+      <div>
+        <h3 className="font-medium mb-3 text-sm text-muted-foreground">Revenue, last 14 days</h3>
+        <div className="h-56 border rounded-md p-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={days}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="date" fontSize={11} tickLine={false} />
+              <YAxis fontSize={11} tickLine={false} width={40} />
+              <Tooltip formatter={(v: number) => [`৳${v}`, "Revenue"]} />
+              <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-medium mb-3 text-sm text-muted-foreground">Top products by revenue</h3>
+        <div className="h-56 border rounded-md p-3">
+          {topProducts.length === 0 ? (
+            <div className="h-full grid place-items-center text-sm text-muted-foreground">No sales yet</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={topProducts} layout="vertical" margin={{ left: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis type="number" fontSize={11} tickLine={false} />
+                <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
+                <Tooltip formatter={(v: number) => [`৳${v}`, "Revenue"]} />
+                <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>
@@ -272,6 +358,11 @@ function SettingsTab() {
     if (error) toast.error(error.message); else toast.success("Saved");
   };
 
+  const saveValue = async (key: string, value: string) => {
+    const { error } = await supabase.from("app_settings").upsert({ key, value, updated_at: new Date().toISOString() });
+    if (error) toast.error(error.message); else toast.success("Saved");
+  };
+
   const field = (key: string, label: string, hint?: string) => (
     <div className="space-y-1">
       <Label>{label}</Label>
@@ -280,9 +371,40 @@ function SettingsTab() {
     </div>
   );
 
+  const colorField = (key: string, label: string) => (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <div className="flex gap-2 items-center">
+        <input type="color" value={vals[key] || "#c4762d"} onChange={(e) => setVals({ ...vals, [key]: e.target.value })} className="size-9 rounded border cursor-pointer" />
+        <Input value={vals[key] ?? ""} placeholder="Leave blank for default" onChange={(e) => setVals({ ...vals, [key]: e.target.value })} />
+        <Button onClick={() => save(key)}>Save</Button>
+      </div>
+    </div>
+  );
+
+  const imageField = (key: "logo_url" | "hero_image_url", label: string, hint?: string) => (
+    <div className="space-y-1">
+      <ImageUpload
+        bucket="site-assets"
+        value={vals[key] || null}
+        onChange={(url) => { const v = url ?? ""; setVals((p) => ({ ...p, [key]: v })); saveValue(key, v); }}
+        label={label}
+      />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+
   return (
     <div className="max-w-xl space-y-6">
       {field("store_name", "Store name")}
+      {imageField("logo_url", "Logo", "Shown in the header. Leave empty to use the store name as text.")}
+      {colorField("theme_accent", "Accent color")}
+      <div className="border-t pt-6 space-y-4">
+        <h3 className="font-medium">Homepage hero</h3>
+        {field("hero_title", "Hero title")}
+        {field("hero_subtitle", "Hero subtitle")}
+        {imageField("hero_image_url", "Hero banner image", "Optional. Shown behind the hero text on the homepage.")}
+      </div>
       {field("whatsapp_number", "Default WhatsApp number", "Used on product pages when product has no override. Format: 8801XXXXXXXXX")}
       {field("pathao_store_id", "Pathao Store ID", "Get this from the Pathao merchant dashboard. Required for creating Pathao orders.")}
       <div className="text-xs text-muted-foreground border-t pt-4">Pathao API uses sandbox credentials by default. Set PATHAO_CLIENT_ID, PATHAO_CLIENT_SECRET, PATHAO_USERNAME, PATHAO_PASSWORD, PATHAO_BASE_URL secrets to go live.</div>

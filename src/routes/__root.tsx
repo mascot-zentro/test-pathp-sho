@@ -87,6 +87,12 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "theme_accent").maybeSingle().then(({ data }) => {
+      if (data?.value) document.documentElement.style.setProperty("--accent", data.value);
+    });
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
