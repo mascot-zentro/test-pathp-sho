@@ -30,6 +30,55 @@ export const getPathaoStores = createServerFn({ method: "GET" })
     try { return await pathao.stores(); } catch (e) { return { error: String(e) }; }
   });
 
+// Live delivery-fee quote for the checkout page. Public — no auth needed,
+// it's the same information a customer would see before placing the order.
+// Reads pathao_store_id from settings server-side so the client never needs
+// to know it. Returns null (rather than throwing) on any failure so the
+// checkout flow can fall back to "delivery charged by courier on arrival"
+// instead of blocking the page.
+export const getDeliveryEstimate = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ cityId: z.number(), zoneId: z.number(), weight: z.number().min(0.5).max(10) }))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
+    const storeId = setting?.value ? Number(setting.value) : null;
+    if (!storeId) return null;
+    const { pathao } = await import("./pathao.server");
+    try {
+      const res = (await pathao.pricePlan({
+        store_id: storeId,
+        item_type: 2,
+        delivery_type: 48,
+        item_weight: data.weight,
+        recipient_city: data.cityId,
+        recipient_zone: data.zoneId,
+      })) as { data?: { final_price?: number } };
+      return res?.data?.final_price ?? null;
+    } catch {
+      return null;
+    }
+  });
+
+// Pulls the live status from Pathao for one order and stores it in
+// orders.pathao_status, separate from the admin's own manual `status`
+// workflow field so neither overwrites the other.
+export const syncOrderStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ orderId: z.string().uuid() }))
+  .handler(async ({ data, context }) => {
+    const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
+    if (!roles || roles.length === 0) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order, error } = await supabaseAdmin.from("orders").select("pathao_consignment_id").eq("id", data.orderId).maybeSingle();
+    if (error || !order) throw new Error("Order not found");
+    if (!order.pathao_consignment_id) throw new Error("This order has no Pathao consignment yet");
+    const { pathao } = await import("./pathao.server");
+    const res = (await pathao.orderInfo(order.pathao_consignment_id)) as { data?: { order_status_slug?: string } };
+    const slug = res?.data?.order_status_slug ?? null;
+    await supabaseAdmin.from("orders").update({ pathao_status: slug }).eq("id", data.orderId);
+    return { pathaoStatus: slug };
+  });
+
 const orderSchema = z.object({
   productId: z.string().uuid().nullable(),
   productName: z.string().min(1),

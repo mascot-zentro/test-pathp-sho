@@ -12,9 +12,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Trash2 } from "lucide-react";
+import { Trash2, RefreshCw } from "lucide-react";
 import { ImageUpload } from "@/components/image-upload";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { syncOrderStatus, getPathaoStores } from "@/lib/pathao.functions";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -26,7 +27,7 @@ type ProductColor = { id: string; product_id: string; name: string; hex: string;
 type ProductSize = { id: string; product_id: string; name: string; stock_quantity: number | null; position: number };
 type ProductImage = { id: string; product_id: string; image_url: string; position: number };
 type Category = { id: string; name: string; position: number };
-type Order = { id: string; product_name: string; color: string | null; size: string | null; quantity: number; total: number; customer_name: string; customer_phone: string; customer_address: string; status: string; pathao_consignment_id: string | null; created_at: string };
+type Order = { id: string; product_name: string; color: string | null; size: string | null; quantity: number; total: number; customer_name: string; customer_phone: string; customer_address: string; status: string; pathao_consignment_id: string | null; pathao_status: string | null; created_at: string };
 type Faq = { id: string; question: string; answer: string; position: number; active: boolean };
 
 const STANDARD_SIZES = ["S", "M", "L", "XL", "XXL"];
@@ -254,7 +255,7 @@ function ProductsTab() {
             <datalist id="category-options">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label>Price (৳)</Label><Input name="price" type="number" step="0.01" required defaultValue={editing?.price ?? ""} /></div>
+            <div><Label>Price (Rs)</Label><Input name="price" type="number" step="0.01" required defaultValue={editing?.price ?? ""} /></div>
             <div><Label>Sale price</Label><Input name="sale_price" type="number" step="0.01" defaultValue={editing?.sale_price ?? ""} /></div>
             <div><Label>Weight (kg)</Label><Input name="weight" type="number" step="0.1" min="0.5" max="10" defaultValue={editing?.weight ?? 0.5} /></div>
           </div>
@@ -266,7 +267,7 @@ function ProductsTab() {
           <div className="flex items-center gap-2"><input id="on_sale" name="on_sale" type="checkbox" defaultChecked={editing?.on_sale} /><Label htmlFor="on_sale">Mark as on sale</Label></div>
           <div className="flex items-center gap-2"><input id="active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="active">Active (visible in shop)</Label></div>
           <ImageUpload bucket="product-images" value={imageUrl} onChange={setImageUrl} label="Product image" />
-          <div><Label>WhatsApp number (override)</Label><Input name="whatsapp_number" defaultValue={editing?.whatsapp_number ?? ""} placeholder="8801XXXXXXXXX" /></div>
+          <div><Label>WhatsApp number (override)</Label><Input name="whatsapp_number" defaultValue={editing?.whatsapp_number ?? ""} placeholder="9779841234567" /></div>
           <div className="flex gap-2">
             <Button>{editing ? "Save changes" : "Add product"}</Button>
             {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
@@ -369,7 +370,7 @@ function ProductsTab() {
               <div className="size-12 bg-muted rounded overflow-hidden shrink-0">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-muted-foreground">৳{p.price}{p.on_sale && p.sale_price ? ` → ৳${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
+                <div className="text-xs text-muted-foreground">Rs {p.price}{p.on_sale && p.sale_price ? ` → Rs ${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
               <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
@@ -419,9 +420,9 @@ function DashboardTab() {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Total revenue" value={`৳${totalRevenue.toFixed(0)}`} />
+        <Stat label="Total revenue" value={`Rs ${totalRevenue.toFixed(0)}`} />
         <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Avg order value" value={`৳${avgOrder.toFixed(0)}`} />
+        <Stat label="Avg order value" value={`Rs ${avgOrder.toFixed(0)}`} />
         <Stat label="Pending" value={pending.toString()} />
       </div>
 
@@ -433,7 +434,7 @@ function DashboardTab() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" fontSize={11} tickLine={false} />
               <YAxis fontSize={11} tickLine={false} width={40} />
-              <Tooltip formatter={(v: number) => [`৳${v}`, "Revenue"]} />
+              <Tooltip formatter={(v: number) => [`Rs ${v}`, "Revenue"]} />
               <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -451,7 +452,7 @@ function DashboardTab() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" fontSize={11} tickLine={false} />
                 <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
-                <Tooltip formatter={(v: number) => [`৳${v}`, "Revenue"]} />
+                <Tooltip formatter={(v: number) => [`Rs ${v}`, "Revenue"]} />
                 <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
               </BarChart>
             </ResponsiveContainer>
@@ -464,6 +465,8 @@ function DashboardTab() {
 
 function OrdersTab() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [syncing, setSyncing] = useState<string | null>(null);
+  const runSync = useServerFn(syncOrderStatus);
   const load = () => supabase.from("orders").select("*").order("created_at", { ascending: false }).then(({ data }) => setOrders((data as Order[]) ?? []));
   useEffect(() => { load(); }, []);
 
@@ -472,13 +475,25 @@ function OrdersTab() {
     load();
   };
 
+  const refreshPathaoStatus = async (id: string) => {
+    setSyncing(id);
+    try {
+      await runSync({ data: { orderId: id } });
+      load();
+    } catch (e) {
+      toast.error(`Couldn't sync: ${String(e)}`);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
   const totalSales = orders.filter((o) => o.status !== "cancelled").reduce((s, o) => s + Number(o.total), 0);
 
   return (
     <div>
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Total sales" value={`৳${totalSales.toFixed(0)}`} />
+        <Stat label="Total sales" value={`Rs ${totalSales.toFixed(0)}`} />
         <Stat label="Submitted to Pathao" value={orders.filter((o) => o.pathao_consignment_id).length.toString()} />
       </div>
       <div className="border rounded-md divide-y">
@@ -487,7 +502,15 @@ function OrdersTab() {
             <div>
               <div className="font-medium">{o.product_name} {o.color && <span className="text-muted-foreground">· {o.color}</span>} {o.size && <span className="text-muted-foreground">· {o.size}</span>} <span className="text-xs text-muted-foreground">× {o.quantity}</span></div>
               <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
-              {o.pathao_consignment_id && <div className="text-xs text-accent">Pathao #{o.pathao_consignment_id}</div>}
+              {o.pathao_consignment_id && (
+                <div className="text-xs text-accent flex items-center gap-1.5">
+                  Pathao #{o.pathao_consignment_id}
+                  {o.pathao_status && <span className="text-muted-foreground">· {o.pathao_status.replace(/_/g, " ")}</span>}
+                  <button type="button" onClick={() => refreshPathaoStatus(o.id)} disabled={syncing === o.id} title="Refresh status from Pathao" className="text-muted-foreground hover:text-foreground disabled:opacity-40">
+                    <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+              )}
             </div>
             <div className="text-sm">
               <div>{o.customer_name} · {o.customer_phone}</div>
@@ -495,7 +518,7 @@ function OrdersTab() {
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <div className="tabular-nums font-medium">৳{o.total}</div>
+                <div className="tabular-nums font-medium">Rs {o.total}</div>
                 <div className="text-xs capitalize text-muted-foreground">{o.status.replace(/_/g, " ")}</div>
               </div>
               <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="text-xs border rounded px-2 py-1 bg-background">
@@ -671,7 +694,7 @@ function ContentTab() {
       <div className="space-y-4">
         <h3 className="font-medium">Announcement bar</h3>
         <p className="text-xs text-muted-foreground -mt-2">Shown as a thin strip above the header on every page. Leave text blank to hide it.</p>
-        {field("announcement_text", "Text", "e.g. Free delivery on orders over ৳2000")}
+        {field("announcement_text", "Text", "e.g. Free delivery on orders over Rs 2000")}
         {field("announcement_link", "Link (optional)", "Where the bar links to when clicked, e.g. /sale")}
       </div>
 
@@ -722,6 +745,10 @@ function ContentTab() {
 
 function SettingsTab() {
   const [vals, setVals] = useState<Record<string, string>>({});
+  const [stores, setStores] = useState<{ store_id: number; store_name: string; store_address: string }[] | null>(null);
+  const [storesLoading, setStoresLoading] = useState(false);
+  const fetchStores = useServerFn(getPathaoStores);
+
   useEffect(() => {
     supabase.from("app_settings").select("*").then(({ data }) => {
       const obj: Record<string, string> = {};
@@ -738,6 +765,25 @@ function SettingsTab() {
   const saveValue = async (key: string, value: string) => {
     const { error } = await supabase.from("app_settings").upsert({ key, value, updated_at: new Date().toISOString() });
     if (error) toast.error(error.message); else toast.success("Saved");
+  };
+
+  const loadStores = async () => {
+    setStoresLoading(true);
+    try {
+      const res = (await fetchStores()) as { data?: { data?: { store_id: number; store_name: string; store_address: string }[] }; error?: string };
+      if (res?.error) { toast.error(res.error); setStores([]); return; }
+      setStores(res?.data?.data ?? []);
+    } catch (e) {
+      toast.error(`Couldn't fetch stores: ${String(e)}`);
+      setStores([]);
+    } finally {
+      setStoresLoading(false);
+    }
+  };
+
+  const chooseStore = (storeId: number) => {
+    setVals((p) => ({ ...p, pathao_store_id: String(storeId) }));
+    saveValue("pathao_store_id", String(storeId));
   };
 
   const field = (key: string, label: string, hint?: string) => (
@@ -782,8 +828,28 @@ function SettingsTab() {
         {field("hero_subtitle", "Hero subtitle")}
         {imageField("hero_image_url", "Hero banner image", "Optional. Shown behind the hero text on the homepage.")}
       </div>
-      {field("whatsapp_number", "Default WhatsApp number", "Used on product pages when product has no override. Format: 8801XXXXXXXXX")}
-      {field("pathao_store_id", "Pathao Store ID", "Get this from the Pathao merchant dashboard. Required for creating Pathao orders.")}
+      {field("whatsapp_number", "Default WhatsApp number", "Used on product pages when product has no override. Format: 9779841234567")}
+      {field("pathao_store_id", "Pathao Store ID", "Get this from the Pathao merchant dashboard, or fetch your stores below. Required for creating Pathao orders.")}
+      <div className="space-y-2">
+        <Button type="button" variant="outline" size="sm" onClick={loadStores} disabled={storesLoading}>
+          {storesLoading ? "Fetching…" : "Fetch my Pathao stores"}
+        </Button>
+        {stores !== null && (
+          stores.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No stores found on this Pathao account, or the credentials aren't set up yet.</p>
+          ) : (
+            <div className="border rounded-md divide-y">
+              {stores.map((s) => (
+                <button key={s.store_id} type="button" onClick={() => chooseStore(s.store_id)}
+                  className={`w-full text-left p-3 text-sm hover:bg-muted/50 transition ${vals.pathao_store_id === String(s.store_id) ? "bg-accent/10" : ""}`}>
+                  <div className="font-medium">{s.store_name} {vals.pathao_store_id === String(s.store_id) && <span className="text-accent text-xs">· selected</span>}</div>
+                  <div className="text-xs text-muted-foreground">{s.store_address} · ID {s.store_id}</div>
+                </button>
+              ))}
+            </div>
+          )
+        )}
+      </div>
       <div className="text-xs text-muted-foreground border-t pt-4">Pathao API uses sandbox credentials by default. Set PATHAO_CLIENT_ID, PATHAO_CLIENT_SECRET, PATHAO_USERNAME, PATHAO_PASSWORD, PATHAO_BASE_URL secrets to go live.</div>
     </div>
   );

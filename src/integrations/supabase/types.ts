@@ -87,6 +87,7 @@ export type Database = {
           id: string
           pathao_consignment_id: string | null
           pathao_response: Json | null
+          pathao_status: string | null
           product_id: string | null
           product_name: string
           quantity: number
@@ -109,6 +110,7 @@ export type Database = {
           id?: string
           pathao_consignment_id?: string | null
           pathao_response?: Json | null
+          pathao_status?: string | null
           product_id?: string | null
           product_name: string
           quantity?: number
@@ -131,6 +133,7 @@ export type Database = {
           id?: string
           pathao_consignment_id?: string | null
           pathao_response?: Json | null
+          pathao_status?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number

@@ -66,4 +66,6 @@ export const pathao = {
   areas: (zoneId: number) => pathaoGet(`/aladdin/api/v1/zones/${zoneId}/area-list`),
   stores: () => pathaoGet("/aladdin/api/v1/stores"),
   createOrder: (body: Record<string, unknown>) => pathaoPost("/aladdin/api/v1/orders", body),
+  pricePlan: (body: Record<string, unknown>) => pathaoPost("/aladdin/api/v1/merchant/price-plan", body),
+  orderInfo: (consignmentId: string) => pathaoGet(`/aladdin/api/v1/orders/${consignmentId}/info`),
 };

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getCities, getZones, getAreas, createOrder } from "@/lib/pathao.functions";
+import { getCities, getZones, getAreas, createOrder, getDeliveryEstimate } from "@/lib/pathao.functions";
 
 export const Route = createFileRoute("/checkout/$productId")({
   validateSearch: z.object({ color: z.string().optional(), size: z.string().optional() }).parse,
@@ -36,11 +36,14 @@ function Checkout() {
   const [areaId, setAreaId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pathaoUp, setPathaoUp] = useState(true);
+  const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
+  const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
 
   const fetchCities = useServerFn(getCities);
   const fetchZones = useServerFn(getZones);
   const fetchAreas = useServerFn(getAreas);
   const submitOrder = useServerFn(createOrder);
+  const fetchDeliveryEstimate = useServerFn(getDeliveryEstimate);
 
   useEffect(() => {
     supabase.from("products").select("id,name,price,sale_price,on_sale,weight").eq("id", productId).maybeSingle()
@@ -83,6 +86,15 @@ function Checkout() {
   useEffect(() => {
     if (availableStock !== null && qty > availableStock) setQty(Math.max(1, availableStock));
   }, [availableStock, qty]);
+
+  useEffect(() => {
+    if (!cityId || !zoneId || !product) { setDeliveryFee(null); return; }
+    setDeliveryFeeLoading(true);
+    fetchDeliveryEstimate({ data: { cityId, zoneId, weight: Number(product.weight) || 0.5 } })
+      .then((fee: unknown) => setDeliveryFee(typeof fee === "number" ? fee : null))
+      .catch(() => setDeliveryFee(null))
+      .finally(() => setDeliveryFeeLoading(false));
+  }, [cityId, zoneId, product, fetchDeliveryEstimate]);
 
   if (!product) return <div className="min-h-screen"><SiteNav /><div className="container mx-auto px-6 py-20 text-muted-foreground">Loading…</div></div>;
 
@@ -132,7 +144,7 @@ function Checkout() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div><Label>Full name</Label><Input required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-            <div><Label>Phone</Label><Input required minLength={10} maxLength={15} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="01XXXXXXXXX" /></div>
+            <div><Label>Phone</Label><Input required minLength={10} maxLength={15} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="98XXXXXXXX" /></div>
           </div>
           <div><Label>Address</Label><Textarea required minLength={5} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
 
@@ -164,7 +176,7 @@ function Checkout() {
 
           {outOfStock && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">This item just sold out — sorry! Please go back and pick a different item or color.</div>}
 
-          <Button size="lg" className="w-full" disabled={submitting || outOfStock}>{outOfStock ? "Out of stock" : submitting ? "Placing order…" : `Place order — ৳${total} (Cash on delivery)`}</Button>
+          <Button size="lg" className="w-full" disabled={submitting || outOfStock}>{outOfStock ? "Out of stock" : submitting ? "Placing order…" : `Place order — Rs ${total} (Cash on delivery)`}</Button>
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
         </form>
 
@@ -183,8 +195,22 @@ function Checkout() {
           {availableStock !== null && availableStock > 0 && availableStock <= 5 && (
             <p className="text-xs text-amber-600 mt-1">Only {availableStock} in stock</p>
           )}
-          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>৳{total}</span></div>
-          <div className="text-xs text-muted-foreground mt-1">Delivery charged by courier on arrival.</div>
+          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>Rs {total}</span></div>
+          <div className="flex justify-between text-sm mt-1">
+            <span className="text-muted-foreground">Delivery</span>
+            {deliveryFeeLoading ? (
+              <span className="text-muted-foreground">Calculating…</span>
+            ) : deliveryFee !== null ? (
+              <span>Rs {deliveryFee}</span>
+            ) : (
+              <span className="text-muted-foreground text-xs">Select city &amp; zone</span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {deliveryFee !== null
+              ? "Delivery fee shown above is covered by the store — you pay Rs " + total + " on delivery."
+              : "Delivery charged by courier on arrival."}
+          </div>
         </aside>
       </div>
       <SiteFooter />
