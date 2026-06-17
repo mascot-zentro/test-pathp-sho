@@ -21,6 +21,8 @@ function ProductPage() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [colors, setColors] = useState<Color[]>([]);
+  const [gallery, setGallery] = useState<string[]>([]);
+  const [activeImage, setActiveImage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [defaultWa, setDefaultWa] = useState("");
 
@@ -31,12 +33,17 @@ function ProductPage() {
       setColors(list);
       if (list[0]) setSelected(list[0].name);
     });
+    supabase.from("product_images").select("image_url").eq("product_id", id).order("position").then(({ data }) => {
+      setGallery((data ?? []).map((r: { image_url: string }) => r.image_url));
+      setActiveImage(0);
+    });
     supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle()
       .then(({ data }) => setDefaultWa(data?.value ?? ""));
   }, [id]);
 
   if (!product) return <div className="min-h-screen"><SiteNav /><div className="container mx-auto px-6 py-20 text-muted-foreground">Loading…</div></div>;
 
+  const images = gallery.length > 0 ? gallery : product.image_url ? [product.image_url] : [];
   const price = product.on_sale && product.sale_price ? product.sale_price : product.price;
   const waNumber = (product.whatsapp_number || defaultWa).replace(/\D/g, "");
   const waMessage = `Hi! I want to order: ${product.name}${selected ? ` (color: ${selected})` : ""} — ৳${price}`;
@@ -46,8 +53,20 @@ function ProductPage() {
     <div className="min-h-screen">
       <SiteNav />
       <div className="container mx-auto px-6 py-10 grid md:grid-cols-2 gap-10">
-        <div className="aspect-[4/5] bg-muted rounded-md overflow-hidden">
-          {product.image_url && <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />}
+        <div>
+          <div className="aspect-[4/5] bg-muted rounded-md overflow-hidden">
+            {images[activeImage] && <img src={images[activeImage]} alt={product.name} className="w-full h-full object-cover" />}
+          </div>
+          {images.length > 1 && (
+            <div className="flex gap-2 mt-3">
+              {images.map((url, i) => (
+                <button key={i} type="button" onClick={() => setActiveImage(i)}
+                  className={`size-16 rounded-md overflow-hidden border-2 shrink-0 ${i === activeImage ? "border-accent" : "border-transparent"}`}>
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div>
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to shop</Link>

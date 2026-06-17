@@ -23,6 +23,7 @@ export const Route = createFileRoute("/admin")({
 
 type Product = { id: string; name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; whatsapp_number: string | null; weight: number; active: boolean };
 type ProductColor = { id: string; product_id: string; name: string; hex: string };
+type ProductImage = { id: string; product_id: string; image_url: string; position: number };
 type Order = { id: string; product_name: string; color: string | null; quantity: number; total: number; customer_name: string; customer_phone: string; customer_address: string; status: string; pathao_consignment_id: string | null; created_at: string };
 
 function Admin() {
@@ -83,16 +84,43 @@ function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [colors, setColors] = useState<ProductColor[]>([]);
+  const [gallery, setGallery] = useState<ProductImage[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const load = () => supabase.from("products").select("*").order("created_at", { ascending: false }).then(({ data }) => setProducts((data as Product[]) ?? []));
   useEffect(() => { load(); }, []);
 
+  const loadGallery = (productId: string) =>
+    supabase.from("product_images").select("*").eq("product_id", productId).order("position").then(({ data }) => setGallery((data as ProductImage[]) ?? []));
+
   useEffect(() => {
     setImageUrl(editing?.image_url ?? null);
-    if (!editing) { setColors([]); return; }
+    if (!editing) { setColors([]); setGallery([]); return; }
     supabase.from("product_colors").select("*").eq("product_id", editing.id).then(({ data }) => setColors((data as ProductColor[]) ?? []));
+    loadGallery(editing.id);
   }, [editing]);
+
+  const addGalleryImage = async (url: string) => {
+    if (!editing) return;
+    const { error } = await supabase.from("product_images").insert({ product_id: editing.id, image_url: url, position: gallery.length });
+    if (error) return toast.error(error.message);
+    loadGallery(editing.id);
+  };
+
+  const removeGalleryImage = async (imgId: string) => {
+    await supabase.from("product_images").delete().eq("id", imgId);
+    if (editing) loadGallery(editing.id);
+  };
+
+  const moveGalleryImage = async (index: number, dir: -1 | 1) => {
+    if (!editing) return;
+    const target = index + dir;
+    if (target < 0 || target >= gallery.length) return;
+    const a = gallery[index], b = gallery[target];
+    await supabase.from("product_images").update({ position: b.position }).eq("id", a.id);
+    await supabase.from("product_images").update({ position: a.position }).eq("id", b.id);
+    loadGallery(editing.id);
+  };
 
   const save = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -164,6 +192,27 @@ function ProductsTab() {
             {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
           </div>
         </form>
+
+        {editing && (
+          <div className="mt-8 border-t pt-6">
+            <h3 className="font-medium mb-3">Gallery images</h3>
+            <p className="text-xs text-muted-foreground mb-3">Extra photos shown on this product's page, alongside the cover image above.</p>
+            <div className="flex flex-wrap gap-3 mb-3">
+              {gallery.map((img, i) => (
+                <div key={img.id} className="relative size-20 rounded-md border overflow-hidden group">
+                  <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                    {i > 0 && <button type="button" onClick={() => moveGalleryImage(i, -1)} className="text-white text-sm leading-none">‹</button>}
+                    <button type="button" onClick={() => removeGalleryImage(img.id)} className="text-white"><Trash2 className="size-3.5" /></button>
+                    {i < gallery.length - 1 && <button type="button" onClick={() => moveGalleryImage(i, 1)} className="text-white text-sm leading-none">›</button>}
+                  </div>
+                </div>
+              ))}
+              {gallery.length === 0 && <span className="text-xs text-muted-foreground">No gallery images yet</span>}
+            </div>
+            <ImageUpload bucket="product-images" value={null} onChange={(url) => url && addGalleryImage(url)} label="Add an image" />
+          </div>
+        )}
 
         {editing && (
           <div className="mt-8 border-t pt-6">
