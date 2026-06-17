@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,29 +14,41 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; stock_quantity: number | null };
+type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; stock_quantity: number | null; category: string | null };
 
 function Index() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [hero, setHero] = useState({ title: "Considered objects for everyday life.", subtitle: "A small collection, refreshed seasonally. Cash on delivery available across the country.", image: "" });
+  const [about, setAbout] = useState({ title: "", body: "", image: "" });
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("products").select("id,name,price,sale_price,on_sale,image_url,stock_quantity").eq("active", true).order("created_at", { ascending: false })
+    supabase.from("products").select("id,name,price,sale_price,on_sale,image_url,stock_quantity,category").eq("active", true).order("created_at", { ascending: false })
       .then(({ data }) => { setProducts((data as Product[]) ?? []); setLoading(false); });
   }, []);
 
   useEffect(() => {
-    supabase.from("app_settings").select("key,value").in("key", ["hero_title", "hero_subtitle", "hero_image_url"]).then(({ data }) => {
+    supabase.from("app_settings").select("key,value").in("key", ["hero_title", "hero_subtitle", "hero_image_url", "about_title", "about_body", "about_image_url"]).then(({ data }) => {
       const obj: Record<string, string> = {};
       (data ?? []).forEach((r) => { if (r.value) obj[r.key] = r.value; });
       setHero((h) => ({ title: obj.hero_title || h.title, subtitle: obj.hero_subtitle || h.subtitle, image: obj.hero_image_url || "" }));
+      setAbout({ title: obj.about_title || "", body: obj.about_body || "", image: obj.about_image_url || "" });
     });
   }, []);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => { if (p.category) set.add(p.category); });
+    return [...set];
+  }, [products]);
+
+  const visibleProducts = activeCategory ? products.filter((p) => p.category === activeCategory) : products;
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <SiteNav />
+      <main className="flex-1">
       <section className="relative container mx-auto px-6 py-20 md:py-28 text-center overflow-hidden">
         {hero.image && (
           <div className="absolute inset-0 -z-10">
@@ -46,17 +59,31 @@ function Index() {
         <p className="mt-6 text-muted-foreground max-w-xl mx-auto">{hero.subtitle}</p>
       </section>
       <section className="container mx-auto px-6 pb-24">
-        <div className="flex items-end justify-between mb-8">
+        <div className="flex items-end justify-between mb-6">
           <h2 className="text-2xl font-display">Shop</h2>
           <Link to="/sale" className="text-sm text-accent hover:underline">View sale →</Link>
         </div>
+        {categories.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-8">
+            <button type="button" onClick={() => setActiveCategory(null)}
+              className={`text-sm px-3 py-1.5 rounded-full border transition ${activeCategory === null ? "border-accent text-accent bg-accent/10" : "border-border hover:border-accent/50"}`}>
+              All
+            </button>
+            {categories.map((c) => (
+              <button key={c} type="button" onClick={() => setActiveCategory(c)}
+                className={`text-sm px-3 py-1.5 rounded-full border transition ${activeCategory === c ? "border-accent text-accent bg-accent/10" : "border-border hover:border-accent/50"}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
         {loading ? (
           <p className="text-muted-foreground">Loading…</p>
-        ) : products.length === 0 ? (
-          <p className="text-muted-foreground">No products yet. Admins can add products from the admin panel.</p>
+        ) : visibleProducts.length === 0 ? (
+          <p className="text-muted-foreground">{products.length === 0 ? "No products yet. Admins can add products from the admin panel." : "No products in this category yet."}</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
-            {products.map((p) => (
+            {visibleProducts.map((p) => (
               <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
                 <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
                   {p.image_url ? (
@@ -83,9 +110,23 @@ function Index() {
           </div>
         )}
       </section>
-      <footer className="border-t py-10 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Modern Store
-      </footer>
+      {about.title && (
+        <section className="border-t bg-muted/30">
+          <div className="container mx-auto px-6 py-20 grid md:grid-cols-2 gap-10 items-center">
+            {about.image && (
+              <div className="aspect-[4/3] rounded-md overflow-hidden order-first md:order-none">
+                <img src={about.image} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div>
+              <h2 className="text-3xl font-display">{about.title}</h2>
+              {about.body && <p className="mt-4 text-muted-foreground leading-relaxed whitespace-pre-line">{about.body}</p>}
+            </div>
+          </div>
+        </section>
+      )}
+      </main>
+      <SiteFooter />
     </div>
   );
 }

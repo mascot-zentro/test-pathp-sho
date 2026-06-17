@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getCities, getZones, getAreas, createOrder } from "@/lib/pathao.functions";
 
 export const Route = createFileRoute("/checkout/$productId")({
-  validateSearch: z.object({ color: z.string().optional() }).parse,
+  validateSearch: z.object({ color: z.string().optional(), size: z.string().optional() }).parse,
   component: Checkout,
 });
 
@@ -21,7 +22,7 @@ type Product = { id: string; name: string; price: number; sale_price: number | n
 
 function Checkout() {
   const { productId } = Route.useParams();
-  const { color } = Route.useSearch();
+  const { color, size } = Route.useSearch();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [qty, setQty] = useState(1);
@@ -73,9 +74,11 @@ function Checkout() {
   useEffect(() => {
     const query = color
       ? supabase.from("product_colors").select("stock_quantity").eq("product_id", productId).eq("name", color).maybeSingle()
+      : size
+      ? supabase.from("product_sizes").select("stock_quantity").eq("product_id", productId).eq("name", size).maybeSingle()
       : supabase.from("products").select("stock_quantity").eq("id", productId).maybeSingle();
     query.then(({ data }) => setAvailableStock((data as { stock_quantity: number | null } | null)?.stock_quantity ?? null));
-  }, [productId, color]);
+  }, [productId, color, size]);
 
   useEffect(() => {
     if (availableStock !== null && qty > availableStock) setQty(Math.max(1, availableStock));
@@ -98,6 +101,7 @@ function Checkout() {
           productId: product.id,
           productName: product.name,
           color: color || null,
+          size: size || null,
           quantity: qty,
           unitPrice: Number(unit),
           customerName: form.name,
@@ -117,9 +121,9 @@ function Checkout() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <SiteNav />
-      <div className="container mx-auto px-6 py-10 grid md:grid-cols-[1fr,360px] gap-10">
+      <div className="container mx-auto px-6 py-10 grid md:grid-cols-[1fr,360px] gap-10 flex-1">
         <form onSubmit={submit} className="space-y-6">
           <Link to="/product/$id" params={{ id: product.id }} className="text-sm text-muted-foreground">← Back</Link>
           <h1 className="text-3xl font-display">Checkout</h1>
@@ -167,6 +171,7 @@ function Checkout() {
         <aside className="border rounded-lg p-5 h-fit bg-card">
           <h3 className="font-medium">{product.name}</h3>
           {color && <p className="text-sm text-muted-foreground">Color: {color}</p>}
+          {size && <p className="text-sm text-muted-foreground">Size: {size}</p>}
           <div className="mt-4 flex items-center justify-between text-sm">
             <span>Quantity</span>
             <div className="flex items-center gap-2">
@@ -182,6 +187,7 @@ function Checkout() {
           <div className="text-xs text-muted-foreground mt-1">Delivery charged by courier on arrival.</div>
         </aside>
       </div>
+      <SiteFooter />
     </div>
   );
 }

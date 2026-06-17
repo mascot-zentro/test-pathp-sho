@@ -21,10 +21,15 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-type Product = { id: string; name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; whatsapp_number: string | null; weight: number; active: boolean; stock_quantity: number | null };
+type Product = { id: string; name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; whatsapp_number: string | null; weight: number; active: boolean; stock_quantity: number | null; category: string | null };
 type ProductColor = { id: string; product_id: string; name: string; hex: string; stock_quantity: number | null };
+type ProductSize = { id: string; product_id: string; name: string; stock_quantity: number | null; position: number };
 type ProductImage = { id: string; product_id: string; image_url: string; position: number };
-type Order = { id: string; product_name: string; color: string | null; quantity: number; total: number; customer_name: string; customer_phone: string; customer_address: string; status: string; pathao_consignment_id: string | null; created_at: string };
+type Category = { id: string; name: string; position: number };
+type Order = { id: string; product_name: string; color: string | null; size: string | null; quantity: number; total: number; customer_name: string; customer_phone: string; customer_address: string; status: string; pathao_consignment_id: string | null; created_at: string };
+type Faq = { id: string; question: string; answer: string; position: number; active: boolean };
+
+const STANDARD_SIZES = ["S", "M", "L", "XL", "XXL"];
 
 function Admin() {
   const { user, loading } = useAuth();
@@ -69,10 +74,12 @@ function Admin() {
       <div className="container mx-auto px-6 py-10">
         <h1 className="text-3xl font-display mb-6">Admin panel</h1>
         <Tabs defaultValue="dashboard">
-          <TabsList><TabsTrigger value="dashboard">Dashboard</TabsTrigger><TabsTrigger value="products">Products</TabsTrigger><TabsTrigger value="orders">Orders / Sales</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
+          <TabsList><TabsTrigger value="dashboard">Dashboard</TabsTrigger><TabsTrigger value="products">Products</TabsTrigger><TabsTrigger value="orders">Orders / Sales</TabsTrigger><TabsTrigger value="faqs">FAQs</TabsTrigger><TabsTrigger value="content">Site content</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
           <TabsContent value="dashboard" className="mt-6"><DashboardTab /></TabsContent>
           <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
           <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
+          <TabsContent value="faqs" className="mt-6"><FaqsTab /></TabsContent>
+          <TabsContent value="content" className="mt-6"><ContentTab /></TabsContent>
           <TabsContent value="settings" className="mt-6"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
@@ -84,19 +91,29 @@ function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editing, setEditing] = useState<Product | null>(null);
   const [colors, setColors] = useState<ProductColor[]>([]);
+  const [sizes, setSizes] = useState<ProductSize[]>([]);
   const [gallery, setGallery] = useState<ProductImage[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const load = () => supabase.from("products").select("*").order("created_at", { ascending: false }).then(({ data }) => setProducts((data as Product[]) ?? []));
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    supabase.from("categories").select("*").order("position").then(({ data }) => setCategories((data as Category[]) ?? []));
+  }, []);
+
   const loadGallery = (productId: string) =>
     supabase.from("product_images").select("*").eq("product_id", productId).order("position").then(({ data }) => setGallery((data as ProductImage[]) ?? []));
 
+  const loadSizes = (productId: string) =>
+    supabase.from("product_sizes").select("*").eq("product_id", productId).order("position").then(({ data }) => setSizes((data as ProductSize[]) ?? []));
+
   useEffect(() => {
     setImageUrl(editing?.image_url ?? null);
-    if (!editing) { setColors([]); setGallery([]); return; }
+    if (!editing) { setColors([]); setSizes([]); setGallery([]); return; }
     supabase.from("product_colors").select("*").eq("product_id", editing.id).then(({ data }) => setColors((data as ProductColor[]) ?? []));
+    loadSizes(editing.id);
     loadGallery(editing.id);
   }, [editing]);
 
@@ -136,7 +153,12 @@ function ProductsTab() {
       weight: Number(f.get("weight") || 0.5),
       active: f.get("active") !== null,
       stock_quantity: f.get("stock_quantity") ? Number(f.get("stock_quantity")) : null,
+      category: String(f.get("category") || "") || null,
     };
+    if (payload.category && !categories.some((c) => c.name.toLowerCase() === payload.category!.toLowerCase())) {
+      const { error: catErr } = await supabase.from("categories").insert({ name: payload.category, position: categories.length });
+      if (!catErr) supabase.from("categories").select("*").order("position").then(({ data }) => setCategories((data as Category[]) ?? []));
+    }
     if (editing) {
       const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
@@ -185,6 +207,40 @@ function ProductsTab() {
     if (editing) supabase.from("product_colors").select("*").eq("product_id", editing.id).then(({ data }) => setColors((data as ProductColor[]) ?? []));
   };
 
+  const addSize = async (name: string, stock: string) => {
+    if (!editing) return;
+    if (sizes.some((s) => s.name.toLowerCase() === name.toLowerCase())) { toast.error("That size already exists"); return; }
+    const { error } = await supabase.from("product_sizes").insert({
+      product_id: editing.id,
+      name,
+      position: sizes.length,
+      stock_quantity: stock ? Number(stock) : null,
+    });
+    if (error) return toast.error(error.message);
+    loadSizes(editing.id);
+  };
+
+  const addSizeForm = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const name = String(f.get("sname") || "").trim();
+    if (!name) return;
+    await addSize(name, String(f.get("sstock") || ""));
+    (e.currentTarget as HTMLFormElement).reset();
+  };
+
+  const setSizeStockLocal = (id: string, value: string) => {
+    setSizes((ss) => ss.map((s) => (s.id === id ? { ...s, stock_quantity: value === "" ? null : Number(value) } : s)));
+  };
+  const saveSizeStock = async (id: string, value: string) => {
+    await supabase.from("product_sizes").update({ stock_quantity: value === "" ? null : Number(value) }).eq("id", id);
+  };
+
+  const delSize = async (id: string) => {
+    await supabase.from("product_sizes").delete().eq("id", id);
+    if (editing) loadSizes(editing.id);
+  };
+
   return (
     <div className="grid lg:grid-cols-[1fr,1.2fr] gap-8">
       <div>
@@ -192,6 +248,11 @@ function ProductsTab() {
         <form onSubmit={save} className="space-y-3">
           <div><Label>Name</Label><Input name="name" required defaultValue={editing?.name ?? ""} /></div>
           <div><Label>Description</Label><Textarea name="description" defaultValue={editing?.description ?? ""} /></div>
+          <div>
+            <Label>Category</Label>
+            <Input name="category" list="category-options" defaultValue={editing?.category ?? ""} placeholder="e.g. Men, Women, Kids" />
+            <datalist id="category-options">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             <div><Label>Price (৳)</Label><Input name="price" type="number" step="0.01" required defaultValue={editing?.price ?? ""} /></div>
             <div><Label>Sale price</Label><Input name="sale_price" type="number" step="0.01" defaultValue={editing?.sale_price ?? ""} /></div>
@@ -200,7 +261,7 @@ function ProductsTab() {
           <div>
             <Label>Stock quantity</Label>
             <Input name="stock_quantity" type="number" min="0" step="1" defaultValue={editing?.stock_quantity ?? ""} placeholder="Leave blank for unlimited / untracked" />
-            <p className="text-xs text-muted-foreground mt-1">If this product has colors below, each color's own stock is used instead and this field is ignored.</p>
+            <p className="text-xs text-muted-foreground mt-1">If this product has colors or sizes below, each variant's own stock is used instead and this field is ignored.</p>
           </div>
           <div className="flex items-center gap-2"><input id="on_sale" name="on_sale" type="checkbox" defaultChecked={editing?.on_sale} /><Label htmlFor="on_sale">Mark as on sale</Label></div>
           <div className="flex items-center gap-2"><input id="active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="active">Active (visible in shop)</Label></div>
@@ -262,6 +323,42 @@ function ProductsTab() {
             </form>
           </div>
         )}
+
+        {editing && (
+          <div className="mt-8 border-t pt-6">
+            <h3 className="font-medium mb-3">Sizes</h3>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {STANDARD_SIZES.filter((std) => !sizes.some((s) => s.name.toLowerCase() === std.toLowerCase())).map((std) => (
+                <button key={std} type="button" onClick={() => addSize(std, "")} className="text-xs border rounded-md px-2.5 py-1.5 hover:border-accent hover:text-accent transition">
+                  + {std}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-2 mb-3">
+              {sizes.map((s) => (
+                <div key={s.id} className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm">
+                  <span className="flex-1 font-medium">{s.name}</span>
+                  <Label className="text-xs text-muted-foreground">Stock</Label>
+                  <Input
+                    type="number" min="0" step="1" placeholder="∞"
+                    value={s.stock_quantity ?? ""}
+                    onChange={(e) => setSizeStockLocal(s.id, e.target.value)}
+                    onBlur={(e) => saveSizeStock(s.id, e.target.value)}
+                    className="w-20"
+                  />
+                  <button type="button" onClick={() => delSize(s.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3.5" /></button>
+                </div>
+              ))}
+              {sizes.length === 0 && <span className="text-xs text-muted-foreground">No sizes yet — use the quick-add buttons above, or add a custom one below</span>}
+            </div>
+            <form onSubmit={addSizeForm} className="flex gap-2">
+              <Input name="sname" placeholder="Custom size (e.g. 32W)" required className="flex-1" />
+              <Input name="sstock" type="number" min="0" step="1" placeholder="Stock (∞)" className="w-28" />
+              <Button type="submit" variant="outline">Add size</Button>
+            </form>
+            <p className="text-xs text-muted-foreground mt-2">Sizes and colors are tracked as independent stock pools (not a combined "Red, size M" matrix). If a product has colors, color stock governs checkout; otherwise size stock does.</p>
+          </div>
+        )}
       </div>
 
       <div>
@@ -272,7 +369,7 @@ function ProductsTab() {
               <div className="size-12 bg-muted rounded overflow-hidden shrink-0">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-muted-foreground">৳{p.price}{p.on_sale && p.sale_price ? ` → ৳${p.sale_price}` : ""} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
+                <div className="text-xs text-muted-foreground">৳{p.price}{p.on_sale && p.sale_price ? ` → ৳${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
               <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
@@ -388,7 +485,7 @@ function OrdersTab() {
         {orders.map((o) => (
           <div key={o.id} className="p-4 grid md:grid-cols-[1fr,1fr,auto] gap-3 items-center">
             <div>
-              <div className="font-medium">{o.product_name} {o.color && <span className="text-muted-foreground">· {o.color}</span>} <span className="text-xs text-muted-foreground">× {o.quantity}</span></div>
+              <div className="font-medium">{o.product_name} {o.color && <span className="text-muted-foreground">· {o.color}</span>} {o.size && <span className="text-muted-foreground">· {o.size}</span>} <span className="text-xs text-muted-foreground">× {o.quantity}</span></div>
               <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
               {o.pathao_consignment_id && <div className="text-xs text-accent">Pathao #{o.pathao_consignment_id}</div>}
             </div>
@@ -420,6 +517,208 @@ function OrdersTab() {
 function Stat({ label, value }: { label: string; value: string }) {
   return <div className="border rounded-md p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-display mt-1">{value}</div></div>;
 }
+
+function FaqsTab() {
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [editing, setEditing] = useState<Faq | null>(null);
+
+  const load = () => supabase.from("faqs").select("*").order("position").then(({ data }) => setFaqs((data as Faq[]) ?? []));
+  useEffect(() => { load(); }, []);
+
+  const save = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const payload = {
+      question: String(f.get("question") || "").trim(),
+      answer: String(f.get("answer") || "").trim(),
+      active: f.get("active") !== null,
+    };
+    if (!payload.question || !payload.answer) return toast.error("Question and answer are required");
+    if (editing) {
+      const { error } = await supabase.from("faqs").update(payload).eq("id", editing.id);
+      if (error) return toast.error(error.message);
+      toast.success("Updated"); setEditing(null);
+    } else {
+      const { error } = await supabase.from("faqs").insert({ ...payload, position: faqs.length });
+      if (error) return toast.error(error.message);
+      toast.success("FAQ added");
+      (e.currentTarget as HTMLFormElement).reset();
+    }
+    load();
+  };
+
+  const del = async (id: string) => {
+    if (!confirm("Delete this FAQ?")) return;
+    await supabase.from("faqs").delete().eq("id", id);
+    load();
+  };
+
+  const move = async (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= faqs.length) return;
+    const a = faqs[index], b = faqs[target];
+    await supabase.from("faqs").update({ position: b.position }).eq("id", a.id);
+    await supabase.from("faqs").update({ position: a.position }).eq("id", b.id);
+    load();
+  };
+
+  return (
+    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-8">
+      <div>
+        <h2 className="font-display text-xl mb-4">{editing ? "Edit FAQ" : "Add FAQ"}</h2>
+        <form onSubmit={save} className="space-y-3">
+          <div><Label>Question</Label><Input name="question" required defaultValue={editing?.question ?? ""} /></div>
+          <div><Label>Answer</Label><Textarea name="answer" rows={4} required defaultValue={editing?.answer ?? ""} /></div>
+          <div className="flex items-center gap-2"><input id="faq_active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="faq_active">Visible on site</Label></div>
+          <div className="flex gap-2">
+            <Button>{editing ? "Save changes" : "Add FAQ"}</Button>
+            {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
+          </div>
+        </form>
+        <p className="text-xs text-muted-foreground mt-4">Shown publicly at /faq, ordered top to bottom. Use the arrows on the right to reorder.</p>
+      </div>
+      <div>
+        <h2 className="font-display text-xl mb-4">All FAQs ({faqs.length})</h2>
+        <div className="border rounded-md divide-y">
+          {faqs.map((f, i) => (
+            <div key={f.id} className="p-3 flex items-start gap-3">
+              <div className="flex flex-col gap-0.5 pt-1">
+                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▲</button>
+                <button type="button" disabled={i === faqs.length - 1} onClick={() => move(i, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▼</button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{f.question} {!f.active && <span className="text-xs text-muted-foreground">· hidden</span>}</div>
+                <div className="text-xs text-muted-foreground line-clamp-2">{f.answer}</div>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setEditing(f)}>Edit</Button>
+              <Button size="sm" variant="ghost" onClick={() => del(f.id)}><Trash2 className="size-4" /></Button>
+            </div>
+          ))}
+          {faqs.length === 0 && <div className="p-6 text-sm text-muted-foreground">No FAQs yet.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContentTab() {
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    supabase.from("app_settings").select("*").then(({ data }) => {
+      const obj: Record<string, string> = {};
+      (data ?? []).forEach((r: { key: string; value: string | null }) => { obj[r.key] = r.value ?? ""; });
+      setVals(obj);
+    });
+    supabase.from("categories").select("*").order("position").then(({ data }) => setCategories((data as Category[]) ?? []));
+  }, []);
+
+  const save = async (key: string) => {
+    const { error } = await supabase.from("app_settings").upsert({ key, value: vals[key] ?? "", updated_at: new Date().toISOString() });
+    if (error) toast.error(error.message); else toast.success("Saved");
+  };
+  const saveValue = async (key: string, value: string) => {
+    const { error } = await supabase.from("app_settings").upsert({ key, value, updated_at: new Date().toISOString() });
+    if (error) toast.error(error.message); else toast.success("Saved");
+  };
+
+  const field = (key: string, label: string, hint?: string, multiline?: boolean) => (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        {multiline ? (
+          <Textarea value={vals[key] ?? ""} onChange={(e) => setVals({ ...vals, [key]: e.target.value })} />
+        ) : (
+          <Input value={vals[key] ?? ""} onChange={(e) => setVals({ ...vals, [key]: e.target.value })} />
+        )}
+        <Button onClick={() => save(key)} className="shrink-0">Save</Button>
+      </div>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+
+  const imageField = (key: string, label: string, hint?: string) => (
+    <div className="space-y-1">
+      <ImageUpload
+        bucket="site-assets"
+        value={vals[key] || null}
+        onChange={(url) => { const v = url ?? ""; setVals((p) => ({ ...p, [key]: v })); saveValue(key, v); }}
+        label={label}
+      />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+
+  const addCategory = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const name = String(f.get("category") || "").trim();
+    if (!name) return;
+    const { error } = await supabase.from("categories").insert({ name, position: categories.length });
+    if (error) return toast.error(error.message);
+    (e.currentTarget as HTMLFormElement).reset();
+    supabase.from("categories").select("*").order("position").then(({ data }) => setCategories((data as Category[]) ?? []));
+  };
+
+  const delCategory = async (id: string) => {
+    await supabase.from("categories").delete().eq("id", id);
+    supabase.from("categories").select("*").order("position").then(({ data }) => setCategories((data as Category[]) ?? []));
+  };
+
+  return (
+    <div className="max-w-xl space-y-8">
+      <div className="space-y-4">
+        <h3 className="font-medium">Announcement bar</h3>
+        <p className="text-xs text-muted-foreground -mt-2">Shown as a thin strip above the header on every page. Leave text blank to hide it.</p>
+        {field("announcement_text", "Text", "e.g. Free delivery on orders over ৳2000")}
+        {field("announcement_link", "Link (optional)", "Where the bar links to when clicked, e.g. /sale")}
+      </div>
+
+      <div className="border-t pt-6 space-y-4">
+        <h3 className="font-medium">About section</h3>
+        <p className="text-xs text-muted-foreground -mt-2">Shown on the homepage, below the shop grid.</p>
+        {field("about_title", "Title")}
+        {field("about_body", "Body text", undefined, true)}
+        {imageField("about_image_url", "Image")}
+      </div>
+
+      <div className="border-t pt-6 space-y-4">
+        <h3 className="font-medium">Categories</h3>
+        <p className="text-xs text-muted-foreground -mt-2">Used for product tagging and the homepage filter bar.</p>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <span key={c.id} className="flex items-center gap-1.5 text-xs border rounded-full pl-3 pr-2 py-1">
+              {c.name}
+              <button type="button" onClick={() => delCategory(c.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3" /></button>
+            </span>
+          ))}
+          {categories.length === 0 && <span className="text-xs text-muted-foreground">No categories yet</span>}
+        </div>
+        <form onSubmit={addCategory} className="flex gap-2">
+          <Input name="category" placeholder="New category (e.g. Outerwear)" required className="flex-1" />
+          <Button type="submit" variant="outline">Add</Button>
+        </form>
+      </div>
+
+      <div className="border-t pt-6 space-y-4">
+        <h3 className="font-medium">FAQ section heading</h3>
+        {field("faq_heading", "Heading", "Shown above the FAQ list on the /faq page")}
+      </div>
+
+      <div className="border-t pt-6 space-y-4">
+        <h3 className="font-medium">Footer</h3>
+        {field("footer_text", "Footer note", "Optional line shown next to the copyright, e.g. your business registration info")}
+        {field("contact_email", "Contact email")}
+        {field("contact_phone", "Contact phone")}
+        {field("social_instagram", "Instagram URL")}
+        {field("social_facebook", "Facebook URL")}
+        {field("social_tiktok", "TikTok URL")}
+      </div>
+    </div>
+  );
+}
+
 
 function SettingsTab() {
   const [vals, setVals] = useState<Record<string, string>>({});

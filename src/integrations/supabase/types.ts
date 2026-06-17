@@ -32,6 +32,51 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          id: string
+          name: string
+          position: number
+        }
+        Insert: {
+          id?: string
+          name: string
+          position?: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          position?: number
+        }
+        Relationships: []
+      }
+      faqs: {
+        Row: {
+          active: boolean
+          answer: string
+          created_at: string
+          id: string
+          position: number
+          question: string
+        }
+        Insert: {
+          active?: boolean
+          answer: string
+          created_at?: string
+          id?: string
+          position?: number
+          question: string
+        }
+        Update: {
+          active?: boolean
+          answer?: string
+          created_at?: string
+          id?: string
+          position?: number
+          question?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           color: string | null
@@ -48,6 +93,7 @@ export type Database = {
           recipient_area: number | null
           recipient_city: number | null
           recipient_zone: number | null
+          size: string | null
           special_instruction: string | null
           status: string
           total: number
@@ -69,6 +115,7 @@ export type Database = {
           recipient_area?: number | null
           recipient_city?: number | null
           recipient_zone?: number | null
+          size?: string | null
           special_instruction?: string | null
           status?: string
           total: number
@@ -90,6 +137,7 @@ export type Database = {
           recipient_area?: number | null
           recipient_city?: number | null
           recipient_zone?: number | null
+          size?: string | null
           special_instruction?: string | null
           status?: string
           total?: number
@@ -194,9 +242,42 @@ export type Database = {
           },
         ]
       }
+      product_sizes: {
+        Row: {
+          id: string
+          name: string
+          position: number
+          product_id: string
+          stock_quantity: number | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          position?: number
+          product_id: string
+          stock_quantity?: number | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          position?: number
+          product_id?: string
+          stock_quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sizes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
+          category: string | null
           created_at: string
           description: string | null
           id: string
@@ -211,6 +292,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -225,6 +307,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -288,6 +371,7 @@ export type Database = {
           p_color: string | null
           p_product_id: string
           p_quantity: number
+          p_size: string | null
         }
         Returns: boolean
       }

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SaleRouteImport } from './routes/sale'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
+import { Route as FaqRouteImport } from './routes/faq'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AccountRouteImport } from './routes/account'
@@ -26,6 +27,11 @@ const SaleRoute = SaleRouteImport.update({
 const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
   id: '/order-confirmed',
   path: '/order-confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin'
     | '/auth'
+    | '/faq'
     | '/order-confirmed'
     | '/sale'
     | '/checkout/$productId'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin'
     | '/auth'
+    | '/faq'
     | '/order-confirmed'
     | '/sale'
     | '/checkout/$productId'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/admin'
     | '/auth'
+    | '/faq'
     | '/order-confirmed'
     | '/sale'
     | '/checkout/$productId'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  FaqRoute: typeof FaqRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   SaleRoute: typeof SaleRoute
   CheckoutProductIdRoute: typeof CheckoutProductIdRoute
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/order-confirmed'
       fullPath: '/order-confirmed'
       preLoaderRoute: typeof OrderConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  FaqRoute: FaqRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
   SaleRoute: SaleRoute,
   CheckoutProductIdRoute: CheckoutProductIdRoute,

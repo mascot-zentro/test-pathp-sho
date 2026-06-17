@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/product/$id")({
@@ -15,15 +16,18 @@ type Product = {
   whatsapp_number: string | null; stock_quantity: number | null;
 };
 type Color = { id: string; name: string; hex: string; stock_quantity: number | null };
+type Size = { id: string; name: string; stock_quantity: number | null };
 
 function ProductPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [colors, setColors] = useState<Color[]>([]);
+  const [sizes, setSizes] = useState<Size[]>([]);
   const [gallery, setGallery] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [defaultWa, setDefaultWa] = useState("");
 
   useEffect(() => {
@@ -33,6 +37,12 @@ function ProductPage() {
       setColors(list);
       const firstInStock = list.find((c) => c.stock_quantity !== 0);
       setSelected((firstInStock ?? list[0])?.name ?? null);
+    });
+    supabase.from("product_sizes").select("*").eq("product_id", id).order("position").then(({ data }) => {
+      const list = (data as Size[]) ?? [];
+      setSizes(list);
+      const firstInStock = list.find((s) => s.stock_quantity !== 0);
+      setSelectedSize((firstInStock ?? list[0])?.name ?? null);
     });
     supabase.from("product_images").select("image_url").eq("product_id", id).order("position").then(({ data }) => {
       setGallery((data ?? []).map((r: { image_url: string }) => r.image_url));
@@ -46,17 +56,23 @@ function ProductPage() {
 
   const images = gallery.length > 0 ? gallery : product.image_url ? [product.image_url] : [];
   const price = product.on_sale && product.sale_price ? product.sale_price : product.price;
-  const availableStock = colors.length > 0 ? colors.find((c) => c.name === selected)?.stock_quantity ?? null : product.stock_quantity;
+  // Stock priority mirrors the decrement_stock RPC: color stock, then size stock, then product-level stock.
+  const availableStock = colors.length > 0
+    ? colors.find((c) => c.name === selected)?.stock_quantity ?? null
+    : sizes.length > 0
+    ? sizes.find((s) => s.name === selectedSize)?.stock_quantity ?? null
+    : product.stock_quantity;
   const outOfStock = availableStock === 0;
   const lowStock = availableStock !== null && availableStock > 0 && availableStock <= 5;
   const waNumber = (product.whatsapp_number || defaultWa).replace(/\D/g, "");
-  const waMessage = `Hi! I want to order: ${product.name}${selected ? ` (color: ${selected})` : ""} — ৳${price}`;
+  const variantLabel = [selected, selectedSize].filter(Boolean).join(", ");
+  const waMessage = `Hi! I want to order: ${product.name}${variantLabel ? ` (${variantLabel})` : ""} — ৳${price}`;
   const waLink = !outOfStock && waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}` : null;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <SiteNav />
-      <div className="container mx-auto px-6 py-10 grid md:grid-cols-2 gap-10">
+      <div className="container mx-auto px-6 py-10 grid md:grid-cols-2 gap-10 flex-1">
         <div>
           <div className="aspect-[4/5] bg-muted rounded-md overflow-hidden">
             {images[activeImage] && <img src={images[activeImage]} alt={product.name} className="w-full h-full object-cover" />}
@@ -105,9 +121,27 @@ function ProductPage() {
             </div>
           )}
 
+          {sizes.length > 0 && (
+            <div className="mt-6">
+              <div className="text-sm font-medium mb-3">Size: <span className="text-muted-foreground">{selectedSize}</span></div>
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((s) => {
+                  const sizeOut = s.stock_quantity === 0;
+                  return (
+                    <button key={s.id} type="button" onClick={() => !sizeOut && setSelectedSize(s.name)}
+                      disabled={sizeOut}
+                      className={`min-w-11 h-11 px-3 rounded-md border-2 text-sm font-medium transition ${selectedSize === s.name ? "border-accent bg-accent/10" : "border-border"} ${sizeOut ? "opacity-30 cursor-not-allowed line-through" : "hover:border-accent/60"}`}>
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mt-10 flex flex-col sm:flex-row gap-3">
             <Button size="lg" className="flex-1" disabled={outOfStock}
-              onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "" } })}>
+              onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
               {outOfStock ? "Out of stock" : "Buy now — Cash on delivery"}
             </Button>
             {waLink && (
@@ -119,6 +153,7 @@ function ProductPage() {
           {!outOfStock && !waLink && <p className="text-xs text-muted-foreground mt-2">WhatsApp ordering unavailable — admin hasn't set a number.</p>}
         </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

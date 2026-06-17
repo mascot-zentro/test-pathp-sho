@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/sale")({
   head: () => ({
@@ -22,9 +23,9 @@ function SalePage() {
       .then(({ data }) => setItems((data as Product[]) ?? []));
   }, []);
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <SiteNav />
-      <section className="container mx-auto px-6 py-16">
+      <section className="container mx-auto px-6 py-16 flex-1">
         <h1 className="text-4xl md:text-5xl font-display">Sale</h1>
         <p className="mt-2 text-muted-foreground">Selected pieces at reduced prices.</p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12 mt-10">
@@ -48,6 +49,7 @@ function SalePage() {
           ))}
         </div>
       </section>
+      <SiteFooter />
     </div>
   );
 }

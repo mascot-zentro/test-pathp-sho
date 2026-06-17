@@ -34,6 +34,7 @@ const orderSchema = z.object({
   productId: z.string().uuid().nullable(),
   productName: z.string().min(1),
   color: z.string().nullable(),
+  size: z.string().nullable(),
   quantity: z.number().int().min(1),
   unitPrice: z.number().min(0),
   customerName: z.string().min(2).max(100),
@@ -52,12 +53,13 @@ export const createOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const total = data.unitPrice * data.quantity;
 
-    // Atomically check & reserve stock first. If this product/color tracks stock
-    // and there isn't enough left, this fails and no order is created.
+    // Atomically check & reserve stock first. If this product/color/size tracks
+    // stock and there isn't enough left, this fails and no order is created.
     if (data.productId) {
       const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
         p_product_id: data.productId,
         p_color: data.color,
+        p_size: data.size,
         p_quantity: data.quantity,
       });
       if (stockErr) throw new Error(stockErr.message);
@@ -71,6 +73,7 @@ export const createOrder = createServerFn({ method: "POST" })
         product_id: data.productId,
         product_name: data.productName,
         color: data.color,
+        size: data.size,
         quantity: data.quantity,
         unit_price: data.unitPrice,
         total,
@@ -96,6 +99,7 @@ export const createOrder = createServerFn({ method: "POST" })
       return { orderId: order.id, pathao: null, warning: "Pathao store_id not configured in admin settings" };
     }
 
+    const variantLabel = [data.color, data.size].filter(Boolean).join(", ");
     try {
       const { pathao } = await import("./pathao.server");
       const pathaoRes = await pathao.createOrder({
@@ -112,7 +116,7 @@ export const createOrder = createServerFn({ method: "POST" })
         special_instruction: data.specialInstruction ?? "",
         item_quantity: data.quantity,
         item_weight: data.weight,
-        item_description: `${data.productName}${data.color ? ` (${data.color})` : ""}`,
+        item_description: `${data.productName}${variantLabel ? ` (${variantLabel})` : ""}`,
         amount_to_collect: Math.round(total),
       }) as { data?: { consignment_id?: string } };
 
