@@ -21,8 +21,8 @@ export const Route = createFileRoute("/admin")({
   component: Admin,
 });
 
-type Product = { id: string; name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; whatsapp_number: string | null; weight: number; active: boolean };
-type ProductColor = { id: string; product_id: string; name: string; hex: string };
+type Product = { id: string; name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; whatsapp_number: string | null; weight: number; active: boolean; stock_quantity: number | null };
+type ProductColor = { id: string; product_id: string; name: string; hex: string; stock_quantity: number | null };
 type ProductImage = { id: string; product_id: string; image_url: string; position: number };
 type Order = { id: string; product_name: string; color: string | null; quantity: number; total: number; customer_name: string; customer_phone: string; customer_address: string; status: string; pathao_consignment_id: string | null; created_at: string };
 
@@ -135,6 +135,7 @@ function ProductsTab() {
       whatsapp_number: String(f.get("whatsapp_number") || "") || null,
       weight: Number(f.get("weight") || 0.5),
       active: f.get("active") !== null,
+      stock_quantity: f.get("stock_quantity") ? Number(f.get("stock_quantity")) : null,
     };
     if (editing) {
       const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
@@ -160,10 +161,23 @@ function ProductsTab() {
     e.preventDefault();
     if (!editing) return;
     const f = new FormData(e.currentTarget);
-    const { error } = await supabase.from("product_colors").insert({ product_id: editing.id, name: String(f.get("cname")), hex: String(f.get("hex")) });
+    const stock = f.get("stock");
+    const { error } = await supabase.from("product_colors").insert({
+      product_id: editing.id,
+      name: String(f.get("cname")),
+      hex: String(f.get("hex")),
+      stock_quantity: stock ? Number(stock) : null,
+    });
     if (error) return toast.error(error.message);
     (e.currentTarget as HTMLFormElement).reset();
     supabase.from("product_colors").select("*").eq("product_id", editing.id).then(({ data }) => setColors((data as ProductColor[]) ?? []));
+  };
+
+  const setColorStockLocal = (id: string, value: string) => {
+    setColors((cs) => cs.map((c) => (c.id === id ? { ...c, stock_quantity: value === "" ? null : Number(value) } : c)));
+  };
+  const saveColorStock = async (id: string, value: string) => {
+    await supabase.from("product_colors").update({ stock_quantity: value === "" ? null : Number(value) }).eq("id", id);
   };
 
   const delColor = async (id: string) => {
@@ -182,6 +196,11 @@ function ProductsTab() {
             <div><Label>Price (৳)</Label><Input name="price" type="number" step="0.01" required defaultValue={editing?.price ?? ""} /></div>
             <div><Label>Sale price</Label><Input name="sale_price" type="number" step="0.01" defaultValue={editing?.sale_price ?? ""} /></div>
             <div><Label>Weight (kg)</Label><Input name="weight" type="number" step="0.1" min="0.5" max="10" defaultValue={editing?.weight ?? 0.5} /></div>
+          </div>
+          <div>
+            <Label>Stock quantity</Label>
+            <Input name="stock_quantity" type="number" min="0" step="1" defaultValue={editing?.stock_quantity ?? ""} placeholder="Leave blank for unlimited / untracked" />
+            <p className="text-xs text-muted-foreground mt-1">If this product has colors below, each color's own stock is used instead and this field is ignored.</p>
           </div>
           <div className="flex items-center gap-2"><input id="on_sale" name="on_sale" type="checkbox" defaultChecked={editing?.on_sale} /><Label htmlFor="on_sale">Mark as on sale</Label></div>
           <div className="flex items-center gap-2"><input id="active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="active">Active (visible in shop)</Label></div>
@@ -217,18 +236,28 @@ function ProductsTab() {
         {editing && (
           <div className="mt-8 border-t pt-6">
             <h3 className="font-medium mb-3">Colors</h3>
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="space-y-2 mb-3">
               {colors.map((c) => (
-                <span key={c.id} className="inline-flex items-center gap-2 border rounded-full pl-1 pr-3 py-1 text-sm">
-                  <span className="size-5 rounded-full border" style={{ background: c.hex }} />{c.name}
-                  <button type="button" onClick={() => delColor(c.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3" /></button>
-                </span>
+                <div key={c.id} className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm">
+                  <span className="size-5 rounded-full border shrink-0" style={{ background: c.hex }} />
+                  <span className="flex-1 truncate">{c.name}</span>
+                  <Label className="text-xs text-muted-foreground">Stock</Label>
+                  <Input
+                    type="number" min="0" step="1" placeholder="∞"
+                    value={c.stock_quantity ?? ""}
+                    onChange={(e) => setColorStockLocal(c.id, e.target.value)}
+                    onBlur={(e) => saveColorStock(c.id, e.target.value)}
+                    className="w-20"
+                  />
+                  <button type="button" onClick={() => delColor(c.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-3.5" /></button>
+                </div>
               ))}
               {colors.length === 0 && <span className="text-xs text-muted-foreground">No colors yet</span>}
             </div>
             <form onSubmit={addColor} className="flex gap-2">
               <Input name="cname" placeholder="Color name (e.g. Sand)" required className="flex-1" />
-              <Input name="hex" type="color" defaultValue="#d4a574" className="w-20" />
+              <Input name="hex" type="color" defaultValue="#d4a574" className="w-16" />
+              <Input name="stock" type="number" min="0" step="1" placeholder="Stock (∞)" className="w-28" />
               <Button type="submit" variant="outline">Add color</Button>
             </form>
           </div>
@@ -243,7 +272,7 @@ function ProductsTab() {
               <div className="size-12 bg-muted rounded overflow-hidden shrink-0">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-muted-foreground">৳{p.price}{p.on_sale && p.sale_price ? ` → ৳${p.sale_price}` : ""} {!p.active && "· hidden"}</div>
+                <div className="text-xs text-muted-foreground">৳{p.price}{p.on_sale && p.sale_price ? ` → ৳${p.sale_price}` : ""} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
               <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>

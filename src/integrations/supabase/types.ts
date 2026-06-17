@@ -136,18 +136,21 @@ export type Database = {
           id: string
           name: string
           product_id: string
+          stock_quantity: number | null
         }
         Insert: {
           hex?: string
           id?: string
           name: string
           product_id: string
+          stock_quantity?: number | null
         }
         Update: {
           hex?: string
           id?: string
           name?: string
           product_id?: string
+          stock_quantity?: number | null
         }
         Relationships: [
           {
@@ -202,6 +205,7 @@ export type Database = {
           on_sale: boolean
           price: number
           sale_price: number | null
+          stock_quantity: number | null
           weight: number
           whatsapp_number: string | null
         }
@@ -215,6 +219,7 @@ export type Database = {
           on_sale?: boolean
           price: number
           sale_price?: number | null
+          stock_quantity?: number | null
           weight?: number
           whatsapp_number?: string | null
         }
@@ -228,6 +233,7 @@ export type Database = {
           on_sale?: boolean
           price?: number
           sale_price?: number | null
+          stock_quantity?: number | null
           weight?: number
           whatsapp_number?: string | null
         }
@@ -277,6 +283,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrement_stock: {
+        Args: {
+          p_color: string | null
+          p_product_id: string
+          p_quantity: number
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

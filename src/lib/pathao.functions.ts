@@ -52,6 +52,18 @@ export const createOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const total = data.unitPrice * data.quantity;
 
+    // Atomically check & reserve stock first. If this product/color tracks stock
+    // and there isn't enough left, this fails and no order is created.
+    if (data.productId) {
+      const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
+        p_product_id: data.productId,
+        p_color: data.color,
+        p_quantity: data.quantity,
+      });
+      if (stockErr) throw new Error(stockErr.message);
+      if (!stockOk) throw new Error("Sorry, this item just went out of stock.");
+    }
+
     // Insert order first
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")

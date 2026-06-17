@@ -25,6 +25,7 @@ function Checkout() {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [qty, setQty] = useState(1);
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", address: "", instruction: "" });
   const [cities, setCities] = useState<{ city_id: number; city_name: string }[]>([]);
   const [zones, setZones] = useState<{ zone_id: number; zone_name: string }[]>([]);
@@ -69,13 +70,26 @@ function Checkout() {
     });
   }, [zoneId, fetchAreas]);
 
+  useEffect(() => {
+    const query = color
+      ? supabase.from("product_colors").select("stock_quantity").eq("product_id", productId).eq("name", color).maybeSingle()
+      : supabase.from("products").select("stock_quantity").eq("id", productId).maybeSingle();
+    query.then(({ data }) => setAvailableStock((data as { stock_quantity: number | null } | null)?.stock_quantity ?? null));
+  }, [productId, color]);
+
+  useEffect(() => {
+    if (availableStock !== null && qty > availableStock) setQty(Math.max(1, availableStock));
+  }, [availableStock, qty]);
+
   if (!product) return <div className="min-h-screen"><SiteNav /><div className="container mx-auto px-6 py-20 text-muted-foreground">Loading…</div></div>;
 
+  const outOfStock = availableStock === 0;
   const unit = product.on_sale && product.sale_price ? product.sale_price : product.price;
   const total = Number(unit) * qty;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (outOfStock) { toast.error("This item is out of stock."); return; }
     if (!cityId || !zoneId) { toast.error("Select your city and zone."); return; }
     setSubmitting(true);
     try {
@@ -144,7 +158,9 @@ function Checkout() {
 
           <div><Label>Special instructions (optional)</Label><Textarea value={form.instruction} onChange={(e) => setForm({ ...form, instruction: e.target.value })} /></div>
 
-          <Button size="lg" className="w-full" disabled={submitting}>{submitting ? "Placing order…" : `Place order — ৳${total} (Cash on delivery)`}</Button>
+          {outOfStock && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">This item just sold out — sorry! Please go back and pick a different item or color.</div>}
+
+          <Button size="lg" className="w-full" disabled={submitting || outOfStock}>{outOfStock ? "Out of stock" : submitting ? "Placing order…" : `Place order — ৳${total} (Cash on delivery)`}</Button>
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
         </form>
 
@@ -154,11 +170,14 @@ function Checkout() {
           <div className="mt-4 flex items-center justify-between text-sm">
             <span>Quantity</span>
             <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => setQty(Math.max(1, qty - 1))}>−</Button>
+              <Button type="button" size="sm" variant="outline" disabled={outOfStock} onClick={() => setQty(Math.max(1, qty - 1))}>−</Button>
               <span className="w-6 text-center">{qty}</span>
-              <Button type="button" size="sm" variant="outline" onClick={() => setQty(qty + 1)}>+</Button>
+              <Button type="button" size="sm" variant="outline" disabled={outOfStock || (availableStock !== null && qty >= availableStock)} onClick={() => setQty(qty + 1)}>+</Button>
             </div>
           </div>
+          {availableStock !== null && availableStock > 0 && availableStock <= 5 && (
+            <p className="text-xs text-amber-600 mt-1">Only {availableStock} in stock</p>
+          )}
           <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>৳{total}</span></div>
           <div className="text-xs text-muted-foreground mt-1">Delivery charged by courier on arrival.</div>
         </aside>

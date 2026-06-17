@@ -13,12 +13,12 @@ export const Route = createFileRoute("/sale")({
   component: SalePage,
 });
 
-type Product = { id: string; name: string; price: number; sale_price: number | null; image_url: string | null };
+type Product = { id: string; name: string; price: number; sale_price: number | null; image_url: string | null; stock_quantity: number | null };
 
 function SalePage() {
   const [items, setItems] = useState<Product[]>([]);
   useEffect(() => {
-    supabase.from("products").select("id,name,price,sale_price,image_url").eq("active", true).eq("on_sale", true)
+    supabase.from("products").select("id,name,price,sale_price,image_url,stock_quantity").eq("active", true).eq("on_sale", true)
       .then(({ data }) => setItems((data as Product[]) ?? []));
   }, []);
   return (
@@ -31,8 +31,11 @@ function SalePage() {
           {items.length === 0 && <p className="text-muted-foreground col-span-full">No sale items right now.</p>}
           {items.map((p) => (
             <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
-              <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md">
+              <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
                 {p.image_url && <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
+                {p.stock_quantity === 0 && (
+                  <span className="absolute top-2 left-2 bg-background/90 text-destructive text-xs font-medium px-2 py-1 rounded">Out of stock</span>
+                )}
               </div>
               <div className="mt-4 flex items-start justify-between">
                 <h3 className="text-sm font-medium">{p.name}</h3>

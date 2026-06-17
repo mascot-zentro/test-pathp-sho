@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null };
+type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; stock_quantity: number | null };
 
 function Index() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,7 +21,7 @@ function Index() {
   const [hero, setHero] = useState({ title: "Considered objects for everyday life.", subtitle: "A small collection, refreshed seasonally. Cash on delivery available across the country.", image: "" });
 
   useEffect(() => {
-    supabase.from("products").select("id,name,price,sale_price,on_sale,image_url").eq("active", true).order("created_at", { ascending: false })
+    supabase.from("products").select("id,name,price,sale_price,on_sale,image_url,stock_quantity").eq("active", true).order("created_at", { ascending: false })
       .then(({ data }) => { setProducts((data as Product[]) ?? []); setLoading(false); });
   }, []);
 
@@ -58,11 +58,14 @@ function Index() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
             {products.map((p) => (
               <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
-                <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md">
+                <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
                   {p.image_url ? (
                     <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
+                  )}
+                  {p.stock_quantity === 0 && (
+                    <span className="absolute top-2 left-2 bg-background/90 text-destructive text-xs font-medium px-2 py-1 rounded">Out of stock</span>
                   )}
                 </div>
                 <div className="mt-4 flex items-start justify-between gap-2">
