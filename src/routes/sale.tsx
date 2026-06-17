@@ -41,8 +41,8 @@ function SalePage() {
               <div className="mt-4 flex items-start justify-between">
                 <h3 className="text-sm font-medium">{p.name}</h3>
                 <div className="text-sm tabular-nums">
-                  <span className="text-muted-foreground line-through mr-1">Rs {p.price}</span>
-                  <span className="text-accent">Rs {p.sale_price}</span>
+                  <span className="text-muted-foreground line-through mr-1">NRS {p.price}</span>
+                  <span className="text-accent">NRS {p.sale_price}</span>
                 </div>
               </div>
             </Link>

@@ -255,7 +255,7 @@ function ProductsTab() {
             <datalist id="category-options">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label>Price (Rs)</Label><Input name="price" type="number" step="0.01" required defaultValue={editing?.price ?? ""} /></div>
+            <div><Label>Price (NRS)</Label><Input name="price" type="number" step="0.01" required defaultValue={editing?.price ?? ""} /></div>
             <div><Label>Sale price</Label><Input name="sale_price" type="number" step="0.01" defaultValue={editing?.sale_price ?? ""} /></div>
             <div><Label>Weight (kg)</Label><Input name="weight" type="number" step="0.1" min="0.5" max="10" defaultValue={editing?.weight ?? 0.5} /></div>
           </div>
@@ -370,7 +370,7 @@ function ProductsTab() {
               <div className="size-12 bg-muted rounded overflow-hidden shrink-0">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-muted-foreground">Rs {p.price}{p.on_sale && p.sale_price ? ` → Rs ${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
+                <div className="text-xs text-muted-foreground">NRS {p.price}{p.on_sale && p.sale_price ? ` → NRS ${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
               </div>
               <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
               <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
@@ -420,9 +420,9 @@ function DashboardTab() {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Total revenue" value={`Rs ${totalRevenue.toFixed(0)}`} />
+        <Stat label="Total revenue" value={`NRS ${totalRevenue.toFixed(0)}`} />
         <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Avg order value" value={`Rs ${avgOrder.toFixed(0)}`} />
+        <Stat label="Avg order value" value={`NRS ${avgOrder.toFixed(0)}`} />
         <Stat label="Pending" value={pending.toString()} />
       </div>
 
@@ -434,7 +434,7 @@ function DashboardTab() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="date" fontSize={11} tickLine={false} />
               <YAxis fontSize={11} tickLine={false} width={40} />
-              <Tooltip formatter={(v: number) => [`Rs ${v}`, "Revenue"]} />
+              <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
               <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -452,7 +452,7 @@ function DashboardTab() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" fontSize={11} tickLine={false} />
                 <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
-                <Tooltip formatter={(v: number) => [`Rs ${v}`, "Revenue"]} />
+                <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
                 <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
               </BarChart>
             </ResponsiveContainer>
@@ -493,7 +493,7 @@ function OrdersTab() {
     <div>
       <div className="grid grid-cols-3 gap-4 mb-6">
         <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Total sales" value={`Rs ${totalSales.toFixed(0)}`} />
+        <Stat label="Total sales" value={`NRS ${totalSales.toFixed(0)}`} />
         <Stat label="Submitted to Pathao" value={orders.filter((o) => o.pathao_consignment_id).length.toString()} />
       </div>
       <div className="border rounded-md divide-y">
@@ -518,7 +518,7 @@ function OrdersTab() {
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <div className="tabular-nums font-medium">Rs {o.total}</div>
+                <div className="tabular-nums font-medium">NRS {o.total}</div>
                 <div className="text-xs capitalize text-muted-foreground">{o.status.replace(/_/g, " ")}</div>
               </div>
               <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="text-xs border rounded px-2 py-1 bg-background">
@@ -694,7 +694,7 @@ function ContentTab() {
       <div className="space-y-4">
         <h3 className="font-medium">Announcement bar</h3>
         <p className="text-xs text-muted-foreground -mt-2">Shown as a thin strip above the header on every page. Leave text blank to hide it.</p>
-        {field("announcement_text", "Text", "e.g. Free delivery on orders over Rs 2000")}
+        {field("announcement_text", "Text", "e.g. Free delivery on orders over NRS 2000")}
         {field("announcement_link", "Link (optional)", "Where the bar links to when clicked, e.g. /sale")}
       </div>
 

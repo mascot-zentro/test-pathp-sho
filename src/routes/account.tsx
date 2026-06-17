@@ -58,7 +58,7 @@ function Account() {
                   <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
                 </div>
                 <div className="text-right">
-                  <div className="tabular-nums">Rs {o.total}</div>
+                  <div className="tabular-nums">NRS {o.total}</div>
                   <div className="text-xs text-muted-foreground capitalize">{o.status.replace(/_/g, " ")}</div>
                 </div>
               </div>

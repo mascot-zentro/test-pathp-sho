@@ -66,7 +66,7 @@ function ProductPage() {
   const lowStock = availableStock !== null && availableStock > 0 && availableStock <= 5;
   const waNumber = (product.whatsapp_number || defaultWa).replace(/\D/g, "");
   const variantLabel = [selected, selectedSize].filter(Boolean).join(", ");
-  const waMessage = `Hi! I want to order: ${product.name}${variantLabel ? ` (${variantLabel})` : ""} — Rs ${price}`;
+  const waMessage = `Hi! I want to order: ${product.name}${variantLabel ? ` (${variantLabel})` : ""} — NRS ${price}`;
   const waLink = !outOfStock && waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}` : null;
 
   return (
@@ -93,9 +93,9 @@ function ProductPage() {
           <h1 className="text-3xl md:text-4xl font-display mt-4">{product.name}</h1>
           <div className="mt-3 text-xl tabular-nums">
             {product.on_sale && product.sale_price ? (
-              <><span className="text-muted-foreground line-through mr-2">Rs {product.price}</span><span className="text-accent">Rs {product.sale_price}</span></>
+              <><span className="text-muted-foreground line-through mr-2">NRS {product.price}</span><span className="text-accent">NRS {product.sale_price}</span></>
             ) : (
-              <>Rs {product.price}</>
+              <>NRS {product.price}</>
             )}
           </div>
           {outOfStock && <p className="mt-2 text-sm font-medium text-destructive">Out of stock</p>}

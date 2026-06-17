@@ -99,9 +99,9 @@ function Index() {
                   <h3 className="text-sm font-medium leading-tight">{p.name}</h3>
                   <div className="text-sm tabular-nums whitespace-nowrap">
                     {p.on_sale && p.sale_price ? (
-                      <span><span className="text-muted-foreground line-through mr-1">Rs {p.price}</span><span className="text-accent">Rs {p.sale_price}</span></span>
+                      <span><span className="text-muted-foreground line-through mr-1">NRS {p.price}</span><span className="text-accent">NRS {p.sale_price}</span></span>
                     ) : (
-                      <span>Rs {p.price}</span>
+                      <span>NRS {p.price}</span>
                     )}
                   </div>
                 </div>

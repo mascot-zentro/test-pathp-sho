@@ -176,7 +176,7 @@ function Checkout() {
 
           {outOfStock && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">This item just sold out — sorry! Please go back and pick a different item or color.</div>}
 
-          <Button size="lg" className="w-full" disabled={submitting || outOfStock}>{outOfStock ? "Out of stock" : submitting ? "Placing order…" : `Place order — Rs ${total} (Cash on delivery)`}</Button>
+          <Button size="lg" className="w-full" disabled={submitting || outOfStock}>{outOfStock ? "Out of stock" : submitting ? "Placing order…" : `Place order — NRS ${total} (Cash on delivery)`}</Button>
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
         </form>
 
@@ -195,20 +195,20 @@ function Checkout() {
           {availableStock !== null && availableStock > 0 && availableStock <= 5 && (
             <p className="text-xs text-amber-600 mt-1">Only {availableStock} in stock</p>
           )}
-          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>Rs {total}</span></div>
+          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>NRS {total}</span></div>
           <div className="flex justify-between text-sm mt-1">
             <span className="text-muted-foreground">Delivery</span>
             {deliveryFeeLoading ? (
               <span className="text-muted-foreground">Calculating…</span>
             ) : deliveryFee !== null ? (
-              <span>Rs {deliveryFee}</span>
+              <span>NRS {deliveryFee}</span>
             ) : (
               <span className="text-muted-foreground text-xs">Select city &amp; zone</span>
             )}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
             {deliveryFee !== null
-              ? "Delivery fee shown above is covered by the store — you pay Rs " + total + " on delivery."
+              ? "Delivery fee shown above is covered by the store — you pay NRS " + total + " on delivery."
               : "Delivery charged by courier on arrival."}
           </div>
         </aside>
