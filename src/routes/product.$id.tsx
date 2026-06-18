@@ -13,10 +13,14 @@ export const Route = createFileRoute("/product/$id")({
 type Product = {
   id: string; name: string; description: string | null; price: number;
   sale_price: number | null; on_sale: boolean; image_url: string | null;
-  whatsapp_number: string | null; stock_quantity: number | null;
+  whatsapp_number: string | null; stock_quantity: number | null; category: string | null;
 };
 type Color = { id: string; name: string; hex: string; stock_quantity: number | null };
 type Size = { id: string; name: string; stock_quantity: number | null };
+type RelatedProduct = {
+  id: string; name: string; price: number; sale_price: number | null;
+  on_sale: boolean; image_url: string | null; stock_quantity: number | null; category: string | null;
+};
 
 function ProductPage() {
   const { id } = Route.useParams();
@@ -29,6 +33,7 @@ function ProductPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [defaultWa, setDefaultWa] = useState("");
+  const [related, setRelated] = useState<RelatedProduct[]>([]);
 
   useEffect(() => {
     supabase.from("products").select("*").eq("id", id).maybeSingle().then(({ data }) => setProduct(data as Product | null));
@@ -51,6 +56,22 @@ function ProductPage() {
     supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle()
       .then(({ data }) => setDefaultWa(data?.value ?? ""));
   }, [id]);
+
+  useEffect(() => {
+    if (!product) return;
+    supabase.from("products")
+      .select("id,name,price,sale_price,on_sale,image_url,stock_quantity,category")
+      .eq("active", true).neq("id", product.id).limit(20)
+      .then(({ data }) => {
+        const list = (data as RelatedProduct[]) ?? [];
+        // Same-category products feel more "you may also like" than a
+        // grab bag, but if there aren't enough, fill the rest from
+        // whatever else is in stock so the section isn't sparse.
+        const sameCategory = list.filter((p) => p.category && p.category === product.category);
+        const rest = list.filter((p) => !(p.category && p.category === product.category));
+        setRelated([...sameCategory, ...rest].slice(0, 4));
+      });
+  }, [product?.id, product?.category]);
 
   if (!product) return <div className="min-h-screen"><SiteNav /><div className="container mx-auto px-6 py-20 text-muted-foreground">Loading…</div></div>;
 
@@ -154,6 +175,39 @@ function ProductPage() {
           {!outOfStock && !waLink && <p className="text-xs text-muted-foreground mt-2">WhatsApp ordering unavailable — admin hasn't set a number.</p>}
         </div>
       </div>
+      {related.length > 0 && (
+        <section className="border-t">
+          <div className="container mx-auto px-6 py-16">
+            <h2 className="text-xl font-display mb-8">You may also like</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+              {related.map((p) => (
+                <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
+                  <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
+                    )}
+                    {p.stock_quantity === 0 && (
+                      <span className="absolute top-2 left-2 bg-background/90 text-destructive text-xs font-medium px-2 py-1 rounded">Out of stock</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-medium leading-tight">{p.name}</h3>
+                    <div className="text-sm tabular-nums whitespace-nowrap">
+                      {p.on_sale && p.sale_price ? (
+                        <span><span className="text-muted-foreground line-through mr-1">NRS {p.price}</span><span className="text-accent">NRS {p.sale_price}</span></span>
+                      ) : (
+                        <span>NRS {p.price}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
       <SiteFooter />
     </div>
   );
