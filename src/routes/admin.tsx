@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, RefreshCw } from "lucide-react";
+import { Trash2, RefreshCw, LayoutDashboard, Package, ShoppingCart, HelpCircle, FileText, Settings as SettingsIcon, DollarSign, TrendingUp, Clock, Truck, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { syncOrderStatus, getPathaoStores } from "@/lib/pathao.functions";
@@ -58,24 +60,52 @@ function Admin() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-muted/30">
         <SiteNav />
-        <div className="container mx-auto px-6 py-20 max-w-md text-center">
-          <h1 className="text-2xl font-display">Admin access</h1>
-          <p className="text-muted-foreground mt-2">If no admin exists yet, you can claim it. Otherwise, ask an existing admin to grant access.</p>
-          <Button className="mt-6" onClick={tryClaim}>Claim admin</Button>
+        <div className="container mx-auto px-6 py-20 max-w-md">
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto size-12 rounded-full bg-accent/10 grid place-items-center mb-2">
+                <ShieldCheck className="size-6 text-accent" />
+              </div>
+              <CardTitle className="font-display text-2xl">Admin access</CardTitle>
+              <CardDescription>If no admin exists yet, you can claim it. Otherwise, ask an existing admin to grant access.</CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button onClick={tryClaim}>Claim admin</Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
+  const tabs = [
+    { v: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { v: "products", label: "Products", icon: Package },
+    { v: "orders", label: "Orders", icon: ShoppingCart },
+    { v: "faqs", label: "FAQs", icon: HelpCircle },
+    { v: "content", label: "Content", icon: FileText },
+    { v: "settings", label: "Settings", icon: SettingsIcon },
+  ];
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-muted/30">
       <SiteNav />
-      <div className="container mx-auto px-6 py-10">
-        <h1 className="text-3xl font-display mb-6">Admin panel</h1>
+      <div className="container mx-auto px-6 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-display tracking-tight">Admin panel</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your store, products, orders and settings.</p>
+        </div>
         <Tabs defaultValue="dashboard">
-          <TabsList><TabsTrigger value="dashboard">Dashboard</TabsTrigger><TabsTrigger value="products">Products</TabsTrigger><TabsTrigger value="orders">Orders / Sales</TabsTrigger><TabsTrigger value="faqs">FAQs</TabsTrigger><TabsTrigger value="content">Site content</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
+          <TabsList className="h-auto p-1 bg-card border shadow-sm flex flex-wrap gap-1 w-full justify-start">
+            {tabs.map((t) => (
+              <TabsTrigger key={t.v} value={t.v} className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground gap-1.5 px-3 py-2">
+                <t.icon className="size-4" />
+                <span>{t.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
           <TabsContent value="dashboard" className="mt-6"><DashboardTab /></TabsContent>
           <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
           <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
@@ -243,9 +273,13 @@ function ProductsTab() {
   };
 
   return (
-    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-8">
-      <div>
-        <h2 className="font-display text-xl mb-4">{editing ? `Edit: ${editing.name}` : "Add product"}</h2>
+    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-6">
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">{editing ? `Edit: ${editing.name}` : "Add product"}</CardTitle>
+          <CardDescription>{editing ? "Update product details, variants and media." : "Create a new listing for your store."}</CardDescription>
+        </CardHeader>
+        <CardContent>
         <form onSubmit={save} className="space-y-3">
           <div><Label>Name</Label><Input name="name" required defaultValue={editing?.name ?? ""} /></div>
           <div><Label>Description</Label><Textarea name="description" defaultValue={editing?.description ?? ""} /></div>
@@ -360,25 +394,38 @@ function ProductsTab() {
             <p className="text-xs text-muted-foreground mt-2">Sizes and colors are tracked as independent stock pools (not a combined "Red, size M" matrix). If a product has colors, color stock governs checkout; otherwise size stock does.</p>
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
 
-      <div>
-        <h2 className="font-display text-xl mb-4">All products ({products.length})</h2>
-        <div className="border rounded-md divide-y">
-          {products.map((p) => (
-            <div key={p.id} className="p-3 flex items-center gap-3">
-              <div className="size-12 bg-muted rounded overflow-hidden shrink-0">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-muted-foreground">NRS {p.price}{p.on_sale && p.sale_price ? ` → NRS ${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">All products</CardTitle>
+          <CardDescription>{products.length} {products.length === 1 ? "item" : "items"} in your catalog</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y border-t">
+            {products.map((p) => (
+              <div key={p.id} className={`p-3 flex items-center gap-3 hover:bg-muted/30 transition ${editing?.id === p.id ? "bg-accent/5" : ""}`}>
+                <div className="size-14 bg-muted rounded-md overflow-hidden shrink-0 border">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{p.name}</div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                    <span className="tabular-nums">NRS {p.price}{p.on_sale && p.sale_price ? ` → ${p.sale_price}` : ""}</span>
+                    {p.category && <Badge variant="outline" className="text-[10px] py-0">{p.category}</Badge>}
+                    {!p.active && <Badge variant="secondary" className="text-[10px] py-0">hidden</Badge>}
+                    {p.on_sale && <Badge className="text-[10px] py-0 bg-accent text-accent-foreground border-transparent">sale</Badge>}
+                    {p.stock_quantity === 0 && <Badge variant="destructive" className="text-[10px] py-0">out of stock</Badge>}
+                    {p.stock_quantity !== null && p.stock_quantity > 0 && <span>· {p.stock_quantity} in stock</span>}
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
-              <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
-            </div>
-          ))}
-          {products.length === 0 && <div className="p-6 text-sm text-muted-foreground">No products yet.</div>}
-        </div>
-      </div>
+            ))}
+            {products.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No products yet. Add your first one →</div>}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -420,44 +467,54 @@ function DashboardTab() {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Total revenue" value={`NRS ${totalRevenue.toFixed(0)}`} />
-        <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Avg order value" value={`NRS ${avgOrder.toFixed(0)}`} />
-        <Stat label="Pending" value={pending.toString()} />
+        <Stat label="Total revenue" value={`NRS ${totalRevenue.toFixed(0)}`} icon={DollarSign} tone="success" />
+        <Stat label="Total orders" value={orders.length.toString()} icon={ShoppingCart} tone="accent" />
+        <Stat label="Avg order value" value={`NRS ${avgOrder.toFixed(0)}`} icon={TrendingUp} tone="default" />
+        <Stat label="Pending" value={pending.toString()} icon={Clock} tone="warn" />
       </div>
 
-      <div>
-        <h3 className="font-medium mb-3 text-sm text-muted-foreground">Revenue, last 14 days</h3>
-        <div className="h-56 border rounded-md p-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={days}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" fontSize={11} tickLine={false} />
-              <YAxis fontSize={11} tickLine={false} width={40} />
-              <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
-              <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Revenue · last 14 days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={days}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="date" fontSize={11} tickLine={false} />
+                  <YAxis fontSize={11} tickLine={false} width={40} />
+                  <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
+                  <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-      <div>
-        <h3 className="font-medium mb-3 text-sm text-muted-foreground">Top products by revenue</h3>
-        <div className="h-56 border rounded-md p-3">
-          {topProducts.length === 0 ? (
-            <div className="h-full grid place-items-center text-sm text-muted-foreground">No sales yet</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topProducts} layout="vertical" margin={{ left: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis type="number" fontSize={11} tickLine={false} />
-                <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
-                <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
-                <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Top products by revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              {topProducts.length === 0 ? (
+                <div className="h-full grid place-items-center text-sm text-muted-foreground">No sales yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topProducts} layout="vertical" margin={{ left: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" fontSize={11} tickLine={false} />
+                    <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
+                    <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
+                    <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
@@ -489,56 +546,92 @@ function OrdersTab() {
 
   const totalSales = orders.filter((o) => o.status !== "cancelled").reduce((s, o) => s + Number(o.total), 0);
 
+  const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
+    if (s === "delivered") return "default";
+    if (s === "cancelled") return "destructive";
+    if (s === "shipped" || s === "submitted") return "secondary";
+    return "outline";
+  };
+
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Total sales" value={`NRS ${totalSales.toFixed(0)}`} />
-        <Stat label="Submitted to Pathao" value={orders.filter((o) => o.pathao_consignment_id).length.toString()} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Stat label="Total orders" value={orders.length.toString()} icon={ShoppingCart} tone="accent" />
+        <Stat label="Total sales" value={`NRS ${totalSales.toFixed(0)}`} icon={DollarSign} tone="success" />
+        <Stat label="Submitted to Pathao" value={orders.filter((o) => o.pathao_consignment_id).length.toString()} icon={Truck} tone="default" />
       </div>
-      <div className="border rounded-md divide-y">
-        {orders.map((o) => (
-          <div key={o.id} className="p-4 grid md:grid-cols-[1fr,1fr,auto] gap-3 items-center">
-            <div>
-              <div className="font-medium">{o.product_name} {o.color && <span className="text-muted-foreground">· {o.color}</span>} {o.size && <span className="text-muted-foreground">· {o.size}</span>} <span className="text-xs text-muted-foreground">× {o.quantity}</span></div>
-              <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
-              {o.pathao_consignment_id && (
-                <div className="text-xs text-accent flex items-center gap-1.5">
-                  Pathao #{o.pathao_consignment_id}
-                  {o.pathao_status && <span className="text-muted-foreground">· {o.pathao_status.replace(/_/g, " ")}</span>}
-                  <button type="button" onClick={() => refreshPathaoStatus(o.id)} disabled={syncing === o.id} title="Refresh status from Pathao" className="text-muted-foreground hover:text-foreground disabled:opacity-40">
-                    <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
-                  </button>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">All orders</CardTitle>
+          <CardDescription>Manage order statuses and track Pathao shipments.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y border-t">
+            {orders.map((o) => (
+              <div key={o.id} className="p-4 grid md:grid-cols-[1.2fr,1fr,auto] gap-3 items-center hover:bg-muted/30 transition">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">
+                    {o.product_name}
+                    {o.color && <span className="text-muted-foreground"> · {o.color}</span>}
+                    {o.size && <span className="text-muted-foreground"> · {o.size}</span>}
+                    <span className="text-xs text-muted-foreground ml-1">× {o.quantity}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
+                  {o.pathao_consignment_id && (
+                    <div className="text-xs text-accent flex items-center gap-1.5 mt-1">
+                      <Truck className="size-3" /> #{o.pathao_consignment_id}
+                      {o.pathao_status && <span className="text-muted-foreground">· {o.pathao_status.replace(/_/g, " ")}</span>}
+                      <button type="button" onClick={() => refreshPathaoStatus(o.id)} disabled={syncing === o.id} title="Refresh status from Pathao" className="text-muted-foreground hover:text-foreground disabled:opacity-40">
+                        <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="text-sm">
-              <div>{o.customer_name} · {o.customer_phone}</div>
-              <div className="text-muted-foreground text-xs">{o.customer_address}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <div className="tabular-nums font-medium">NRS {o.total}</div>
-                <div className="text-xs capitalize text-muted-foreground">{o.status.replace(/_/g, " ")}</div>
+                <div className="text-sm min-w-0">
+                  <div className="truncate">{o.customer_name} · {o.customer_phone}</div>
+                  <div className="text-muted-foreground text-xs truncate">{o.customer_address}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="tabular-nums font-semibold">NRS {o.total}</div>
+                    <Badge variant={statusVariant(o.status)} className="capitalize mt-1">{o.status.replace(/_/g, " ")}</Badge>
+                  </div>
+                  <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="text-xs border rounded-md px-2 py-1.5 bg-background hover:border-accent cursor-pointer">
+                    <option value="pending">pending</option>
+                    <option value="submitted">submitted</option>
+                    <option value="shipped">shipped</option>
+                    <option value="delivered">delivered</option>
+                    <option value="cancelled">cancelled</option>
+                  </select>
+                </div>
               </div>
-              <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="text-xs border rounded px-2 py-1 bg-background">
-                <option value="pending">pending</option>
-                <option value="submitted">submitted</option>
-                <option value="shipped">shipped</option>
-                <option value="delivered">delivered</option>
-                <option value="cancelled">cancelled</option>
-              </select>
-            </div>
+            ))}
+            {orders.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No orders yet.</div>}
           </div>
-        ))}
-        {orders.length === 0 && <div className="p-6 text-sm text-muted-foreground">No orders yet.</div>}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="border rounded-md p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-display mt-1">{value}</div></div>;
+function Stat({ label, value, icon: Icon, tone = "default" }: { label: string; value: string; icon?: React.ComponentType<{ className?: string }>; tone?: "default" | "accent" | "success" | "warn" }) {
+  const tones: Record<string, string> = {
+    default: "bg-muted text-foreground",
+    accent: "bg-accent/10 text-accent",
+    success: "bg-emerald-500/10 text-emerald-600",
+    warn: "bg-amber-500/10 text-amber-600",
+  };
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
+          <div className="text-2xl font-display mt-1 truncate">{value}</div>
+        </div>
+        {Icon && <div className={`size-10 rounded-lg grid place-items-center shrink-0 ${tones[tone]}`}><Icon className="size-5" /></div>}
+      </CardContent>
+    </Card>
+  );
 }
 
 function FaqsTab() {
@@ -586,40 +679,49 @@ function FaqsTab() {
   };
 
   return (
-    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-8">
-      <div>
-        <h2 className="font-display text-xl mb-4">{editing ? "Edit FAQ" : "Add FAQ"}</h2>
-        <form onSubmit={save} className="space-y-3">
-          <div><Label>Question</Label><Input name="question" required defaultValue={editing?.question ?? ""} /></div>
-          <div><Label>Answer</Label><Textarea name="answer" rows={4} required defaultValue={editing?.answer ?? ""} /></div>
-          <div className="flex items-center gap-2"><input id="faq_active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="faq_active">Visible on site</Label></div>
-          <div className="flex gap-2">
-            <Button>{editing ? "Save changes" : "Add FAQ"}</Button>
-            {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
-          </div>
-        </form>
-        <p className="text-xs text-muted-foreground mt-4">Shown publicly at /faq, ordered top to bottom. Use the arrows on the right to reorder.</p>
-      </div>
-      <div>
-        <h2 className="font-display text-xl mb-4">All FAQs ({faqs.length})</h2>
-        <div className="border rounded-md divide-y">
-          {faqs.map((f, i) => (
-            <div key={f.id} className="p-3 flex items-start gap-3">
-              <div className="flex flex-col gap-0.5 pt-1">
-                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▲</button>
-                <button type="button" disabled={i === faqs.length - 1} onClick={() => move(i, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▼</button>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{f.question} {!f.active && <span className="text-xs text-muted-foreground">· hidden</span>}</div>
-                <div className="text-xs text-muted-foreground line-clamp-2">{f.answer}</div>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => setEditing(f)}>Edit</Button>
-              <Button size="sm" variant="ghost" onClick={() => del(f.id)}><Trash2 className="size-4" /></Button>
+    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-6">
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">{editing ? "Edit FAQ" : "Add FAQ"}</CardTitle>
+          <CardDescription>Shown publicly at /faq. Use arrows to reorder.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={save} className="space-y-3">
+            <div><Label>Question</Label><Input name="question" required defaultValue={editing?.question ?? ""} /></div>
+            <div><Label>Answer</Label><Textarea name="answer" rows={4} required defaultValue={editing?.answer ?? ""} /></div>
+            <div className="flex items-center gap-2"><input id="faq_active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="faq_active">Visible on site</Label></div>
+            <div className="flex gap-2">
+              <Button>{editing ? "Save changes" : "Add FAQ"}</Button>
+              {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
             </div>
-          ))}
-          {faqs.length === 0 && <div className="p-6 text-sm text-muted-foreground">No FAQs yet.</div>}
-        </div>
-      </div>
+          </form>
+        </CardContent>
+      </Card>
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">All FAQs</CardTitle>
+          <CardDescription>{faqs.length} {faqs.length === 1 ? "entry" : "entries"}</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y border-t">
+            {faqs.map((f, i) => (
+              <div key={f.id} className="p-3 flex items-start gap-3 hover:bg-muted/30 transition">
+                <div className="flex flex-col gap-0.5 pt-1">
+                  <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▲</button>
+                  <button type="button" disabled={i === faqs.length - 1} onClick={() => move(i, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▼</button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{f.question} {!f.active && <Badge variant="secondary" className="text-[10px] py-0 ml-1">hidden</Badge>}</div>
+                  <div className="text-xs text-muted-foreground line-clamp-2">{f.answer}</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setEditing(f)}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => del(f.id)}><Trash2 className="size-4" /></Button>
+              </div>
+            ))}
+            {faqs.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No FAQs yet.</div>}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
