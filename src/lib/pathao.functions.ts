@@ -94,6 +94,10 @@ const orderSchema = z.object({
   areaId: z.number().int().optional().nullable(),
   specialInstruction: z.string().optional().nullable(),
   weight: z.number().min(0.5).max(10).default(0.5),
+  // Delivery fee quoted to the customer at checkout time (NRS). Stored on the
+  // order and added to amount_to_collect so Pathao collects the full amount.
+  // If not yet known (delivery location not set), submit is blocked on the client.
+  deliveryFee: z.number().min(0).default(0),
   company: z.string().max(0).optional(), // honeypot — real users never see/fill this field
 });
 
@@ -101,7 +105,8 @@ export const createOrder = createServerFn({ method: "POST" })
   .inputValidator(orderSchema)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const total = data.unitPrice * data.quantity;
+    const subtotal = data.unitPrice * data.quantity;
+    const total = subtotal + data.deliveryFee;
 
     // Basic anti-spam: cap how many orders one phone number can place in a
     // short window. Cheapest check first, before touching stock or inserting.
@@ -140,6 +145,7 @@ export const createOrder = createServerFn({ method: "POST" })
         size: data.size,
         quantity: data.quantity,
         unit_price: data.unitPrice,
+        delivery_fee: data.deliveryFee,
         total,
         customer_name: data.customerName,
         customer_phone: data.customerPhone,
@@ -181,6 +187,8 @@ export const createOrder = createServerFn({ method: "POST" })
         item_quantity: data.quantity,
         item_weight: data.weight,
         item_description: `${data.productName}${variantLabel ? ` (${variantLabel})` : ""}`,
+        // Collect product subtotal + delivery fee — Pathao hands the full
+        // amount to us and pays the courier itself from the delivery portion.
         amount_to_collect: Math.round(total),
       }) as { data?: { consignment_id?: string } };
 

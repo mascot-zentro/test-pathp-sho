@@ -116,12 +116,17 @@ function Checkout() {
 
   const outOfStock = availableStock === 0;
   const unit = product.on_sale && product.sale_price ? product.sale_price : product.price;
-  const total = Number(unit) * qty;
+  const subtotal = Number(unit) * qty;
+  // Delivery fee must be known before the order can be placed — it is added
+  // to the Pathao amount_to_collect so we receive the full amount on delivery.
+  const grandTotal = deliveryFee !== null ? subtotal + deliveryFee : null;
+  const deliveryReady = deliveryFee !== null; // city + zone selected and fee fetched
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (outOfStock) { toast.error("This item is out of stock."); return; }
-    if (!cityId || !zoneId) { toast.error("Select your city and zone."); return; }
+    if (!cityId || !zoneId) { toast.error("Select your city and zone to calculate delivery."); return; }
+    if (deliveryFee === null) { toast.error("Waiting for delivery fee — please try again in a moment."); return; }
     setSubmitting(true);
     try {
       const res = await submitOrder({
@@ -138,6 +143,7 @@ function Checkout() {
           cityId, zoneId, areaId,
           specialInstruction: form.instruction || null,
           weight: Number(product.weight) || 0.5,
+          deliveryFee: deliveryFee,
           company: form.company,
         },
       });
@@ -199,7 +205,15 @@ function Checkout() {
 
           {outOfStock && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">This item just sold out — sorry! Please go back and pick a different item or color.</div>}
 
-          <Button size="lg" className="w-full" disabled={submitting || outOfStock}>{outOfStock ? "Out of stock" : submitting ? "Placing order…" : `Place order — NRS ${total} (Cash on delivery)`}</Button>
+          <Button size="lg" className="w-full" disabled={submitting || outOfStock || !deliveryReady}>
+            {outOfStock
+              ? "Out of stock"
+              : submitting
+              ? "Placing order…"
+              : !deliveryReady
+              ? "Select city & zone to continue"
+              : `Place order — NRS ${grandTotal} (Cash on delivery)`}
+          </Button>
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
         </form>
 
@@ -218,7 +232,7 @@ function Checkout() {
           {availableStock !== null && availableStock > 0 && availableStock <= 5 && (
             <p className="text-xs text-amber-600 mt-1">Only {availableStock} in stock</p>
           )}
-          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>NRS {total}</span></div>
+          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>NRS {subtotal}</span></div>
           <div className="flex justify-between text-sm mt-1">
             <span className="text-muted-foreground">Delivery</span>
             {deliveryFeeLoading ? (
@@ -229,10 +243,16 @@ function Checkout() {
               <span className="text-muted-foreground text-xs">Select city &amp; zone</span>
             )}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {deliveryFee !== null
-              ? "Delivery fee shown above is covered by the store — you pay NRS " + total + " on delivery."
-              : "Delivery charged by courier on arrival."}
+          {grandTotal !== null && (
+            <div className="border-t mt-3 pt-3 flex justify-between font-semibold">
+              <span>Total</span>
+              <span>NRS {grandTotal}</span>
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground mt-2">
+            {grandTotal !== null
+              ? `Cash on delivery — you pay NRS ${grandTotal} when your order arrives.`
+              : "Select your city and zone to see the delivery fee and total."}
           </div>
         </aside>
       </div>
