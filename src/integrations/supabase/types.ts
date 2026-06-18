@@ -371,10 +371,10 @@ export type Database = {
     Functions: {
       decrement_stock: {
         Args: {
-          p_color: string | null
+          p_color: string
           p_product_id: string
           p_quantity: number
-          p_size: string | null
+          p_size: string
         }
         Returns: boolean
       }
