@@ -94,6 +94,7 @@ const orderSchema = z.object({
   areaId: z.number().int().optional().nullable(),
   specialInstruction: z.string().optional().nullable(),
   weight: z.number().min(0.5).max(10).default(0.5),
+  company: z.string().max(0).optional(), // honeypot — real users never see/fill this field
 });
 
 export const createOrder = createServerFn({ method: "POST" })
@@ -101,6 +102,20 @@ export const createOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const total = data.unitPrice * data.quantity;
+
+    // Basic anti-spam: cap how many orders one phone number can place in a
+    // short window. Cheapest check first, before touching stock or inserting.
+    const RATE_LIMIT_WINDOW_MIN = 10;
+    const RATE_LIMIT_MAX_ORDERS = 3;
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MIN * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabaseAdmin
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_phone", data.customerPhone)
+      .gte("created_at", since);
+    if ((recentCount ?? 0) >= RATE_LIMIT_MAX_ORDERS) {
+      throw new Error("Too many orders from this phone number recently. Please wait a few minutes, or contact us directly if you need to order more.");
+    }
 
     // Atomically check & reserve stock first. If this product/color/size tracks
     // stock and there isn't enough left, this fails and no order is created.
