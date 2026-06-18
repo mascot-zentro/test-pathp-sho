@@ -394,7 +394,8 @@ function ProductsTab() {
             <p className="text-xs text-muted-foreground mt-2">Sizes and colors are tracked as independent stock pools (not a combined "Red, size M" matrix). If a product has colors, color stock governs checkout; otherwise size stock does.</p>
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
 
       <Card className="shadow-sm h-fit">
         <CardHeader className="pb-3">
