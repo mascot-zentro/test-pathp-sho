@@ -1,0 +1,15 @@
+-- Migration 20260618032229 revoked EXECUTE on has_role() from authenticated
+-- (intending to stop arbitrary direct RPC probing of other users' roles), but
+-- this also breaks every RLS policy that calls has_role() for the
+-- authenticated role: Postgres requires EXECUTE on every function a policy
+-- expression references for the querying role, even when another permissive
+-- policy on the same command would otherwise allow the row via OR. That
+-- revoke broke the admin dashboard, all admin product/order/settings
+-- management, and any logged-in (non-admin) customer browsing product
+-- colors/sizes/images/categories — all surfacing as "permission denied for
+-- function has_role" (42501).
+--
+-- Fix: grant EXECUTE back to authenticated, which is required for RLS to
+-- function at all on every admin-managed table. anon stays revoked since no
+-- anon-facing policy references has_role() (confirmed across all policies).
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated;
