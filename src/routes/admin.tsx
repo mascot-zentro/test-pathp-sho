@@ -273,9 +273,13 @@ function ProductsTab() {
   };
 
   return (
-    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-8">
-      <div>
-        <h2 className="font-display text-xl mb-4">{editing ? `Edit: ${editing.name}` : "Add product"}</h2>
+    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-6">
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">{editing ? `Edit: ${editing.name}` : "Add product"}</CardTitle>
+          <CardDescription>{editing ? "Update product details, variants and media." : "Create a new listing for your store."}</CardDescription>
+        </CardHeader>
+        <CardContent>
         <form onSubmit={save} className="space-y-3">
           <div><Label>Name</Label><Input name="name" required defaultValue={editing?.name ?? ""} /></div>
           <div><Label>Description</Label><Textarea name="description" defaultValue={editing?.description ?? ""} /></div>
