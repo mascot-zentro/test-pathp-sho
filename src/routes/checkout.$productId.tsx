@@ -75,12 +75,28 @@ function Checkout() {
   }, [zoneId, fetchAreas]);
 
   useEffect(() => {
-    const query = color
-      ? supabase.from("product_colors").select("stock_quantity").eq("product_id", productId).eq("name", color).maybeSingle()
-      : size
-      ? supabase.from("product_sizes").select("stock_quantity").eq("product_id", productId).eq("name", size).maybeSingle()
-      : supabase.from("products").select("stock_quantity").eq("id", productId).maybeSingle();
-    query.then(({ data }) => setAvailableStock((data as { stock_quantity: number | null } | null)?.stock_quantity ?? null));
+    // Same fix as the product page: a product's effective stock is the
+    // most restrictive of its color and size caps, not "color wins".
+    const load = async () => {
+      if (!color && !size) {
+        const { data } = await supabase.from("products").select("stock_quantity").eq("id", productId).maybeSingle();
+        setAvailableStock((data as { stock_quantity: number | null } | null)?.stock_quantity ?? null);
+        return;
+      }
+      const [colorRes, sizeRes] = await Promise.all([
+        color
+          ? supabase.from("product_colors").select("stock_quantity").eq("product_id", productId).eq("name", color).maybeSingle()
+          : Promise.resolve({ data: null }),
+        size
+          ? supabase.from("product_sizes").select("stock_quantity").eq("product_id", productId).eq("name", size).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      const limits = [colorRes.data, sizeRes.data]
+        .map((d) => (d as { stock_quantity: number | null } | null)?.stock_quantity)
+        .filter((v): v is number => v !== null && v !== undefined);
+      setAvailableStock(limits.length > 0 ? Math.min(...limits) : null);
+    };
+    load();
   }, [productId, color, size]);
 
   useEffect(() => {

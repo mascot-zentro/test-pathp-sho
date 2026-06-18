@@ -453,7 +453,11 @@ function DashboardTab() {
 
   useEffect(() => {
     supabase.from("orders").select("*").order("created_at", { ascending: false })
-      .then(({ data }) => { setOrders((data as Order[]) ?? []); setLoading(false); });
+      .then(({ data, error }) => {
+        if (error) toast.error(`Couldn't load orders: ${error.message}`);
+        setOrders((data as Order[]) ?? []);
+        setLoading(false);
+      });
   }, []);
 
   if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
@@ -680,7 +684,11 @@ function OrdersTab() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [syncing, setSyncing] = useState<string | null>(null);
   const runSync = useServerFn(syncOrderStatus);
-  const load = () => supabase.from("orders").select("*").order("created_at", { ascending: false }).then(({ data }) => setOrders((data as Order[]) ?? []));
+  const load = () =>
+    supabase.from("orders").select("*").order("created_at", { ascending: false }).then(({ data, error }) => {
+      if (error) toast.error(`Couldn't load orders: ${error.message}`);
+      setOrders((data as Order[]) ?? []);
+    });
   useEffect(() => { load(); }, []);
 
   const setStatus = async (id: string, status: string) => {

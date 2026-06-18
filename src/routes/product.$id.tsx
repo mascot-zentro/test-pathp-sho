@@ -56,12 +56,13 @@ function ProductPage() {
 
   const images = gallery.length > 0 ? gallery : product.image_url ? [product.image_url] : [];
   const price = product.on_sale && product.sale_price ? product.sale_price : product.price;
-  // Stock priority mirrors the decrement_stock RPC: color stock, then size stock, then product-level stock.
-  const availableStock = colors.length > 0
-    ? colors.find((c) => c.name === selected)?.stock_quantity ?? null
-    : sizes.length > 0
-    ? sizes.find((s) => s.name === selectedSize)?.stock_quantity ?? null
-    : product.stock_quantity;
+  // A product's available stock is the most restrictive of its tracked
+  // attributes — if either the selected color or selected size has a cap,
+  // that cap applies. Untracked (null) axes don't constrain anything.
+  const colorLimit = colors.length > 0 ? (colors.find((c) => c.name === selected)?.stock_quantity ?? null) : null;
+  const sizeLimit = sizes.length > 0 ? (sizes.find((s) => s.name === selectedSize)?.stock_quantity ?? null) : null;
+  const trackedLimits = [colorLimit, sizeLimit].filter((v): v is number => v !== null);
+  const availableStock = colors.length === 0 && sizes.length === 0 ? product.stock_quantity : trackedLimits.length > 0 ? Math.min(...trackedLimits) : null;
   const outOfStock = availableStock === 0;
   const lowStock = availableStock !== null && availableStock > 0 && availableStock <= 5;
   const waNumber = (product.whatsapp_number || defaultWa).replace(/\D/g, "");
