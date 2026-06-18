@@ -17,12 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Boxes, AlertTriangle, PackageX, Wallet, Trash2 } from "lucide-react";
+import { Boxes, AlertTriangle, PackageX, Wallet, Trash2, BellRing, Check } from "lucide-react";
 import {
   type Product,
   type ProductColor,
   type ProductSize,
   type Expense,
+  type StockAlert,
   EXPENSE_CATEGORIES,
 } from "@/lib/admin-types";
 
@@ -37,12 +38,13 @@ type StockRow = {
   variant: string | null;
   axis: "color" | "size" | null;
   stock: number | null;
+  threshold: number;
   price: number;
   imageUrl: string | null;
   active: boolean;
 };
 
-const LOW_STOCK_THRESHOLD = 5;
+const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 
 function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -51,9 +53,46 @@ function InventoryPage() {
   const [loadingStock, setLoadingStock] = useState(true);
   const [stockFilter, setStockFilter] = useState<"attention" | "all">("attention");
 
+  const [alerts, setAlerts] = useState<StockAlert[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loadingExpenses, setLoadingExpenses] = useState(true);
   const [editing, setEditing] = useState<Expense | null>(null);
+
+  const loadAlerts = () =>
+    supabase
+      .from("stock_alerts")
+      .select("*")
+      .eq("acknowledged", false)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (error) toast.error(`Couldn't load stock alerts: ${error.message}`);
+        setAlerts((data as StockAlert[]) ?? []);
+        setLoadingAlerts(false);
+      });
+  useEffect(() => {
+    loadAlerts();
+  }, []);
+
+  const acknowledgeAlert = async (id: string) => {
+    const { error } = await supabase
+      .from("stock_alerts")
+      .update({ acknowledged: true })
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const acknowledgeAllAlerts = async () => {
+    const { error } = await supabase
+      .from("stock_alerts")
+      .update({ acknowledged: true })
+      .eq("acknowledged", false);
+    if (error) return toast.error(error.message);
+    setAlerts([]);
+    toast.success("All alerts cleared");
+  };
 
   useEffect(() => {
     Promise.all([
@@ -90,6 +129,7 @@ function InventoryPage() {
     const rows: StockRow[] = [];
     for (const p of products) {
       const effectivePrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
+      const threshold = p.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD;
       const pColors = colors.filter((c) => c.product_id === p.id);
       const pSizes = sizes.filter((s) => s.product_id === p.id);
       if (pColors.length === 0 && pSizes.length === 0) {
@@ -99,6 +139,7 @@ function InventoryPage() {
           variant: null,
           axis: null,
           stock: p.stock_quantity,
+          threshold,
           price: effectivePrice,
           imageUrl: p.image_url,
           active: p.active,
@@ -112,6 +153,7 @@ function InventoryPage() {
           variant: c.name,
           axis: "color",
           stock: c.stock_quantity,
+          threshold,
           price: effectivePrice,
           imageUrl: p.image_url,
           active: p.active,
@@ -124,6 +166,7 @@ function InventoryPage() {
           variant: s.name,
           axis: "size",
           stock: s.stock_quantity,
+          threshold,
           price: effectivePrice,
           imageUrl: p.image_url,
           active: p.active,
@@ -135,14 +178,14 @@ function InventoryPage() {
 
   const outOfStock = stockRows.filter((r) => r.stock === 0);
   const lowStock = stockRows.filter(
-    (r) => r.stock !== null && r.stock > 0 && r.stock <= LOW_STOCK_THRESHOLD,
+    (r) => r.stock !== null && r.stock > 0 && r.stock <= r.threshold,
   );
   const trackedCount = stockRows.filter((r) => r.stock !== null).length;
   const inventoryValue = stockRows.reduce((sum, r) => sum + r.price * (r.stock ?? 0), 0);
 
   const visibleStockRows =
     stockFilter === "attention"
-      ? stockRows.filter((r) => r.stock !== null && r.stock <= LOW_STOCK_THRESHOLD)
+      ? stockRows.filter((r) => r.stock !== null && r.stock <= r.threshold)
       : stockRows;
 
   const now = new Date();
@@ -162,8 +205,7 @@ function InventoryPage() {
       expense_date: String(f.get("expense_date") || new Date().toISOString().slice(0, 10)),
     };
     if (!payload.description) return toast.error("Description is required");
-    if (!isFinite(payload.amount) || payload.amount < 0)
-      return toast.error("Enter a valid amount");
+    if (!isFinite(payload.amount) || payload.amount < 0) return toast.error("Enter a valid amount");
     if (editing) {
       const { error } = await supabase.from("expenses").update(payload).eq("id", editing.id);
       if (error) return toast.error(error.message);
@@ -214,6 +256,57 @@ function InventoryPage() {
             tone="accent"
           />
         </div>
+
+        {!loadingAlerts && alerts.length > 0 && (
+          <Card className="shadow-sm mb-6 border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10">
+            <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <BellRing className="size-4 text-amber-600" />
+                <CardTitle className="font-display text-lg">
+                  Stock alerts
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {alerts.length} unacknowledged
+                  </span>
+                </CardTitle>
+              </div>
+              <Button size="sm" variant="outline" onClick={acknowledgeAllAlerts}>
+                <Check className="size-3.5" /> Acknowledge all
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y border-t">
+                {alerts.map((a) => (
+                  <div
+                    key={a.id}
+                    className="p-3 flex items-center gap-3 text-sm hover:bg-muted/30 transition"
+                  >
+                    <Badge
+                      variant={a.severity === "out" ? "destructive" : "secondary"}
+                      className="text-[10px]"
+                    >
+                      {a.severity === "out" ? "out of stock" : "low stock"}
+                    </Badge>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">
+                        {a.product_name}
+                        {a.variant_name && (
+                          <span className="text-muted-foreground"> · {a.variant_name}</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {a.stock_at_alert} left (threshold {a.threshold}) ·{" "}
+                        {new Date(a.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => acknowledgeAlert(a.id)}>
+                      Acknowledge
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="shadow-sm">
           <CardHeader className="pb-3 flex flex-row items-start justify-between gap-3">
@@ -277,7 +370,7 @@ function InventoryPage() {
                           <Badge variant="destructive" className="text-[10px]">
                             out of stock
                           </Badge>
-                        ) : r.stock <= LOW_STOCK_THRESHOLD ? (
+                        ) : r.stock <= r.threshold ? (
                           <span className="text-amber-600 font-medium">{r.stock}</span>
                         ) : (
                           r.stock

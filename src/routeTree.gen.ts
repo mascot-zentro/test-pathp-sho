@@ -20,12 +20,14 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
 import { Route as CheckoutProductIdRouteImport } from './routes/checkout.$productId'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminSalesReportRouteImport } from './routes/admin/sales-report'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminFaqsRouteImport } from './routes/admin/faqs'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminContentRouteImport } from './routes/admin/content'
+import { Route as AdminAdSpendingRouteImport } from './routes/admin/ad-spending'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin/products.index'
 import { Route as AdminProductsSlugRouteImport } from './routes/admin/products.$slug'
 
@@ -84,6 +86,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSalesReportRoute = AdminSalesReportRouteImport.update({
+  id: '/sales-report',
+  path: '/sales-report',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/products',
   path: '/products',
@@ -114,6 +121,11 @@ const AdminContentRoute = AdminContentRouteImport.update({
   path: '/content',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAdSpendingRoute = AdminAdSpendingRouteImport.update({
+  id: '/ad-spending',
+  path: '/ad-spending',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProductsIndexRoute = AdminProductsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -133,12 +145,14 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
+  '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/admin/sales-report': typeof AdminSalesReportRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
   '/product/$id': typeof ProductIdRoute
@@ -153,11 +167,13 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
+  '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/sales-report': typeof AdminSalesReportRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
   '/product/$id': typeof ProductIdRoute
@@ -174,12 +190,14 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
+  '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/admin/sales-report': typeof AdminSalesReportRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
   '/product/$id': typeof ProductIdRoute
@@ -197,12 +215,14 @@ export interface FileRouteTypes {
     | '/faq'
     | '/order-confirmed'
     | '/sale'
+    | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
     | '/admin/faqs'
     | '/admin/inventory'
     | '/admin/orders'
     | '/admin/products'
+    | '/admin/sales-report'
     | '/admin/settings'
     | '/checkout/$productId'
     | '/product/$id'
@@ -217,11 +237,13 @@ export interface FileRouteTypes {
     | '/faq'
     | '/order-confirmed'
     | '/sale'
+    | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
     | '/admin/faqs'
     | '/admin/inventory'
     | '/admin/orders'
+    | '/admin/sales-report'
     | '/admin/settings'
     | '/checkout/$productId'
     | '/product/$id'
@@ -237,12 +259,14 @@ export interface FileRouteTypes {
     | '/faq'
     | '/order-confirmed'
     | '/sale'
+    | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
     | '/admin/faqs'
     | '/admin/inventory'
     | '/admin/orders'
     | '/admin/products'
+    | '/admin/sales-report'
     | '/admin/settings'
     | '/checkout/$productId'
     | '/product/$id'
@@ -342,6 +366,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/sales-report': {
+      id: '/admin/sales-report'
+      path: '/sales-report'
+      fullPath: '/admin/sales-report'
+      preLoaderRoute: typeof AdminSalesReportRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/products'
@@ -384,6 +415,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminContentRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/ad-spending': {
+      id: '/admin/ad-spending'
+      path: '/ad-spending'
+      fullPath: '/admin/ad-spending'
+      preLoaderRoute: typeof AdminAdSpendingRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/products/': {
       id: '/admin/products/'
       path: '/'
@@ -416,23 +454,27 @@ const AdminProductsRouteWithChildren = AdminProductsRoute._addFileChildren(
 )
 
 interface AdminRouteChildren {
+  AdminAdSpendingRoute: typeof AdminAdSpendingRoute
   AdminContentRoute: typeof AdminContentRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminFaqsRoute: typeof AdminFaqsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
+  AdminSalesReportRoute: typeof AdminSalesReportRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAdSpendingRoute: AdminAdSpendingRoute,
   AdminContentRoute: AdminContentRoute,
   AdminDashboardRoute: AdminDashboardRoute,
   AdminFaqsRoute: AdminFaqsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
+  AdminSalesReportRoute: AdminSalesReportRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

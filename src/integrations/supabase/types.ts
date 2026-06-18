@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_spend: {
+        Row: {
+          amount: number
+          campaign_name: string | null
+          clicks: number | null
+          conversions: number | null
+          created_at: string
+          id: string
+          impressions: number | null
+          notes: string | null
+          platform: string
+          spend_date: string
+        }
+        Insert: {
+          amount: number
+          campaign_name?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          id?: string
+          impressions?: number | null
+          notes?: string | null
+          platform: string
+          spend_date?: string
+        }
+        Update: {
+          amount?: number
+          campaign_name?: string | null
+          clicks?: number | null
+          conversions?: number | null
+          created_at?: string
+          id?: string
+          impressions?: number | null
+          notes?: string | null
+          platform?: string
+          spend_date?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -315,6 +354,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          low_stock_threshold: number
           name: string
           on_sale: boolean
           price: number
@@ -330,6 +370,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          low_stock_threshold?: number
           name: string
           on_sale?: boolean
           price: number
@@ -345,6 +386,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          low_stock_threshold?: number
           name?: string
           on_sale?: boolean
           price?: number
@@ -375,6 +417,56 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      stock_alerts: {
+        Row: {
+          acknowledged: boolean
+          created_at: string
+          id: string
+          item_id: string
+          item_type: string
+          product_id: string
+          product_name: string
+          severity: string
+          stock_at_alert: number
+          threshold: number
+          variant_name: string | null
+        }
+        Insert: {
+          acknowledged?: boolean
+          created_at?: string
+          id?: string
+          item_id: string
+          item_type: string
+          product_id: string
+          product_name: string
+          severity: string
+          stock_at_alert: number
+          threshold: number
+          variant_name?: string | null
+        }
+        Update: {
+          acknowledged?: boolean
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+          product_id?: string
+          product_name?: string
+          severity?: string
+          stock_at_alert?: number
+          threshold?: number
+          variant_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_alerts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

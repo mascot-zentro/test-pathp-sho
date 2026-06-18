@@ -11,6 +11,7 @@ export type Product = {
   active: boolean;
   stock_quantity: number | null;
   category: string | null;
+  low_stock_threshold: number;
 };
 
 export type ProductColor = {
@@ -62,6 +63,35 @@ export type Expense = {
   expense_date: string;
   created_at: string;
 };
+
+export type StockAlert = {
+  id: string;
+  product_id: string;
+  item_type: "product" | "color" | "size";
+  item_id: string;
+  product_name: string;
+  variant_name: string | null;
+  stock_at_alert: number;
+  threshold: number;
+  severity: "low" | "out";
+  acknowledged: boolean;
+  created_at: string;
+};
+
+export type AdSpend = {
+  id: string;
+  platform: string;
+  campaign_name: string | null;
+  amount: number;
+  spend_date: string;
+  impressions: number | null;
+  clicks: number | null;
+  conversions: number | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export const AD_PLATFORMS = ["Facebook", "Instagram", "TikTok", "Google Ads", "YouTube", "Other"];
 
 export const EXPENSE_CATEGORIES = [
   "Inventory",

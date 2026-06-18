@@ -1,5 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -10,6 +11,8 @@ import {
   Settings as SettingsIcon,
   Store,
   ShieldCheck,
+  FileBarChart,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,12 +29,21 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 const NAV_ITEMS = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/products", label: "Products", icon: Package },
-  { to: "/admin/inventory", label: "Inventory & expenses", icon: Boxes },
+  {
+    to: "/admin/inventory",
+    label: "Inventory & expenses",
+    icon: Boxes,
+    alertKey: "stock" as const,
+  },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/admin/sales-report", label: "Sales report", icon: FileBarChart },
+  { to: "/admin/ad-spending", label: "Ad spending", icon: Megaphone },
   { to: "/admin/faqs", label: "FAQs", icon: HelpCircle },
   { to: "/admin/content", label: "Content", icon: FileText },
   { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
@@ -40,6 +52,24 @@ const NAV_ITEMS = [
 export function AdminShell({ children, email }: { children: ReactNode; email?: string | null }) {
   const { pathname } = useLocation();
   const current = NAV_ITEMS.find((item) => pathname.startsWith(item.to));
+  const [lowStockCount, setLowStockCount] = useState(0);
+
+  const refreshAlertCount = () => {
+    supabase
+      .from("stock_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("acknowledged", false)
+      .then(({ count }) => setLowStockCount(count ?? 0));
+  };
+
+  useEffect(() => {
+    refreshAlertCount();
+    // Re-check whenever the admin returns to the tab, so an alert
+    // acknowledged in another tab (or stock that changed since) reflects
+    // here without needing a manual refresh.
+    window.addEventListener("focus", refreshAlertCount);
+    return () => window.removeEventListener("focus", refreshAlertCount);
+  }, []);
 
   return (
     <SidebarProvider>
@@ -67,7 +97,15 @@ export function AdminShell({ children, email }: { children: ReactNode; email?: s
                     >
                       <Link to={item.to}>
                         <item.icon />
-                        <span>{item.label}</span>
+                        <span className="flex-1">{item.label}</span>
+                        {"alertKey" in item && lowStockCount > 0 && (
+                          <Badge
+                            variant="destructive"
+                            className="ml-auto h-5 min-w-5 justify-center px-1 text-[10px] group-data-[collapsible=icon]:hidden"
+                          >
+                            {lowStockCount}
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

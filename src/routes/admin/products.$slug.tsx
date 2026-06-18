@@ -116,6 +116,7 @@ function ProductEditPage() {
       weight: Number(f.get("weight") || 0.5),
       active,
       stock_quantity: f.get("stock_quantity") ? Number(f.get("stock_quantity")) : null,
+      low_stock_threshold: f.get("low_stock_threshold") ? Number(f.get("low_stock_threshold")) : 5,
       category: String(f.get("category") || "") || null,
     };
     if (
@@ -365,21 +366,33 @@ function ProductEditPage() {
                   />
                 </div>
               </div>
-              <div>
-                <Label>Stock quantity</Label>
-                <Input
-                  name="stock_quantity"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={product.stock_quantity ?? ""}
-                  placeholder="Leave blank for unlimited / untracked"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  If this product has colors or sizes, each variant's own stock is used instead and
-                  this field is ignored.
-                </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Stock quantity</Label>
+                  <Input
+                    name="stock_quantity"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={product.stock_quantity ?? ""}
+                    placeholder="Leave blank for unlimited / untracked"
+                  />
+                </div>
+                <div>
+                  <Label>Low stock alert at</Label>
+                  <Input
+                    name="low_stock_threshold"
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={product.low_stock_threshold ?? 5}
+                  />
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground -mt-2">
+                If this product has colors or sizes, each variant's own stock is used instead of
+                stock quantity above — but they all share this alert threshold.
+              </p>
               <div className="flex items-center gap-2">
                 <Switch checked={onSale} onCheckedChange={setOnSale} id="on_sale" />
                 <Label htmlFor="on_sale">Mark as on sale</Label>
