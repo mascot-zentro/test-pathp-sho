@@ -679,40 +679,49 @@ function FaqsTab() {
   };
 
   return (
-    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-8">
-      <div>
-        <h2 className="font-display text-xl mb-4">{editing ? "Edit FAQ" : "Add FAQ"}</h2>
-        <form onSubmit={save} className="space-y-3">
-          <div><Label>Question</Label><Input name="question" required defaultValue={editing?.question ?? ""} /></div>
-          <div><Label>Answer</Label><Textarea name="answer" rows={4} required defaultValue={editing?.answer ?? ""} /></div>
-          <div className="flex items-center gap-2"><input id="faq_active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="faq_active">Visible on site</Label></div>
-          <div className="flex gap-2">
-            <Button>{editing ? "Save changes" : "Add FAQ"}</Button>
-            {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
-          </div>
-        </form>
-        <p className="text-xs text-muted-foreground mt-4">Shown publicly at /faq, ordered top to bottom. Use the arrows on the right to reorder.</p>
-      </div>
-      <div>
-        <h2 className="font-display text-xl mb-4">All FAQs ({faqs.length})</h2>
-        <div className="border rounded-md divide-y">
-          {faqs.map((f, i) => (
-            <div key={f.id} className="p-3 flex items-start gap-3">
-              <div className="flex flex-col gap-0.5 pt-1">
-                <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▲</button>
-                <button type="button" disabled={i === faqs.length - 1} onClick={() => move(i, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▼</button>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{f.question} {!f.active && <span className="text-xs text-muted-foreground">· hidden</span>}</div>
-                <div className="text-xs text-muted-foreground line-clamp-2">{f.answer}</div>
-              </div>
-              <Button size="sm" variant="outline" onClick={() => setEditing(f)}>Edit</Button>
-              <Button size="sm" variant="ghost" onClick={() => del(f.id)}><Trash2 className="size-4" /></Button>
+    <div className="grid lg:grid-cols-[1fr,1.2fr] gap-6">
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">{editing ? "Edit FAQ" : "Add FAQ"}</CardTitle>
+          <CardDescription>Shown publicly at /faq. Use arrows to reorder.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={save} className="space-y-3">
+            <div><Label>Question</Label><Input name="question" required defaultValue={editing?.question ?? ""} /></div>
+            <div><Label>Answer</Label><Textarea name="answer" rows={4} required defaultValue={editing?.answer ?? ""} /></div>
+            <div className="flex items-center gap-2"><input id="faq_active" name="active" type="checkbox" defaultChecked={editing?.active ?? true} /><Label htmlFor="faq_active">Visible on site</Label></div>
+            <div className="flex gap-2">
+              <Button>{editing ? "Save changes" : "Add FAQ"}</Button>
+              {editing && <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>}
             </div>
-          ))}
-          {faqs.length === 0 && <div className="p-6 text-sm text-muted-foreground">No FAQs yet.</div>}
-        </div>
-      </div>
+          </form>
+        </CardContent>
+      </Card>
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">All FAQs</CardTitle>
+          <CardDescription>{faqs.length} {faqs.length === 1 ? "entry" : "entries"}</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y border-t">
+            {faqs.map((f, i) => (
+              <div key={f.id} className="p-3 flex items-start gap-3 hover:bg-muted/30 transition">
+                <div className="flex flex-col gap-0.5 pt-1">
+                  <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▲</button>
+                  <button type="button" disabled={i === faqs.length - 1} onClick={() => move(i, 1)} className="text-muted-foreground hover:text-foreground disabled:opacity-30 text-xs leading-none">▼</button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{f.question} {!f.active && <Badge variant="secondary" className="text-[10px] py-0 ml-1">hidden</Badge>}</div>
+                  <div className="text-xs text-muted-foreground line-clamp-2">{f.answer}</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setEditing(f)}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => del(f.id)}><Trash2 className="size-4" /></Button>
+              </div>
+            ))}
+            {faqs.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No FAQs yet.</div>}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
