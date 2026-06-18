@@ -529,50 +529,70 @@ function OrdersTab() {
 
   const totalSales = orders.filter((o) => o.status !== "cancelled").reduce((s, o) => s + Number(o.total), 0);
 
+  const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
+    if (s === "delivered") return "default";
+    if (s === "cancelled") return "destructive";
+    if (s === "shipped" || s === "submitted") return "secondary";
+    return "outline";
+  };
+
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Total sales" value={`NRS ${totalSales.toFixed(0)}`} />
-        <Stat label="Submitted to Pathao" value={orders.filter((o) => o.pathao_consignment_id).length.toString()} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Stat label="Total orders" value={orders.length.toString()} icon={ShoppingCart} tone="accent" />
+        <Stat label="Total sales" value={`NRS ${totalSales.toFixed(0)}`} icon={DollarSign} tone="success" />
+        <Stat label="Submitted to Pathao" value={orders.filter((o) => o.pathao_consignment_id).length.toString()} icon={Truck} tone="default" />
       </div>
-      <div className="border rounded-md divide-y">
-        {orders.map((o) => (
-          <div key={o.id} className="p-4 grid md:grid-cols-[1fr,1fr,auto] gap-3 items-center">
-            <div>
-              <div className="font-medium">{o.product_name} {o.color && <span className="text-muted-foreground">· {o.color}</span>} {o.size && <span className="text-muted-foreground">· {o.size}</span>} <span className="text-xs text-muted-foreground">× {o.quantity}</span></div>
-              <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
-              {o.pathao_consignment_id && (
-                <div className="text-xs text-accent flex items-center gap-1.5">
-                  Pathao #{o.pathao_consignment_id}
-                  {o.pathao_status && <span className="text-muted-foreground">· {o.pathao_status.replace(/_/g, " ")}</span>}
-                  <button type="button" onClick={() => refreshPathaoStatus(o.id)} disabled={syncing === o.id} title="Refresh status from Pathao" className="text-muted-foreground hover:text-foreground disabled:opacity-40">
-                    <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
-                  </button>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">All orders</CardTitle>
+          <CardDescription>Manage order statuses and track Pathao shipments.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y border-t">
+            {orders.map((o) => (
+              <div key={o.id} className="p-4 grid md:grid-cols-[1.2fr,1fr,auto] gap-3 items-center hover:bg-muted/30 transition">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">
+                    {o.product_name}
+                    {o.color && <span className="text-muted-foreground"> · {o.color}</span>}
+                    {o.size && <span className="text-muted-foreground"> · {o.size}</span>}
+                    <span className="text-xs text-muted-foreground ml-1">× {o.quantity}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString()}</div>
+                  {o.pathao_consignment_id && (
+                    <div className="text-xs text-accent flex items-center gap-1.5 mt-1">
+                      <Truck className="size-3" /> #{o.pathao_consignment_id}
+                      {o.pathao_status && <span className="text-muted-foreground">· {o.pathao_status.replace(/_/g, " ")}</span>}
+                      <button type="button" onClick={() => refreshPathaoStatus(o.id)} disabled={syncing === o.id} title="Refresh status from Pathao" className="text-muted-foreground hover:text-foreground disabled:opacity-40">
+                        <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="text-sm">
-              <div>{o.customer_name} · {o.customer_phone}</div>
-              <div className="text-muted-foreground text-xs">{o.customer_address}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-right">
-                <div className="tabular-nums font-medium">NRS {o.total}</div>
-                <div className="text-xs capitalize text-muted-foreground">{o.status.replace(/_/g, " ")}</div>
+                <div className="text-sm min-w-0">
+                  <div className="truncate">{o.customer_name} · {o.customer_phone}</div>
+                  <div className="text-muted-foreground text-xs truncate">{o.customer_address}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="tabular-nums font-semibold">NRS {o.total}</div>
+                    <Badge variant={statusVariant(o.status)} className="capitalize mt-1">{o.status.replace(/_/g, " ")}</Badge>
+                  </div>
+                  <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="text-xs border rounded-md px-2 py-1.5 bg-background hover:border-accent cursor-pointer">
+                    <option value="pending">pending</option>
+                    <option value="submitted">submitted</option>
+                    <option value="shipped">shipped</option>
+                    <option value="delivered">delivered</option>
+                    <option value="cancelled">cancelled</option>
+                  </select>
+                </div>
               </div>
-              <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)} className="text-xs border rounded px-2 py-1 bg-background">
-                <option value="pending">pending</option>
-                <option value="submitted">submitted</option>
-                <option value="shipped">shipped</option>
-                <option value="delivered">delivered</option>
-                <option value="cancelled">cancelled</option>
-              </select>
-            </div>
+            ))}
+            {orders.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No orders yet.</div>}
           </div>
-        ))}
-        {orders.length === 0 && <div className="p-6 text-sm text-muted-foreground">No orders yet.</div>}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
