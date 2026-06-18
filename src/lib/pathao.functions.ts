@@ -107,8 +107,8 @@ export const createOrder = createServerFn({ method: "POST" })
     if (data.productId) {
       const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
         p_product_id: data.productId,
-        p_color: data.color,
-        p_size: data.size,
+        p_color: data.color ?? "",
+        p_size: data.size ?? "",
         p_quantity: data.quantity,
       });
       if (stockErr) throw new Error(stockErr.message);
