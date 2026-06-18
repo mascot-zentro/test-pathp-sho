@@ -54,6 +54,26 @@ export type Faq = {
   active: boolean;
 };
 
+export type Expense = {
+  id: string;
+  description: string;
+  category: string | null;
+  amount: number;
+  expense_date: string;
+  created_at: string;
+};
+
+export const EXPENSE_CATEGORIES = [
+  "Inventory",
+  "Packaging",
+  "Shipping",
+  "Marketing",
+  "Salaries",
+  "Rent",
+  "Utilities",
+  "Other",
+];
+
 export const STANDARD_SIZES = ["S", "M", "L", "XL", "XXL"];
 
 export const STATUS_COLORS: Record<string, string> = {

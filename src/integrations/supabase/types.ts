@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      expenses: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          description: string
+          expense_date?: string
+          id?: string
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           active: boolean

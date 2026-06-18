@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   LayoutDashboard,
   Package,
+  Boxes,
   ShoppingCart,
   HelpCircle,
   FileText,
@@ -29,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 const NAV_ITEMS = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/products", label: "Products", icon: Package },
+  { to: "/admin/inventory", label: "Inventory & expenses", icon: Boxes },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { to: "/admin/faqs", label: "FAQs", icon: HelpCircle },
   { to: "/admin/content", label: "Content", icon: FileText },
