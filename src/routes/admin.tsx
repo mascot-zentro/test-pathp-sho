@@ -456,38 +456,48 @@ function DashboardTab() {
         <Stat label="Pending" value={pending.toString()} icon={Clock} tone="warn" />
       </div>
 
-      <div>
-        <h3 className="font-medium mb-3 text-sm text-muted-foreground">Revenue, last 14 days</h3>
-        <div className="h-56 border rounded-md p-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={days}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="date" fontSize={11} tickLine={false} />
-              <YAxis fontSize={11} tickLine={false} width={40} />
-              <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
-              <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Revenue · last 14 days</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={days}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="date" fontSize={11} tickLine={false} />
+                  <YAxis fontSize={11} tickLine={false} width={40} />
+                  <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
+                  <Line type="monotone" dataKey="revenue" stroke="var(--accent)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-      <div>
-        <h3 className="font-medium mb-3 text-sm text-muted-foreground">Top products by revenue</h3>
-        <div className="h-56 border rounded-md p-3">
-          {topProducts.length === 0 ? (
-            <div className="h-full grid place-items-center text-sm text-muted-foreground">No sales yet</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topProducts} layout="vertical" margin={{ left: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis type="number" fontSize={11} tickLine={false} />
-                <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
-                <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
-                <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Top products by revenue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-56">
+              {topProducts.length === 0 ? (
+                <div className="h-full grid place-items-center text-sm text-muted-foreground">No sales yet</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topProducts} layout="vertical" margin={{ left: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" fontSize={11} tickLine={false} />
+                    <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} width={120} />
+                    <Tooltip formatter={(v: number) => [`NRS ${v}`, "Revenue"]} />
+                    <Bar dataKey="revenue" fill="var(--accent)" radius={4} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
