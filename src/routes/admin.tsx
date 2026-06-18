@@ -16,7 +16,7 @@ import { Trash2, RefreshCw, LayoutDashboard, Package, ShoppingCart, HelpCircle, 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Legend } from "recharts";
 import { syncOrderStatus, getPathaoStores } from "@/lib/pathao.functions";
 
 export const Route = createFileRoute("/admin")({
