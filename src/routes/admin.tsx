@@ -567,8 +567,24 @@ function OrdersTab() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="border rounded-md p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="text-2xl font-display mt-1">{value}</div></div>;
+function Stat({ label, value, icon: Icon, tone = "default" }: { label: string; value: string; icon?: React.ComponentType<{ className?: string }>; tone?: "default" | "accent" | "success" | "warn" }) {
+  const tones: Record<string, string> = {
+    default: "bg-muted text-foreground",
+    accent: "bg-accent/10 text-accent",
+    success: "bg-emerald-500/10 text-emerald-600",
+    warn: "bg-amber-500/10 text-amber-600",
+  };
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-5 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
+          <div className="text-2xl font-display mt-1 truncate">{value}</div>
+        </div>
+        {Icon && <div className={`size-10 rounded-lg grid place-items-center shrink-0 ${tones[tone]}`}><Icon className="size-5" /></div>}
+      </CardContent>
+    </Card>
+  );
 }
 
 function FaqsTab() {
