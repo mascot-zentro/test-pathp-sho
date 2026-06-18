@@ -111,6 +111,7 @@ export type Database = {
           customer_address: string
           customer_name: string
           customer_phone: string
+          delivery_fee: number
           id: string
           pathao_consignment_id: string | null
           pathao_response: Json | null
@@ -134,6 +135,7 @@ export type Database = {
           customer_address: string
           customer_name: string
           customer_phone: string
+          delivery_fee?: number
           id?: string
           pathao_consignment_id?: string | null
           pathao_response?: Json | null
@@ -157,6 +159,7 @@ export type Database = {
           customer_address?: string
           customer_name?: string
           customer_phone?: string
+          delivery_fee?: number
           id?: string
           pathao_consignment_id?: string | null
           pathao_response?: Json | null
