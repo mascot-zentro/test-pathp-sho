@@ -392,23 +392,35 @@ function ProductsTab() {
         )}
       </div>
 
-      <div>
-        <h2 className="font-display text-xl mb-4">All products ({products.length})</h2>
-        <div className="border rounded-md divide-y">
-          {products.map((p) => (
-            <div key={p.id} className="p-3 flex items-center gap-3">
-              <div className="size-12 bg-muted rounded overflow-hidden shrink-0">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-muted-foreground">NRS {p.price}{p.on_sale && p.sale_price ? ` → NRS ${p.sale_price}` : ""} {p.category && `· ${p.category}`} {!p.active && "· hidden"} {p.stock_quantity === 0 && <span className="text-destructive">· out of stock</span>} {p.stock_quantity !== null && p.stock_quantity > 0 && `· ${p.stock_quantity} in stock`}</div>
+      <Card className="shadow-sm h-fit">
+        <CardHeader className="pb-3">
+          <CardTitle className="font-display text-xl">All products</CardTitle>
+          <CardDescription>{products.length} {products.length === 1 ? "item" : "items"} in your catalog</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y border-t">
+            {products.map((p) => (
+              <div key={p.id} className={`p-3 flex items-center gap-3 hover:bg-muted/30 transition ${editing?.id === p.id ? "bg-accent/5" : ""}`}>
+                <div className="size-14 bg-muted rounded-md overflow-hidden shrink-0 border">{p.image_url && <img src={p.image_url} alt="" className="w-full h-full object-cover" />}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{p.name}</div>
+                  <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
+                    <span className="tabular-nums">NRS {p.price}{p.on_sale && p.sale_price ? ` → ${p.sale_price}` : ""}</span>
+                    {p.category && <Badge variant="outline" className="text-[10px] py-0">{p.category}</Badge>}
+                    {!p.active && <Badge variant="secondary" className="text-[10px] py-0">hidden</Badge>}
+                    {p.on_sale && <Badge className="text-[10px] py-0 bg-accent text-accent-foreground border-transparent">sale</Badge>}
+                    {p.stock_quantity === 0 && <Badge variant="destructive" className="text-[10px] py-0">out of stock</Badge>}
+                    {p.stock_quantity !== null && p.stock_quantity > 0 && <span>· {p.stock_quantity} in stock</span>}
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
+                <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
-              <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
-            </div>
-          ))}
-          {products.length === 0 && <div className="p-6 text-sm text-muted-foreground">No products yet.</div>}
-        </div>
-      </div>
+            ))}
+            {products.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No products yet. Add your first one →</div>}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
