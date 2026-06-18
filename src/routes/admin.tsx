@@ -450,10 +450,10 @@ function DashboardTab() {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Total revenue" value={`NRS ${totalRevenue.toFixed(0)}`} />
-        <Stat label="Total orders" value={orders.length.toString()} />
-        <Stat label="Avg order value" value={`NRS ${avgOrder.toFixed(0)}`} />
-        <Stat label="Pending" value={pending.toString()} />
+        <Stat label="Total revenue" value={`NRS ${totalRevenue.toFixed(0)}`} icon={DollarSign} tone="success" />
+        <Stat label="Total orders" value={orders.length.toString()} icon={ShoppingCart} tone="accent" />
+        <Stat label="Avg order value" value={`NRS ${avgOrder.toFixed(0)}`} icon={TrendingUp} tone="default" />
+        <Stat label="Pending" value={pending.toString()} icon={Clock} tone="warn" />
       </div>
 
       <div>
