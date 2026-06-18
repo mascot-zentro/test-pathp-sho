@@ -60,24 +60,52 @@ function Admin() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-muted/30">
         <SiteNav />
-        <div className="container mx-auto px-6 py-20 max-w-md text-center">
-          <h1 className="text-2xl font-display">Admin access</h1>
-          <p className="text-muted-foreground mt-2">If no admin exists yet, you can claim it. Otherwise, ask an existing admin to grant access.</p>
-          <Button className="mt-6" onClick={tryClaim}>Claim admin</Button>
+        <div className="container mx-auto px-6 py-20 max-w-md">
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto size-12 rounded-full bg-accent/10 grid place-items-center mb-2">
+                <ShieldCheck className="size-6 text-accent" />
+              </div>
+              <CardTitle className="font-display text-2xl">Admin access</CardTitle>
+              <CardDescription>If no admin exists yet, you can claim it. Otherwise, ask an existing admin to grant access.</CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button onClick={tryClaim}>Claim admin</Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
+  const tabs = [
+    { v: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { v: "products", label: "Products", icon: Package },
+    { v: "orders", label: "Orders", icon: ShoppingCart },
+    { v: "faqs", label: "FAQs", icon: HelpCircle },
+    { v: "content", label: "Content", icon: FileText },
+    { v: "settings", label: "Settings", icon: SettingsIcon },
+  ];
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-muted/30">
       <SiteNav />
-      <div className="container mx-auto px-6 py-10">
-        <h1 className="text-3xl font-display mb-6">Admin panel</h1>
+      <div className="container mx-auto px-6 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-display tracking-tight">Admin panel</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage your store, products, orders and settings.</p>
+        </div>
         <Tabs defaultValue="dashboard">
-          <TabsList><TabsTrigger value="dashboard">Dashboard</TabsTrigger><TabsTrigger value="products">Products</TabsTrigger><TabsTrigger value="orders">Orders / Sales</TabsTrigger><TabsTrigger value="faqs">FAQs</TabsTrigger><TabsTrigger value="content">Site content</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
+          <TabsList className="h-auto p-1 bg-card border shadow-sm flex flex-wrap gap-1 w-full justify-start">
+            {tabs.map((t) => (
+              <TabsTrigger key={t.v} value={t.v} className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground gap-1.5 px-3 py-2">
+                <t.icon className="size-4" />
+                <span>{t.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
           <TabsContent value="dashboard" className="mt-6"><DashboardTab /></TabsContent>
           <TabsContent value="products" className="mt-6"><ProductsTab /></TabsContent>
           <TabsContent value="orders" className="mt-6"><OrdersTab /></TabsContent>
