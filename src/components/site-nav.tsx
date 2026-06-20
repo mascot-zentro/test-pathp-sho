@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ShoppingBag, User as UserIcon } from "lucide-react";
+import { ShoppingBag, ShoppingCart, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
 
 export function SiteNav() {
   const { user } = useAuth();
+  const { count } = useCart();
   const [storeName, setStoreName] = useState("Store");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -59,6 +61,12 @@ export function SiteNav() {
             <Link to="/sale" className="px-3 py-2 hover:text-accent" activeProps={{ className: "text-accent" }}>Sale</Link>
             <Link to="/faq" className="px-3 py-2 hover:text-accent" activeProps={{ className: "text-accent" }}>FAQ</Link>
             {isAdmin && <Link to="/admin" className="px-3 py-2 hover:text-accent">Admin</Link>}
+            <Link to="/cart" className="px-3 py-2 relative hover:text-accent" aria-label="Cart">
+              <ShoppingCart className="size-5" />
+              {count > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-accent text-accent-foreground text-[10px] leading-none rounded-full size-4 grid place-items-center">{count}</span>
+              )}
+            </Link>
             {user ? (
               <Link to="/account" className="px-3 py-2 flex items-center gap-1.5"><UserIcon className="size-4" /> Account</Link>
             ) : (

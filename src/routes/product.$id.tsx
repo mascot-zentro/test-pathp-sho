@@ -1,7 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useCart } from "@/lib/cart";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
@@ -13,7 +15,7 @@ export const Route = createFileRoute("/product/$id")({
 type Product = {
   id: string; name: string; description: string | null; price: number;
   sale_price: number | null; on_sale: boolean; image_url: string | null;
-  whatsapp_number: string | null; stock_quantity: number | null; category: string | null;
+  whatsapp_number: string | null; stock_quantity: number | null; category: string | null; weight: number;
 };
 type Color = { id: string; name: string; hex: string; stock_quantity: number | null };
 type Size = { id: string; name: string; stock_quantity: number | null };
@@ -25,6 +27,7 @@ type RelatedProduct = {
 function ProductPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const { addItem: addToCart } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [colors, setColors] = useState<Color[]>([]);
   const [sizes, setSizes] = useState<Size[]>([]);
@@ -165,6 +168,21 @@ function ProductPage() {
             <Button size="lg" className="flex-1" disabled={outOfStock}
               onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
               {outOfStock ? "Out of stock" : "Buy now — Cash on delivery"}
+            </Button>
+            <Button size="lg" variant="outline" className="flex-1" disabled={outOfStock}
+              onClick={() => {
+                addToCart({
+                  productId: product.id,
+                  productName: product.name,
+                  image: product.image_url,
+                  color: selected ?? null,
+                  size: selectedSize ?? null,
+                  unitPrice: price,
+                  weight: Number(product.weight) || 0.5,
+                }, 1);
+                toast.success("Added to cart");
+              }}>
+              Add to cart
             </Button>
             {waLink && (
               <Button asChild size="lg" variant="outline" className="flex-1">

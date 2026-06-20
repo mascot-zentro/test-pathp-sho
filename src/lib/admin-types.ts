@@ -57,6 +57,18 @@ export type Faq = {
   active: boolean;
 };
 
+export type PromoCode = {
+  id: string;
+  code: string;
+  discount_percent: number;
+  max_uses: number | null;
+  used_count: number;
+  starts_at: string | null;
+  expires_at: string | null;
+  active: boolean;
+  created_at: string;
+};
+
 export type Expense = {
   id: string;
   description: string;

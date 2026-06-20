@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getCities, getZones, getAreas, createOrder, getDeliveryEstimate } from "@/lib/pathao.functions";
+import { getCities, getZones, getAreas, createOrder, getDeliveryEstimate, previewPromoCode } from "@/lib/pathao.functions";
 
 export const Route = createFileRoute("/checkout/$productId")({
   validateSearch: z.object({ color: z.string().optional(), size: z.string().optional() }).parse,
@@ -39,6 +39,12 @@ function Checkout() {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [deliveryError, setDeliveryError] = useState<"not_configured" | "unavailable" | null>(null);
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; discountPercent: number } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+
+  const checkPromo = useServerFn(previewPromoCode);
 
   const fetchCities = useServerFn(getCities);
   const fetchZones = useServerFn(getZones);
@@ -123,10 +129,32 @@ function Checkout() {
   const outOfStock = availableStock === 0;
   const unit = product.on_sale && product.sale_price ? product.sale_price : product.price;
   const subtotal = Number(unit) * qty;
+  const discountAmount = promo ? Math.round(subtotal * (promo.discountPercent / 100) * 100) / 100 : 0;
+  const discountedSubtotal = subtotal - discountAmount;
   // Delivery fee must be known before the order can be placed — it is added
   // to the Pathao amount_to_collect so we receive the full amount on delivery.
-  const grandTotal = deliveryFee !== null ? subtotal + deliveryFee : null;
+  const grandTotal = deliveryFee !== null ? discountedSubtotal + deliveryFee : null;
   const deliveryReady = deliveryFee !== null; // city + zone selected and fee fetched
+
+  const applyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoChecking(true);
+    setPromoError(null);
+    try {
+      const res = (await checkPromo({ data: { code: promoInput.trim() } })) as { valid: boolean; discountPercent?: number; message?: string };
+      if (res.valid && res.discountPercent) {
+        setPromo({ code: promoInput.trim().toUpperCase(), discountPercent: res.discountPercent });
+        toast.success(`Promo applied: ${res.discountPercent}% off`);
+      } else {
+        setPromo(null);
+        setPromoError(res.message ?? "Invalid promo code.");
+      }
+    } catch {
+      setPromoError("Couldn't check that code, try again.");
+    } finally {
+      setPromoChecking(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +178,7 @@ function Checkout() {
           specialInstruction: form.instruction || null,
           weight: Number(product.weight) || 0.5,
           deliveryFee: deliveryFee,
+          promoCode: promo?.code ?? null,
           company: form.company,
         },
       });
@@ -252,7 +281,23 @@ function Checkout() {
           {availableStock !== null && availableStock > 0 && availableStock <= 5 && (
             <p className="text-xs text-amber-600 mt-1">Only {availableStock} in stock</p>
           )}
-          <div className="border-t mt-4 pt-4 flex justify-between text-sm"><span>Subtotal</span><span>NRS {subtotal}</span></div>
+          <div className="border-t mt-4 pt-4">
+            <Label className="text-xs">Promo code</Label>
+            <div className="flex gap-2 mt-1">
+              <Input value={promoInput} onChange={(e) => setPromoInput(e.target.value)} placeholder="e.g. WELCOME10" disabled={!!promo} className="text-sm" />
+              {promo ? (
+                <Button type="button" size="sm" variant="outline" onClick={() => { setPromo(null); setPromoInput(""); setPromoError(null); }}>Remove</Button>
+              ) : (
+                <Button type="button" size="sm" variant="outline" disabled={promoChecking || !promoInput.trim()} onClick={applyPromo}>{promoChecking ? "Checking…" : "Apply"}</Button>
+              )}
+            </div>
+            {promoError && <p className="text-xs text-destructive mt-1">{promoError}</p>}
+            {promo && <p className="text-xs text-emerald-600 mt-1">"{promo.code}" applied — {promo.discountPercent}% off</p>}
+          </div>
+          <div className="mt-3 flex justify-between text-sm"><span>Subtotal</span><span>NRS {subtotal}</span></div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>− NRS {discountAmount}</span></div>
+          )}
           <div className="flex justify-between text-sm mt-1">
             <span className="text-muted-foreground">Delivery</span>
             {deliveryFeeLoading ? (

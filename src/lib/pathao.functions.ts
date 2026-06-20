@@ -163,6 +163,7 @@ const orderSchema = z.object({
   // order and added to amount_to_collect so Pathao collects the full amount.
   // If not yet known (delivery location not set), submit is blocked on the client.
   deliveryFee: z.number().min(0).default(0),
+  promoCode: z.string().trim().toUpperCase().min(1).optional().nullable(),
   company: z.string().max(0).optional(), // honeypot — real users never see/fill this field
 });
 
@@ -179,6 +180,8 @@ async function insertOrderAndSubmitToPathao(
     quantity: number;
     unitPrice: number;
     deliveryFee: number;
+    promoCode?: string | null;
+    discountAmount?: number;
     total: number;
     customerName: string;
     customerPhone: string;
@@ -201,6 +204,8 @@ async function insertOrderAndSubmitToPathao(
       quantity: args.quantity,
       unit_price: args.unitPrice,
       delivery_fee: args.deliveryFee,
+      promo_code: args.promoCode ?? null,
+      discount_amount: args.discountAmount ?? 0,
       total: args.total,
       customer_name: args.customerName,
       customer_phone: args.customerPhone,
@@ -260,12 +265,39 @@ async function insertOrderAndSubmitToPathao(
   }
 }
 
+// Read-only check used for live UI feedback while typing a code — does NOT
+// consume a use. The actual redemption (which does count the use) happens
+// atomically inside createOrder/createCartOrder at submit time.
+export const previewPromoCode = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ code: z.string().trim().min(1) }))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: promo } = await supabaseAdmin.from("promo_codes").select("*").ilike("code", data.code).maybeSingle();
+    if (!promo || !promo.active) return { valid: false, message: "Invalid promo code." };
+    const now = new Date();
+    if (promo.starts_at && now < new Date(promo.starts_at)) return { valid: false, message: "This code isn't active yet." };
+    if (promo.expires_at && now > new Date(promo.expires_at)) return { valid: false, message: "This code has expired." };
+    if (promo.max_uses !== null && promo.used_count >= promo.max_uses) return { valid: false, message: "This code has reached its usage limit." };
+    return { valid: true, discountPercent: Number(promo.discount_percent) };
+  });
+
 export const createOrder = createServerFn({ method: "POST" })
   .inputValidator(orderSchema)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const subtotal = data.unitPrice * data.quantity;
-    const total = subtotal + data.deliveryFee;
+
+    // Promo code: redeemed (and its use counted) before stock is touched.
+    // If stock then fails, the redemption is released so the code isn't
+    // burned on a failed order.
+    let discountAmount = 0;
+    if (data.promoCode) {
+      const { data: discountPercent, error: promoErr } = await supabaseAdmin.rpc("redeem_promo_code", { p_code: data.promoCode });
+      if (promoErr) throw new Error(promoErr.message);
+      if (discountPercent === null) throw new Error("That promo code isn't valid, or has expired or been used up.");
+      discountAmount = Math.round(subtotal * (Number(discountPercent) / 100) * 100) / 100;
+    }
+    const total = subtotal - discountAmount + data.deliveryFee;
 
     // Basic anti-spam: cap how many orders one phone number can place in a
     // short window. Cheapest check first, before touching stock or inserting.
@@ -278,6 +310,7 @@ export const createOrder = createServerFn({ method: "POST" })
       .eq("customer_phone", data.customerPhone)
       .gte("created_at", since);
     if ((recentCount ?? 0) >= RATE_LIMIT_MAX_ORDERS) {
+      if (data.promoCode) await supabaseAdmin.rpc("release_promo_code", { p_code: data.promoCode });
       throw new Error("Too many orders from this phone number recently. Please wait a few minutes, or contact us directly if you need to order more.");
     }
 
@@ -290,8 +323,14 @@ export const createOrder = createServerFn({ method: "POST" })
         p_size: data.size as string,
         p_quantity: data.quantity,
       });
-      if (stockErr) throw new Error(stockErr.message);
-      if (!stockOk) throw new Error("Sorry, this item just went out of stock.");
+      if (stockErr) {
+        if (data.promoCode) await supabaseAdmin.rpc("release_promo_code", { p_code: data.promoCode });
+        throw new Error(stockErr.message);
+      }
+      if (!stockOk) {
+        if (data.promoCode) await supabaseAdmin.rpc("release_promo_code", { p_code: data.promoCode });
+        throw new Error("Sorry, this item just went out of stock.");
+      }
     }
 
     return insertOrderAndSubmitToPathao(supabaseAdmin, {
@@ -302,6 +341,8 @@ export const createOrder = createServerFn({ method: "POST" })
       quantity: data.quantity,
       unitPrice: data.unitPrice,
       deliveryFee: data.deliveryFee,
+      promoCode: data.promoCode ?? null,
+      discountAmount,
       total,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -414,4 +455,162 @@ export const createManualOrder = createServerFn({ method: "POST" })
       weight: data.weight,
       source: data.source,
     });
+  });
+
+const cartItemSchema = z.object({
+  productId: z.string().uuid(),
+  productName: z.string().min(1),
+  color: z.string().nullable(),
+  size: z.string().nullable(),
+  quantity: z.number().int().min(1),
+  unitPrice: z.number().min(0),
+  weight: z.number().min(0.5).max(10).default(0.5),
+});
+
+const cartOrderSchema = z.object({
+  items: z.array(cartItemSchema).min(1).max(20),
+  customerName: z.string().min(2).max(100),
+  customerPhone: z.string().min(10).max(15),
+  customerAddress: z.string().min(5).max(220),
+  cityId: z.number().int(),
+  zoneId: z.number().int(),
+  areaId: z.number().int().optional().nullable(),
+  specialInstruction: z.string().optional().nullable(),
+  deliveryFee: z.number().min(0).default(0),
+  promoCode: z.string().trim().toUpperCase().min(1).optional().nullable(),
+  company: z.string().max(0).optional(),
+});
+
+// Cart checkout: one combined Pathao shipment, but one `orders` row per line
+// item (sharing order_group_id) so inventory and admin reporting stay
+// per-product. Discount and delivery are distributed proportionally across
+// the rows so summed totals across the group match the actual charge.
+export const createCartOrder = createServerFn({ method: "POST" })
+  .inputValidator(cartOrderSchema)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const subtotal = data.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+
+    let discountAmount = 0;
+    if (data.promoCode) {
+      const { data: discountPercent, error: promoErr } = await supabaseAdmin.rpc("redeem_promo_code", { p_code: data.promoCode });
+      if (promoErr) throw new Error(promoErr.message);
+      if (discountPercent === null) throw new Error("That promo code isn't valid, or has expired or been used up.");
+      discountAmount = Math.round(subtotal * (Number(discountPercent) / 100) * 100) / 100;
+    }
+    const total = subtotal - discountAmount + data.deliveryFee;
+
+    const RATE_LIMIT_WINDOW_MIN = 10;
+    const RATE_LIMIT_MAX_ORDERS = 3;
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MIN * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabaseAdmin
+      .from("orders").select("id", { count: "exact", head: true })
+      .eq("customer_phone", data.customerPhone).gte("created_at", since);
+    if ((recentCount ?? 0) >= RATE_LIMIT_MAX_ORDERS) {
+      if (data.promoCode) await supabaseAdmin.rpc("release_promo_code", { p_code: data.promoCode });
+      throw new Error("Too many orders from this phone number recently. Please wait a few minutes, or contact us directly if you need to order more.");
+    }
+
+    // Reserve stock for every line item. If any one fails, roll back the
+    // ones already reserved (decrement_stock with a negative quantity adds
+    // stock back) and release the promo code before erroring out.
+    const reserved: typeof data.items = [];
+    for (const item of data.items) {
+      const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
+        p_product_id: item.productId,
+        p_color: item.color as string,
+        p_size: item.size as string,
+        p_quantity: item.quantity,
+      });
+      if (stockErr || !stockOk) {
+        for (const r of reserved) {
+          await supabaseAdmin.rpc("decrement_stock", { p_product_id: r.productId, p_color: r.color as string, p_size: r.size as string, p_quantity: -r.quantity });
+        }
+        if (data.promoCode) await supabaseAdmin.rpc("release_promo_code", { p_code: data.promoCode });
+        throw new Error(stockErr?.message ?? `Sorry, "${item.productName}" just went out of stock.`);
+      }
+      reserved.push(item);
+    }
+
+    const groupId = crypto.randomUUID();
+    let discountLeft = discountAmount;
+    let deliveryLeft = data.deliveryFee;
+    const rows = data.items.map((item, idx) => {
+      const itemSubtotal = item.unitPrice * item.quantity;
+      const isLast = idx === data.items.length - 1;
+      const share = subtotal > 0 ? itemSubtotal / subtotal : 0;
+      const rowDiscount = isLast ? discountLeft : Math.round(discountAmount * share * 100) / 100;
+      const rowDelivery = isLast ? deliveryLeft : Math.round(data.deliveryFee * share * 100) / 100;
+      discountLeft -= rowDiscount;
+      deliveryLeft -= rowDelivery;
+      return {
+        product_id: item.productId,
+        product_name: item.productName,
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        delivery_fee: rowDelivery,
+        promo_code: data.promoCode ?? null,
+        discount_amount: rowDiscount,
+        total: Math.round((itemSubtotal - rowDiscount + rowDelivery) * 100) / 100,
+        customer_name: data.customerName,
+        customer_phone: data.customerPhone,
+        customer_address: data.customerAddress,
+        recipient_city: data.cityId,
+        recipient_zone: data.zoneId,
+        recipient_area: data.areaId ?? null,
+        special_instruction: data.specialInstruction ?? null,
+        status: "pending",
+        order_group_id: groupId,
+      };
+    });
+
+    const { data: insertedOrders, error: orderErr } = await supabaseAdmin.from("orders").insert(rows).select("id");
+    if (orderErr || !insertedOrders) throw new Error(orderErr?.message ?? "Order insert failed");
+    const groupOrderIds = insertedOrders.map((o) => o.id);
+
+    const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
+    const storeId = setting?.value ? Number(setting.value) : null;
+    if (!storeId) {
+      await supabaseAdmin.from("orders").update({ status: "awaiting_pathao_config" }).in("id", groupOrderIds);
+      return { orderIds: groupOrderIds, pathao: null, warning: "Pathao store_id not configured in admin settings" };
+    }
+
+    const combinedDescription = data.items
+      .map((i) => `${i.productName}${[i.color, i.size].filter(Boolean).length ? ` (${[i.color, i.size].filter(Boolean).join(", ")})` : ""} x${i.quantity}`)
+      .join("; ");
+    const combinedWeight = Math.min(10, Math.max(0.5, data.items.reduce((s, i) => s + i.weight * i.quantity, 0)));
+    const combinedQuantity = data.items.reduce((s, i) => s + i.quantity, 0);
+
+    try {
+      const { pathao } = await import("./pathao.server");
+      const pathaoRes = (await pathao.createOrder({
+        store_id: storeId,
+        merchant_order_id: groupId,
+        recipient_name: data.customerName,
+        recipient_phone: data.customerPhone,
+        recipient_address: data.customerAddress,
+        recipient_city: data.cityId,
+        recipient_zone: data.zoneId,
+        ...(data.areaId ? { recipient_area: data.areaId } : {}),
+        delivery_type: 48,
+        item_type: 2,
+        special_instruction: data.specialInstruction ?? "",
+        item_quantity: combinedQuantity,
+        item_weight: combinedWeight,
+        item_description: combinedDescription,
+        amount_to_collect: Math.round(total),
+      })) as { data?: { consignment_id?: string } };
+
+      await supabaseAdmin.from("orders").update({
+        pathao_consignment_id: pathaoRes?.data?.consignment_id ?? null,
+        pathao_response: pathaoRes as never,
+        status: "submitted",
+      }).in("id", groupOrderIds);
+      return { orderIds: groupOrderIds, pathao: pathaoRes };
+    } catch (e) {
+      await supabaseAdmin.from("orders").update({ status: "pathao_failed", pathao_response: { error: String(e) } as never }).in("id", groupOrderIds);
+      return { orderIds: groupOrderIds, pathao: null, warning: `Order saved, Pathao failed: ${String(e)}` };
+    }
   });

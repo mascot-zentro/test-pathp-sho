@@ -151,12 +151,15 @@ export type Database = {
           customer_name: string
           customer_phone: string
           delivery_fee: number
+          discount_amount: number
           id: string
+          order_group_id: string | null
           pathao_consignment_id: string | null
           pathao_response: Json | null
           pathao_status: string | null
           product_id: string | null
           product_name: string
+          promo_code: string | null
           quantity: number
           recipient_area: number | null
           recipient_city: number | null
@@ -176,12 +179,15 @@ export type Database = {
           customer_name: string
           customer_phone: string
           delivery_fee?: number
+          discount_amount?: number
           id?: string
+          order_group_id?: string | null
           pathao_consignment_id?: string | null
           pathao_response?: Json | null
           pathao_status?: string | null
           product_id?: string | null
           product_name: string
+          promo_code?: string | null
           quantity?: number
           recipient_area?: number | null
           recipient_city?: number | null
@@ -201,12 +207,15 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           delivery_fee?: number
+          discount_amount?: number
           id?: string
+          order_group_id?: string | null
           pathao_consignment_id?: string | null
           pathao_response?: Json | null
           pathao_status?: string | null
           product_id?: string | null
           product_name?: string
+          promo_code?: string | null
           quantity?: number
           recipient_area?: number | null
           recipient_city?: number | null
@@ -409,6 +418,42 @@ export type Database = {
           },
         ]
       }
+      promo_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          discount_percent: number
+          expires_at: string | null
+          id: string
+          max_uses: number | null
+          starts_at: string | null
+          used_count: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          discount_percent: number
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          starts_at?: string | null
+          used_count?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          discount_percent?: number
+          expires_at?: string | null
+          id?: string
+          max_uses?: number | null
+          starts_at?: string | null
+          used_count?: number
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           active: boolean
@@ -565,6 +610,14 @@ export type Database = {
           p_size: string
         }
         Returns: boolean
+      }
+      redeem_promo_code: {
+        Args: { p_code: string }
+        Returns: number
+      }
+      release_promo_code: {
+        Args: { p_code: string }
+        Returns: undefined
       }
       has_role: {
         Args: {

@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   FileBarChart,
   Megaphone,
+  Tag,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
     alertKey: "stock" as const,
   },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/admin/promos", label: "Promo codes", icon: Tag },
   { to: "/admin/sales-report", label: "Sales report", icon: FileBarChart },
   { to: "/admin/ad-spending", label: "Ad spending", icon: Megaphone },
   { to: "/admin/faqs", label: "FAQs", icon: HelpCircle },
