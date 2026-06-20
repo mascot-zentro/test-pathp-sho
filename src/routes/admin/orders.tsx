@@ -94,8 +94,15 @@ function OrdersPage() {
     if (restockedCount > 0) toast.success(`Added stock back for ${restockedCount} cancelled/returned order${restockedCount === 1 ? "" : "s"}.`);
   };
 
+  // Excludes orders cancelled either through the admin's own status field
+  // OR reported cancelled/returned by the courier. syncOrderStatus now
+  // keeps these in sync going forward, but this also protects against
+  // orders that haven't been re-synced since a courier-side cancellation
+  // (e.g. right after a "Pickup Cancelled" event, before the next sync).
+  const isExcludedFromSales = (o: Order) =>
+    o.status === "cancelled" || (!!o.pathao_status && /cancel|return/i.test(o.pathao_status));
   const totalSales = orders
-    .filter((o) => o.status !== "cancelled")
+    .filter((o) => !isExcludedFromSales(o))
     .reduce((s, o) => s + Number(o.total), 0);
 
   const filtered = useMemo(() => {

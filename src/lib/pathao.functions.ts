@@ -142,7 +142,7 @@ export const syncOrderStatus = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: order, error } = await supabaseAdmin
       .from("orders")
-      .select("pathao_consignment_id, product_id, color, size, quantity, stock_restocked")
+      .select("pathao_consignment_id, product_id, color, size, quantity, stock_restocked, status")
       .eq("id", data.orderId)
       .maybeSingle();
     if (error || !order) throw new Error("Order not found");
@@ -166,8 +166,21 @@ export const syncOrderStatus = createServerFn({ method: "POST" })
         restocked = true;
       }
     }
+    // Keep the admin's own workflow status in sync with what the courier
+    // actually did. Without this, "Total sales" (which only excludes
+    // status === "cancelled") kept counting orders the courier had
+    // already cancelled, because nothing ever told the admin field that
+    // happened — the two statuses are intentionally separate (admin
+    // workflow vs courier-reported) but a courier cancellation should
+    // always win over an order still sitting at "submitted"/"shipped".
+    // Never downgrades an order already marked "delivered".
+    let statusUpdated = false;
+    if (isCancelledOrReturned && order.status !== "cancelled" && order.status !== "delivered") {
+      await supabaseAdmin.from("orders").update({ status: "cancelled" }).eq("id", data.orderId);
+      statusUpdated = true;
+    }
 
-    return { pathaoStatus: slug, restocked };
+    return { pathaoStatus: slug, restocked, statusUpdated };
   });
 
 const orderSchema = z.object({

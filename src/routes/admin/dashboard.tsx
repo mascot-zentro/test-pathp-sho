@@ -105,11 +105,20 @@ function DashboardPage() {
     );
   }
 
+  // See the matching fix in admin/orders.tsx: a courier-cancelled/returned
+  // order (Pathao status) doesn't auto-update the admin's own status field
+  // retroactively for orders synced before that fix, so excluding only
+  // status === "cancelled" here under-excluded revenue, units sold, the
+  // revenue trend, and top products. syncOrderStatus now keeps the two in
+  // sync going forward; this filter is the safety net for anything synced
+  // before that.
+  const isExcludedFromSales = (o: Order) =>
+    o.status === "cancelled" || (!!o.pathao_status && /cancel|return/i.test(o.pathao_status));
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - rangeDays + 1);
   cutoff.setHours(0, 0, 0, 0);
   const inRange = orders.filter((o) => new Date(o.created_at) >= cutoff);
-  const validOrders = inRange.filter((o) => o.status !== "cancelled");
+  const validOrders = inRange.filter((o) => !isExcludedFromSales(o));
   const totalRevenue = validOrders.reduce((s, o) => s + Number(o.total), 0);
   const unitsSold = validOrders.reduce((s, o) => s + Number(o.quantity), 0);
   const avgOrder = validOrders.length ? totalRevenue / validOrders.length : 0;
@@ -119,7 +128,7 @@ function DashboardPage() {
   prevCutoff.setDate(prevCutoff.getDate() - rangeDays);
   const prevValid = orders.filter((o) => {
     const d = new Date(o.created_at);
-    return d >= prevCutoff && d < cutoff && o.status !== "cancelled";
+    return d >= prevCutoff && d < cutoff && !isExcludedFromSales(o);
   });
   const prevRevenue = prevValid.reduce((s, o) => s + Number(o.total), 0);
   const revenueDelta = prevRevenue ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : null;
