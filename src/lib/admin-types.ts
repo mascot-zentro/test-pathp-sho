@@ -13,6 +13,7 @@ export type Product = {
   stock_quantity: number | null;
   category: string | null;
   low_stock_threshold: number;
+  created_at: string;
 };
 
 export type ProductColor = {
