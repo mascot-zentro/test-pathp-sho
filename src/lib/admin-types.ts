@@ -4,6 +4,7 @@ export type Product = {
   description: string | null;
   price: number;
   sale_price: number | null;
+  cost_price: number | null;
   on_sale: boolean;
   image_url: string | null;
   whatsapp_number: string | null;

@@ -110,6 +110,7 @@ function ProductEditPage() {
       description: String(f.get("description") || ""),
       price: Number(f.get("price")),
       sale_price: f.get("sale_price") ? Number(f.get("sale_price")) : null,
+      cost_price: f.get("cost_price") ? Number(f.get("cost_price")) : null,
       on_sale: onSale,
       image_url: imageUrl,
       whatsapp_number: String(f.get("whatsapp_number") || "") || null,
@@ -334,7 +335,18 @@ function ProductEditPage() {
                   ))}
                 </datalist>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <Label>Cost price (NRS)</Label>
+                  <Input
+                    name="cost_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={product.cost_price ?? ""}
+                    placeholder="What you paid"
+                  />
+                </div>
                 <div>
                   <Label>Price (NRS)</Label>
                   <Input

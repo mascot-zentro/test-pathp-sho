@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Boxes, AlertTriangle, PackageX, Wallet, Trash2, BellRing, Check } from "lucide-react";
+import { Boxes, AlertTriangle, PackageX, Wallet, TrendingUp, Trash2, BellRing, Check } from "lucide-react";
 import {
   type Product,
   type ProductColor,
@@ -40,6 +40,7 @@ type StockRow = {
   stock: number | null;
   threshold: number;
   price: number;
+  costPrice: number | null;
   imageUrl: string | null;
   active: boolean;
 };
@@ -129,6 +130,7 @@ function InventoryPage() {
     const rows: StockRow[] = [];
     for (const p of products) {
       const effectivePrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
+      const costPrice = p.cost_price ?? null;
       const threshold = p.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD;
       const pColors = colors.filter((c) => c.product_id === p.id);
       const pSizes = sizes.filter((s) => s.product_id === p.id);
@@ -141,6 +143,7 @@ function InventoryPage() {
           stock: p.stock_quantity,
           threshold,
           price: effectivePrice,
+          costPrice,
           imageUrl: p.image_url,
           active: p.active,
         });
@@ -155,6 +158,7 @@ function InventoryPage() {
           stock: c.stock_quantity,
           threshold,
           price: effectivePrice,
+          costPrice,
           imageUrl: p.image_url,
           active: p.active,
         });
@@ -168,6 +172,7 @@ function InventoryPage() {
           stock: s.stock_quantity,
           threshold,
           price: effectivePrice,
+          costPrice,
           imageUrl: p.image_url,
           active: p.active,
         });
@@ -182,6 +187,14 @@ function InventoryPage() {
   );
   const trackedCount = stockRows.filter((r) => r.stock !== null).length;
   const inventoryValue = stockRows.reduce((sum, r) => sum + r.price * (r.stock ?? 0), 0);
+  // Only counts rows where a cost price has been set — rows without one
+  // are excluded rather than treated as 0 cost, so missing cost data
+  // understates potential profit instead of silently overstating it.
+  const potentialProfit = stockRows.reduce(
+    (sum, r) => sum + (r.costPrice !== null ? (r.price - r.costPrice) * (r.stock ?? 0) : 0),
+    0,
+  );
+  const rowsMissingCost = stockRows.filter((r) => r.costPrice === null).length;
 
   const visibleStockRows =
     stockFilter === "attention"
@@ -235,7 +248,7 @@ function InventoryPage() {
           title="Inventory & expenses"
           description="Stock levels across every product variant, and what it's costing to run the shop."
         />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <Stat label="Tracked variants" value={String(trackedCount)} icon={Boxes} />
           <Stat
             label="Low stock"
@@ -255,7 +268,19 @@ function InventoryPage() {
             icon={Wallet}
             tone="accent"
           />
+          <Stat
+            label="Potential profit"
+            value={`NRS ${potentialProfit.toLocaleString()}`}
+            icon={TrendingUp}
+            tone="accent"
+          />
         </div>
+        {rowsMissingCost > 0 && (
+          <p className="text-xs text-muted-foreground -mt-4 mb-6">
+            {rowsMissingCost} variant{rowsMissingCost === 1 ? "" : "s"} missing a cost price —
+            potential profit is calculated only from variants that have one.
+          </p>
+        )}
 
         {!loadingAlerts && alerts.length > 0 && (
           <Card className="shadow-sm mb-6 border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10">
@@ -339,6 +364,9 @@ function InventoryPage() {
                     <TableHead>Product</TableHead>
                     <TableHead>Variant</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
+                    <TableHead className="text-right">Sell price</TableHead>
+                    <TableHead className="text-right">Margin</TableHead>
                     <TableHead className="text-right">Value</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -374,6 +402,30 @@ function InventoryPage() {
                           <span className="text-amber-600 font-medium">{r.stock}</span>
                         ) : (
                           r.stock
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {r.costPrice === null ? "—" : `NRS ${r.costPrice.toLocaleString()}`}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        NRS {r.price.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {r.costPrice === null ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          (() => {
+                            const margin = r.price - r.costPrice;
+                            const marginPct = r.price > 0 ? (margin / r.price) * 100 : 0;
+                            return (
+                              <span className={margin < 0 ? "text-destructive font-medium" : ""}>
+                                NRS {margin.toLocaleString()}{" "}
+                                <span className="text-muted-foreground text-xs">
+                                  ({marginPct.toFixed(0)}%)
+                                </span>
+                              </span>
+                            );
+                          })()
                         )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">
