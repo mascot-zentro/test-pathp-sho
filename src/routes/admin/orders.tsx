@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { DollarSign, RefreshCw, ShoppingCart, Truck } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
-import { type Order, statusVariant } from "@/lib/admin-types";
+import { type Order, STATUS_COLORS } from "@/lib/admin-types";
 
 export const Route = createFileRoute("/admin/orders")({
   ssr: false,
@@ -177,68 +177,78 @@ function OrdersPage() {
         <CardContent className="p-0">
           <div className="divide-y border-t">
             {filtered.map((o) => (
-              <div
-                key={o.id}
-                className="p-4 grid md:grid-cols-[1.2fr,1fr,auto] gap-3 items-center hover:bg-muted/30 transition"
-              >
-                <div className="min-w-0">
-                  <div className="font-medium truncate">
-                    {o.product_name}
-                    {o.color && <span className="text-muted-foreground"> · {o.color}</span>}
-                    {o.size && <span className="text-muted-foreground"> · {o.size}</span>}
-                    <span className="text-xs text-muted-foreground ml-1">× {o.quantity}</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(o.created_at).toLocaleString()}
-                  </div>
-                  {o.pathao_consignment_id && (
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <Truck className="size-3 text-accent shrink-0" />
-                      <span className="text-xs text-muted-foreground">#{o.pathao_consignment_id}</span>
-                      {o.pathao_status ? (
-                        <Badge variant={pathaoStatusTone(o.pathao_status)} className="text-[10px] px-1.5 py-0 h-5 capitalize font-normal">
-                          {o.pathao_status.replace(/_/g, " ")}
-                        </Badge>
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground">no status yet</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => refreshPathaoStatus(o.id)}
-                        disabled={syncing === o.id}
-                        title="Check latest status from Pathao"
-                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-0.5"
-                      >
-                        <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
-                        {syncing === o.id ? "Checking…" : "Check status"}
-                      </button>
+              <div key={o.id} className="p-4 sm:p-5 hover:bg-muted/30 transition">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+
+                  {/* Product + shipment */}
+                  <div className="min-w-0 flex-1 space-y-2.5">
+                    <div>
+                      <div className="font-semibold text-[15px] leading-snug">
+                        {o.product_name}
+                        {o.color && <span className="text-muted-foreground font-normal"> · {o.color}</span>}
+                        {o.size && <span className="text-muted-foreground font-normal"> · {o.size}</span>}
+                        <span className="text-muted-foreground font-normal text-sm"> × {o.quantity}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(o.created_at).toLocaleString()}
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="text-sm min-w-0">
-                  <div className="truncate">
-                    {o.customer_name} · {o.customer_phone}
+
+                    {o.pathao_consignment_id ? (
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 bg-muted/50 rounded-md px-2.5 py-2">
+                        <Truck className="size-3.5 text-accent shrink-0" />
+                        <span className="text-xs font-mono text-muted-foreground">#{o.pathao_consignment_id}</span>
+                        {o.pathao_status ? (
+                          <Badge variant={pathaoStatusTone(o.pathao_status)} className="text-[11px] px-2 py-0.5 capitalize font-medium">
+                            {o.pathao_status.replace(/_/g, " ")}
+                          </Badge>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">No status yet</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => refreshPathaoStatus(o.id)}
+                          disabled={syncing === o.id}
+                          title="Check latest status from Pathao"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-auto"
+                        >
+                          <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
+                          {syncing === o.id ? "Checking…" : "Check status"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
+                    )}
                   </div>
-                  <div className="text-muted-foreground text-xs truncate">{o.customer_address}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <div className="tabular-nums font-semibold">NRS {o.total}</div>
-                    <Badge variant={statusVariant(o.status)} className="capitalize mt-1">
-                      {o.status.replace(/_/g, " ")}
-                    </Badge>
+
+                  {/* Customer */}
+                  <div className="min-w-0 flex-1 sm:max-w-[260px] space-y-1 sm:border-l sm:pl-4">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Customer</div>
+                    <div className="text-sm font-medium truncate">{o.customer_name}</div>
+                    <div className="text-sm text-muted-foreground">{o.customer_phone}</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed">{o.customer_address}</div>
                   </div>
-                  <select
-                    value={o.status}
-                    onChange={(e) => setOrderStatus(o.id, e.target.value)}
-                    className="text-xs border rounded-md px-2 py-1.5 bg-background hover:border-accent cursor-pointer"
-                  >
-                    <option value="pending">pending</option>
-                    <option value="submitted">submitted</option>
-                    <option value="shipped">shipped</option>
-                    <option value="delivered">delivered</option>
-                    <option value="cancelled">cancelled</option>
-                  </select>
+
+                  {/* Total + status control */}
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:w-36 sm:border-l sm:pl-4 sm:text-right">
+                    <div>
+                      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-right">Total</div>
+                      <div className="tabular-nums font-bold text-lg leading-tight">NRS {o.total}</div>
+                    </div>
+                    <select
+                      value={o.status}
+                      onChange={(e) => setOrderStatus(o.id, e.target.value)}
+                      className="text-xs font-medium border rounded-md pl-2.5 pr-2 py-1.5 bg-background hover:border-accent cursor-pointer capitalize"
+                      style={{ borderLeftColor: STATUS_COLORS[o.status] ?? undefined, borderLeftWidth: 3 }}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="submitted">Submitted</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+
                 </div>
               </div>
             ))}
