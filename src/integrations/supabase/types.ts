@@ -226,6 +226,33 @@ export type Database = {
           },
         ]
       }
+      page_visits: {
+        Row: {
+          city: string | null
+          country: string | null
+          created_at: string
+          id: number
+          path: string
+          region: string | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: number
+          path: string
+          region?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: number
+          path?: string
+          region?: string | null
+        }
+        Relationships: []
+      }
       pathao_credentials: {
         Row: {
           base_url: string | null

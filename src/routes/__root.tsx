@@ -3,11 +3,13 @@ import {
   Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { logPageVisit } from "@/lib/visits.functions";
 
 function NotFoundComponent() {
   return (
@@ -77,6 +79,8 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const logVisit = useServerFn(logPageVisit);
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
@@ -92,6 +96,14 @@ function RootComponent() {
       if (data?.value) document.documentElement.style.setProperty("--accent", data.value);
     });
   }, []);
+
+  // Logs a visit for storefront pages only — skips /admin so staff browsing
+  // their own dashboard doesn't show up as "customer traffic" on the chart.
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith("/admin")) return;
+    logVisit({ data: { path } }).catch(() => {});
+  }, [router.state.location.pathname, logVisit]);
 
   return (
     <QueryClientProvider client={queryClient}>

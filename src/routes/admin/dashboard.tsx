@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getVisitsByLocation } from "@/lib/visits.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Package, ShoppingCart, TrendingUp } from "lucide-react";
+import { DollarSign, Package, ShoppingCart, TrendingUp, MapPin } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -37,12 +39,21 @@ const RANGES = [
   { label: "90 days", days: 90 },
 ];
 
+// Cycled across however many distinct locations show up — there's no fixed
+// mapping like STATUS_COLORS since location names aren't known ahead of time.
+const LOCATION_COLORS = ["#c4762d", "#2563eb", "#16a34a", "#dc2626", "#9333ea", "#0891b2", "#ea580c", "#65a30d"];
+
 function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [rangeDays, setRangeDays] = useState(14);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [productFilter, setProductFilter] = useState<string | null>(null);
+
+  const [visitLocations, setVisitLocations] = useState<{ name: string; count: number }[]>([]);
+  const [visitsTotal, setVisitsTotal] = useState(0);
+  const [visitsLoading, setVisitsLoading] = useState(true);
+  const fetchVisits = useServerFn(getVisitsByLocation);
 
   useEffect(() => {
     supabase
@@ -55,6 +66,17 @@ function DashboardPage() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    setVisitsLoading(true);
+    fetchVisits({ data: { days: rangeDays } })
+      .then((res) => {
+        setVisitLocations(res.locations);
+        setVisitsTotal(res.total);
+      })
+      .catch((e) => toast.error(`Couldn't load visits: ${String(e)}`))
+      .finally(() => setVisitsLoading(false));
+  }, [rangeDays, fetchVisits]);
 
   const rangePicker = (
     <div className="inline-flex rounded-md border bg-card p-0.5 text-xs">
@@ -271,6 +293,91 @@ function DashboardPage() {
                     <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
                   </PieChart>
                 </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-1.5">
+              <MapPin className="size-3.5" /> Visits by location
+            </CardTitle>
+            <CardDescription className="text-xs">
+              {visitsLoading ? "Loading…" : `${visitsTotal} visit${visitsTotal === 1 ? "" : "s"} · last ${rangeDays} days`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              {visitsLoading ? (
+                <div className="h-full grid place-items-center text-sm text-muted-foreground">Loading…</div>
+              ) : visitLocations.length === 0 ? (
+                <div className="h-full grid place-items-center text-sm text-muted-foreground text-center px-4">
+                  No visits recorded yet in this range.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={visitLocations}
+                      dataKey="count"
+                      nameKey="name"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={2}
+                    >
+                      {visitLocations.map((loc, i) => (
+                        <Cell
+                          key={loc.name}
+                          fill={LOCATION_COLORS[i % LOCATION_COLORS.length]}
+                          stroke="var(--background)"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--card)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      formatter={(v: number, n: string) => [v, n]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Visits by area</CardTitle>
+            <CardDescription className="text-xs">Number of visits from each location</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y border-t max-h-64 overflow-y-auto">
+              {visitsLoading ? (
+                <div className="p-6 text-sm text-muted-foreground">Loading…</div>
+              ) : visitLocations.length === 0 ? (
+                <div className="p-6 text-sm text-muted-foreground">No visits recorded yet in this range.</div>
+              ) : (
+                visitLocations.map((loc, i) => (
+                  <div key={loc.name} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <span
+                      className="size-2.5 rounded-full shrink-0"
+                      style={{ background: LOCATION_COLORS[i % LOCATION_COLORS.length] }}
+                    />
+                    <span className="flex-1 truncate">{loc.name}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {((loc.count / visitsTotal) * 100).toFixed(0)}%
+                    </span>
+                    <span className="tabular-nums font-medium w-10 text-right">{loc.count}</span>
+                  </div>
+                ))
               )}
             </div>
           </CardContent>
