@@ -14,7 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus } from "lucide-react";
 import { ORDER_SOURCES } from "@/lib/admin-types";
 
-type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number };
+type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number; stock_quantity: number | null };
+type ColorOption = { name: string; stock_quantity: number | null };
+type SizeOption = { name: string; stock_quantity: number | null };
 
 const EMPTY_FORM = {
   productId: "" as string,
@@ -47,6 +49,13 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [skipPathao, setSkipPathao] = useState(false);
 
+  // Live stock for the selected catalog product, so the admin picks a real
+  // color/size instead of typing free text blind. null = "no variants of
+  // this kind for this product", not "loading".
+  const [colorOptions, setColorOptions] = useState<ColorOption[] | null>(null);
+  const [sizeOptions, setSizeOptions] = useState<SizeOption[] | null>(null);
+  const [baseStock, setBaseStock] = useState<number | null>(null);
+
   const fetchCities = useServerFn(getCities);
   const fetchZones = useServerFn(getZones);
   const fetchAreas = useServerFn(getAreas);
@@ -55,7 +64,7 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
 
   useEffect(() => {
     if (!open) return;
-    supabase.from("products").select("id,name,price,sale_price,on_sale,weight").eq("active", true).order("name")
+    supabase.from("products").select("id,name,price,sale_price,on_sale,weight,stock_quantity").eq("active", true).order("name")
       .then(({ data }) => setProducts((data as Product[]) ?? []));
     fetchCities().then((res: unknown) => {
       const r = res as { data?: { data?: { city_id: number; city_name: string }[] } };
@@ -93,17 +102,43 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
       .finally(() => setDeliveryFeeLoading(false));
   }, [cityId, zoneId, form.weight, fetchDeliveryEstimate]);
 
-  const selectProduct = (id: string) => {
+  const selectProduct = async (id: string) => {
     const p = products.find((x) => x.id === id);
     if (!p) return;
     const price = p.on_sale && p.sale_price ? p.sale_price : p.price;
-    setForm((f) => ({ ...f, productId: p.id, productName: p.name, unitPrice: price, weight: Number(p.weight) || 0.5 }));
+    setForm((f) => ({ ...f, productId: p.id, productName: p.name, unitPrice: price, weight: Number(p.weight) || 0.5, color: "", size: "" }));
+    setBaseStock(p.stock_quantity ?? null);
+
+    const [colorsRes, sizesRes] = await Promise.all([
+      supabase.from("product_colors").select("name,stock_quantity").eq("product_id", id),
+      supabase.from("product_sizes").select("name,stock_quantity").eq("product_id", id).order("position"),
+    ]);
+    setColorOptions(colorsRes.data && colorsRes.data.length > 0 ? (colorsRes.data as ColorOption[]) : null);
+    setSizeOptions(sizesRes.data && sizesRes.data.length > 0 ? (sizesRes.data as SizeOption[]) : null);
   };
+
+  // The most restrictive of the chosen color's and size's stock caps —
+  // same "most restrictive wins" rule the public product page and
+  // checkout use, not "color wins" or "size wins".
+  const availableStock = (() => {
+    const limits: number[] = [];
+    if (colorOptions && form.color) {
+      const c = colorOptions.find((c) => c.name === form.color);
+      if (c && c.stock_quantity !== null) limits.push(c.stock_quantity);
+    }
+    if (sizeOptions && form.size) {
+      const s = sizeOptions.find((s) => s.name === form.size);
+      if (s && s.stock_quantity !== null) limits.push(s.stock_quantity);
+    }
+    if (limits.length === 0 && !colorOptions && !sizeOptions && baseStock !== null) limits.push(baseStock);
+    return limits.length > 0 ? Math.min(...limits) : null;
+  })();
 
   const reset = () => {
     setForm(EMPTY_FORM);
     setCityId(null); setZoneId(null); setAreaId(null);
     setDeliveryFee(null); setSkipPathao(false);
+    setColorOptions(null); setSizeOptions(null); setBaseStock(null);
   };
 
   const subtotal = (Number(form.unitPrice) || 0) * form.quantity;
@@ -119,6 +154,18 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
     if (!skipPathao && (!cityId || !zoneId)) {
       toast.error("Select city and zone, or check 'Don't send to Pathao' below.");
       return;
+    }
+    if (form.productId) {
+      if (colorOptions && !form.color) { toast.error("Select a color for this product."); return; }
+      if (sizeOptions && !form.size) { toast.error("Select a size for this product."); return; }
+      if (availableStock !== null && form.quantity > availableStock) {
+        toast.error(
+          availableStock === 0
+            ? "That's out of stock — pick a different color/size or adjust inventory first."
+            : `Only ${availableStock} left in stock for this color/size.`
+        );
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -212,20 +259,61 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
                 />
               </div>
               <div>
-                <Label>Color (optional)</Label>
-                <Input value={form.color} onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))} />
+                {colorOptions ? (
+                  <>
+                    <Label>Color</Label>
+                    <Select value={form.color} onValueChange={(v) => setForm((f) => ({ ...f, color: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select color" /></SelectTrigger>
+                      <SelectContent>
+                        {colorOptions.map((c) => (
+                          <SelectItem key={c.name} value={c.name} disabled={c.stock_quantity === 0}>
+                            {c.name}{c.stock_quantity !== null ? ` (${c.stock_quantity} left)` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                ) : (
+                  <>
+                    <Label>Color (optional)</Label>
+                    <Input value={form.color} onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))} disabled={!!form.productId} />
+                  </>
+                )}
               </div>
               <div>
-                <Label>Size (optional)</Label>
-                <Input value={form.size} onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))} />
+                {sizeOptions ? (
+                  <>
+                    <Label>Size</Label>
+                    <Select value={form.size} onValueChange={(v) => setForm((f) => ({ ...f, size: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select size" /></SelectTrigger>
+                      <SelectContent>
+                        {sizeOptions.map((s) => (
+                          <SelectItem key={s.name} value={s.name} disabled={s.stock_quantity === 0}>
+                            {s.name}{s.stock_quantity !== null ? ` (${s.stock_quantity} left)` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                ) : (
+                  <>
+                    <Label>Size (optional)</Label>
+                    <Input value={form.size} onChange={(e) => setForm((f) => ({ ...f, size: e.target.value }))} disabled={!!form.productId} />
+                  </>
+                )}
               </div>
               <div>
                 <Label>Quantity</Label>
                 <Input
                   type="number"
                   min={1}
+                  max={availableStock ?? undefined}
                   value={form.quantity}
-                  onChange={(e) => setForm((f) => ({ ...f, quantity: Math.max(1, Number(e.target.value) || 1) }))}
+                  onChange={(e) => {
+                    const raw = Math.max(1, Number(e.target.value) || 1);
+                    const clamped = availableStock !== null ? Math.min(raw, Math.max(availableStock, 1)) : raw;
+                    setForm((f) => ({ ...f, quantity: clamped }));
+                  }}
                 />
               </div>
               <div>
@@ -240,8 +328,12 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
               </div>
             </div>
             {form.productId && (
-              <p className="text-xs text-muted-foreground">
-                Picked from catalog — stock will be reduced by {form.quantity} when this order is saved.
+              <p className={`text-xs ${availableStock !== null && availableStock < form.quantity ? "text-destructive" : "text-muted-foreground"}`}>
+                {availableStock !== null
+                  ? availableStock < form.quantity
+                    ? `Only ${availableStock} in stock — reduce quantity or pick a different color/size.`
+                    : `${availableStock} in stock. Stock will be reduced by ${form.quantity} when this order is saved.`
+                  : `Stock isn't tracked for this product/variant — quantity won't be checked.`}
               </p>
             )}
           </div>

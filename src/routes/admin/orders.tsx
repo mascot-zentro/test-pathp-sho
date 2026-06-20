@@ -7,7 +7,7 @@ import { syncOrderStatus } from "@/lib/pathao.functions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone } from "lucide-react";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
@@ -56,8 +56,9 @@ function OrdersPage() {
   const refreshPathaoStatus = async (id: string) => {
     setSyncing(id);
     try {
-      await runSync({ data: { orderId: id } });
+      const res = (await runSync({ data: { orderId: id } })) as { pathaoStatus: string | null; restocked: boolean };
       load();
+      if (res.restocked) toast.success("Order cancelled/returned — stock added back automatically.");
     } catch (e) {
       toast.error(`Couldn't sync: ${String(e)}`);
     } finally {
@@ -77,9 +78,11 @@ function OrdersPage() {
     }
     setBulkSyncing(true);
     let failed = 0;
+    let restockedCount = 0;
     for (const o of targets) {
       try {
-        await runSync({ data: { orderId: o.id } });
+        const res = (await runSync({ data: { orderId: o.id } })) as { pathaoStatus: string | null; restocked: boolean };
+        if (res.restocked) restockedCount += 1;
       } catch {
         failed += 1;
       }
@@ -88,6 +91,7 @@ function OrdersPage() {
     load();
     if (failed > 0) toast.error(`Checked ${targets.length} orders — ${failed} failed.`);
     else toast.success(`Checked status for ${targets.length} order${targets.length === 1 ? "" : "s"}.`);
+    if (restockedCount > 0) toast.success(`Added stock back for ${restockedCount} cancelled/returned order${restockedCount === 1 ? "" : "s"}.`);
   };
 
   const totalSales = orders
@@ -229,6 +233,11 @@ function OrdersPage() {
                           </Badge>
                         ) : (
                           <span className="text-[11px] text-muted-foreground">No status yet</span>
+                        )}
+                        {o.stock_restocked && (
+                          <span className="text-[11px] text-green-700 flex items-center gap-1" title="Stock was added back automatically">
+                            <RotateCcw className="size-3" /> Stock returned
+                          </span>
                         )}
                         <button
                           type="button"

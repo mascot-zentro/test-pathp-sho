@@ -46,6 +46,7 @@ export type Order = {
   pathao_consignment_id: string | null;
   pathao_status: string | null;
   source: string;
+  stock_restocked: boolean;
   created_at: string;
 };
 

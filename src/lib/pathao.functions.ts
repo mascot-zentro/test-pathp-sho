@@ -127,6 +127,12 @@ export const getDeliveryEstimate = createServerFn({ method: "POST" })
 // Pulls the live status from Pathao for one order and stores it in
 // orders.pathao_status, separate from the admin's own manual `status`
 // workflow field so neither overwrites the other.
+// Pulls the live status from Pathao for one order and stores it in
+// orders.pathao_status, separate from the admin's own manual `status`
+// workflow field so neither overwrites the other. If Pathao reports the
+// shipment as Cancelled or Returned, the reserved stock is automatically
+// added back — but only once per order (stock_restocked guards against
+// re-crediting if this gets synced again after the fact).
 export const syncOrderStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(z.object({ orderId: z.string().uuid() }))
@@ -134,14 +140,34 @@ export const syncOrderStatus = createServerFn({ method: "POST" })
     const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
     if (!roles || roles.length === 0) throw new Error("Forbidden");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: order, error } = await supabaseAdmin.from("orders").select("pathao_consignment_id").eq("id", data.orderId).maybeSingle();
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .select("pathao_consignment_id, product_id, color, size, quantity, stock_restocked")
+      .eq("id", data.orderId)
+      .maybeSingle();
     if (error || !order) throw new Error("Order not found");
     if (!order.pathao_consignment_id) throw new Error("This order has no Pathao consignment yet");
     const { pathao } = await import("./pathao.server");
     const res = (await pathao.orderInfo(order.pathao_consignment_id)) as { data?: { order_status_slug?: string } };
     const slug = res?.data?.order_status_slug ?? null;
     await supabaseAdmin.from("orders").update({ pathao_status: slug }).eq("id", data.orderId);
-    return { pathaoStatus: slug };
+
+    let restocked = false;
+    const isCancelledOrReturned = !!slug && /cancel|return/i.test(slug);
+    if (isCancelledOrReturned && !order.stock_restocked && order.product_id) {
+      const { error: incErr } = await supabaseAdmin.rpc("increment_stock", {
+        p_product_id: order.product_id,
+        p_color: order.color as string,
+        p_size: order.size as string,
+        p_quantity: order.quantity,
+      });
+      if (!incErr) {
+        await supabaseAdmin.from("orders").update({ stock_restocked: true }).eq("id", data.orderId);
+        restocked = true;
+      }
+    }
+
+    return { pathaoStatus: slug, restocked };
   });
 
 const orderSchema = z.object({

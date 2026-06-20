@@ -168,6 +168,7 @@ export type Database = {
           source: string
           special_instruction: string | null
           status: string
+          stock_restocked: boolean
           total: number
           unit_price: number
           user_id: string | null
@@ -196,6 +197,7 @@ export type Database = {
           source?: string
           special_instruction?: string | null
           status?: string
+          stock_restocked?: boolean
           total: number
           unit_price: number
           user_id?: string | null
@@ -224,6 +226,7 @@ export type Database = {
           source?: string
           special_instruction?: string | null
           status?: string
+          stock_restocked?: boolean
           total?: number
           unit_price?: number
           user_id?: string | null
@@ -617,6 +620,15 @@ export type Database = {
       }
       release_promo_code: {
         Args: { p_code: string }
+        Returns: undefined
+      }
+      increment_stock: {
+        Args: {
+          p_color: string
+          p_product_id: string
+          p_quantity: number
+          p_size: string
+        }
         Returns: undefined
       }
       has_role: {
