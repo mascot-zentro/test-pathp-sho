@@ -20,7 +20,7 @@ export const Route = createFileRoute("/cart")({
 function CartPage() {
   const navigate = useNavigate();
   const { items, updateQty, removeItem, subtotal, clear } = useCart();
-  const [form, setForm] = useState({ name: "", phone: "", address: "", instruction: "", company: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", instruction: "" });
   const [cities, setCities] = useState<{ city_id: number; city_name: string }[]>([]);
   const [zones, setZones] = useState<{ zone_id: number; zone_name: string }[]>([]);
   const [areas, setAreas] = useState<{ area_id: number; area_name: string }[]>([]);
@@ -142,7 +142,6 @@ function CartPage() {
           specialInstruction: form.instruction || null,
           deliveryFee,
           promoCode: promo?.code ?? null,
-          company: form.company,
         },
       });
       if ((res as { warning?: string }).warning) toast.warning((res as { warning: string }).warning);
@@ -200,24 +199,6 @@ function CartPage() {
 
           <form onSubmit={submit} className="space-y-6">
             <h2 className="text-xl font-display">Delivery details</h2>
-
-            {/* Honeypot: hidden from real users, simple bots fill every field they
-                find. Named/labeled to avoid matching browser autofill heuristics —
-                a plain "company"/"organization" field gets auto-filled by some
-                mobile browsers' saved business-profile data, which broke real
-                checkouts here. */}
-            <div className="absolute -left-[9999px]" aria-hidden="true">
-              <label htmlFor="hp_field">Leave this blank</label>
-              <input
-                id="hp_field"
-                name="hp_field"
-                type="text"
-                tabIndex={-1}
-                autoComplete="off"
-                value={form.company}
-                onChange={(e) => setForm({ ...form, company: e.target.value })}
-              />
-            </div>
 
             {!pathaoUp && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">Delivery service is offline — please try again later.</div>}
 

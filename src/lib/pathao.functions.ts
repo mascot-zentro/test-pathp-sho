@@ -212,14 +212,6 @@ const orderSchema = z.object({
   // If not yet known (delivery location not set), submit is blocked on the client.
   deliveryFee: z.number().min(0).default(0),
   promoCode: z.string().trim().toUpperCase().min(1).optional().nullable(),
-  // Honeypot — real users never see or fill this field, since it's
-  // visually hidden and out of tab order. Used to be max(0), which threw a
-  // raw Zod validation error straight at the customer's face whenever a
-  // browser's autofill (mobile "saved business profile" data, mainly)
-  // populated it despite autoComplete="off" — a false positive that broke
-  // real checkouts. Now accepted as any string; createOrder's handler
-  // checks it itself and quietly no-ops instead of erroring.
-  company: z.string().optional(),
 });
 
 // Shared by createOrder (public checkout) and createManualOrder (admin
@@ -339,18 +331,6 @@ export const previewPromoCode = createServerFn({ method: "POST" })
 export const createOrder = createServerFn({ method: "POST" })
   .inputValidator(orderSchema)
   .handler(async ({ data }) => {
-    // Honeypot tripped: most likely a bot, but browser autofill (mobile
-    // "saved business profile" data, mainly) can also populate hidden
-    // fields despite autoComplete="off" — a real false positive that used
-    // to throw a raw Zod error at genuine customers. Rather than silently
-    // faking success (which would send a real false-positive customer to
-    // a broken order-confirmed page with a nonsense ID) or hard-erroring
-    // (which taught bots exactly which field to leave blank), this throws
-    // a clear, actionable message instead of a cryptic validation error.
-    if (data.company) {
-      throw new Error("Please clear the \"Company\" field above — it should be left blank.");
-    }
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const subtotal = data.unitPrice * data.quantity;
 
@@ -545,8 +525,6 @@ const cartOrderSchema = z.object({
   specialInstruction: z.string().optional().nullable(),
   deliveryFee: z.number().min(0).default(0),
   promoCode: z.string().trim().toUpperCase().min(1).optional().nullable(),
-  // Honeypot — see orderSchema's company field for why this isn't max(0).
-  company: z.string().optional(),
 });
 
 // Cart checkout: one combined Pathao shipment, but one `orders` row per line
@@ -556,10 +534,6 @@ const cartOrderSchema = z.object({
 export const createCartOrder = createServerFn({ method: "POST" })
   .inputValidator(cartOrderSchema)
   .handler(async ({ data }) => {
-    if (data.company) {
-      throw new Error("Please clear the \"Company\" field above — it should be left blank.");
-    }
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const subtotal = data.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
