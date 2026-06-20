@@ -162,6 +162,7 @@ export type Database = {
           recipient_city: number | null
           recipient_zone: number | null
           size: string | null
+          source: string
           special_instruction: string | null
           status: string
           total: number
@@ -186,6 +187,7 @@ export type Database = {
           recipient_city?: number | null
           recipient_zone?: number | null
           size?: string | null
+          source?: string
           special_instruction?: string | null
           status?: string
           total: number
@@ -210,6 +212,7 @@ export type Database = {
           recipient_city?: number | null
           recipient_zone?: number | null
           size?: string | null
+          source?: string
           special_instruction?: string | null
           status?: string
           total?: number

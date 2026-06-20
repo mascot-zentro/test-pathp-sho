@@ -7,10 +7,11 @@ import { syncOrderStatus } from "@/lib/pathao.functions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, RefreshCw, ShoppingCart, Truck } from "lucide-react";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
-import { type Order, STATUS_COLORS } from "@/lib/admin-types";
+import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
+import { AddOrderDialog } from "@/components/admin/add-order-dialog";
 
 export const Route = createFileRoute("/admin/orders")({
   ssr: false,
@@ -31,6 +32,7 @@ function OrdersPage() {
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const runSync = useServerFn(syncOrderStatus);
 
   const load = () =>
@@ -96,6 +98,7 @@ function OrdersPage() {
     const q = search.trim().toLowerCase();
     return orders.filter((o) => {
       if (status !== "all" && o.status !== status) return false;
+      if (sourceFilter !== "all" && o.source !== sourceFilter) return false;
       if (!q) return true;
       return (
         o.product_name.toLowerCase().includes(q) ||
@@ -103,16 +106,17 @@ function OrdersPage() {
         o.customer_phone.toLowerCase().includes(q)
       );
     });
-  }, [orders, search, status]);
+  }, [orders, search, status, sourceFilter]);
 
   return (
     <div>
       <AdminPageHeader
         title="Orders"
         description="Manage order statuses and track Pathao shipments."
+        actions={<AddOrderDialog onCreated={load} />}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Stat
           label="Total orders"
           value={orders.length.toString()}
@@ -129,6 +133,12 @@ function OrdersPage() {
           label="Submitted to Pathao"
           value={orders.filter((o) => o.pathao_consignment_id).length.toString()}
           icon={Truck}
+          tone="default"
+        />
+        <Stat
+          label="Social media orders"
+          value={orders.filter((o) => o.source !== "website").length.toString()}
+          icon={Megaphone}
           tone="default"
         />
       </div>
@@ -171,6 +181,16 @@ function OrdersPage() {
                 <option value="delivered">delivered</option>
                 <option value="cancelled">cancelled</option>
               </select>
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="text-xs border rounded-md px-2 py-2 bg-background hover:border-accent cursor-pointer"
+              >
+                <option value="all">All sources</option>
+                {ORDER_SOURCES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
             </div>
           </div>
         </CardHeader>
@@ -188,6 +208,11 @@ function OrdersPage() {
                         {o.color && <span className="text-muted-foreground font-normal"> · {o.color}</span>}
                         {o.size && <span className="text-muted-foreground font-normal"> · {o.size}</span>}
                         <span className="text-muted-foreground font-normal text-sm"> × {o.quantity}</span>
+                        {o.source && o.source !== "website" && (
+                          <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 h-5 align-middle font-normal">
+                            {sourceLabel(o.source)}
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {new Date(o.created_at).toLocaleString()}

@@ -166,6 +166,100 @@ const orderSchema = z.object({
   company: z.string().max(0).optional(), // honeypot — real users never see/fill this field
 });
 
+// Shared by createOrder (public checkout) and createManualOrder (admin
+// logging an Instagram/TikTok/etc. sale): inserts the order row, then tries
+// to submit it to Pathao, updating status based on the outcome either way.
+async function insertOrderAndSubmitToPathao(
+  supabaseAdmin: typeof import("@/integrations/supabase/client.server").supabaseAdmin,
+  args: {
+    productId: string | null;
+    productName: string;
+    color: string | null;
+    size: string | null;
+    quantity: number;
+    unitPrice: number;
+    deliveryFee: number;
+    total: number;
+    customerName: string;
+    customerPhone: string;
+    customerAddress: string;
+    cityId: number;
+    zoneId: number;
+    areaId: number | null;
+    specialInstruction: string | null;
+    weight: number;
+    source: string;
+  },
+) {
+  const { data: order, error: orderErr } = await supabaseAdmin
+    .from("orders")
+    .insert({
+      product_id: args.productId,
+      product_name: args.productName,
+      color: args.color,
+      size: args.size,
+      quantity: args.quantity,
+      unit_price: args.unitPrice,
+      delivery_fee: args.deliveryFee,
+      total: args.total,
+      customer_name: args.customerName,
+      customer_phone: args.customerPhone,
+      customer_address: args.customerAddress,
+      recipient_city: args.cityId,
+      recipient_zone: args.zoneId,
+      recipient_area: args.areaId ?? null,
+      special_instruction: args.specialInstruction ?? null,
+      status: "pending",
+      source: args.source,
+    })
+    .select()
+    .single();
+  if (orderErr || !order) throw new Error(orderErr?.message ?? "Order insert failed");
+
+  const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
+  const storeId = setting?.value ? Number(setting.value) : null;
+
+  if (!storeId) {
+    await supabaseAdmin.from("orders").update({ status: "awaiting_pathao_config" }).eq("id", order.id);
+    return { orderId: order.id, pathao: null, warning: "Pathao store_id not configured in admin settings" };
+  }
+
+  const variantLabel = [args.color, args.size].filter(Boolean).join(", ");
+  try {
+    const { pathao } = await import("./pathao.server");
+    const pathaoRes = (await pathao.createOrder({
+      store_id: storeId,
+      merchant_order_id: order.id,
+      recipient_name: args.customerName,
+      recipient_phone: args.customerPhone,
+      recipient_address: args.customerAddress,
+      recipient_city: args.cityId,
+      recipient_zone: args.zoneId,
+      ...(args.areaId ? { recipient_area: args.areaId } : {}),
+      delivery_type: 48,
+      item_type: 2,
+      special_instruction: args.specialInstruction ?? "",
+      item_quantity: args.quantity,
+      item_weight: args.weight,
+      item_description: `${args.productName}${variantLabel ? ` (${variantLabel})` : ""}`,
+      amount_to_collect: Math.round(args.total),
+    })) as { data?: { consignment_id?: string } };
+
+    await supabaseAdmin
+      .from("orders")
+      .update({
+        pathao_consignment_id: pathaoRes?.data?.consignment_id ?? null,
+        pathao_response: pathaoRes as never,
+        status: "submitted",
+      })
+      .eq("id", order.id);
+    return { orderId: order.id, pathao: pathaoRes };
+  } catch (e) {
+    await supabaseAdmin.from("orders").update({ status: "pathao_failed", pathao_response: { error: String(e) } as never }).eq("id", order.id);
+    return { orderId: order.id, pathao: null, warning: `Order saved, Pathao failed: ${String(e)}` };
+  }
+}
+
 export const createOrder = createServerFn({ method: "POST" })
   .inputValidator(orderSchema)
   .handler(async ({ data }) => {
@@ -200,71 +294,124 @@ export const createOrder = createServerFn({ method: "POST" })
       if (!stockOk) throw new Error("Sorry, this item just went out of stock.");
     }
 
-    // Insert order first
-    const { data: order, error: orderErr } = await supabaseAdmin
-      .from("orders")
-      .insert({
-        product_id: data.productId,
-        product_name: data.productName,
-        color: data.color,
-        size: data.size,
-        quantity: data.quantity,
-        unit_price: data.unitPrice,
-        delivery_fee: data.deliveryFee,
-        total,
-        customer_name: data.customerName,
-        customer_phone: data.customerPhone,
-        customer_address: data.customerAddress,
-        recipient_city: data.cityId,
-        recipient_zone: data.zoneId,
-        recipient_area: data.areaId ?? null,
-        special_instruction: data.specialInstruction ?? null,
-        status: "pending",
-      })
-      .select()
-      .single();
-    if (orderErr || !order) throw new Error(orderErr?.message ?? "Order insert failed");
+    return insertOrderAndSubmitToPathao(supabaseAdmin, {
+      productId: data.productId,
+      productName: data.productName,
+      color: data.color,
+      size: data.size,
+      quantity: data.quantity,
+      unitPrice: data.unitPrice,
+      deliveryFee: data.deliveryFee,
+      total,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      customerAddress: data.customerAddress,
+      cityId: data.cityId,
+      zoneId: data.zoneId,
+      areaId: data.areaId ?? null,
+      specialInstruction: data.specialInstruction ?? null,
+      weight: data.weight,
+      source: "website",
+    });
+  });
 
-    // Get pathao store_id from settings
-    const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
-    const storeId = setting?.value ? Number(setting.value) : null;
+// Admin-only: logs a sale that actually happened over Instagram/TikTok/etc.
+// DMs, so it still gets fulfilled through Pathao like any other order. No
+// phone-number rate limit (the admin isn't spamming themselves), and the
+// product is optional — a one-off social sale might not be in the catalog.
+const manualOrderSchema = z.object({
+  productId: z.string().uuid().nullable(),
+  productName: z.string().min(1),
+  color: z.string().nullable(),
+  size: z.string().nullable(),
+  quantity: z.number().int().min(1),
+  unitPrice: z.number().min(0),
+  customerName: z.string().min(2).max(100),
+  customerPhone: z.string().min(7).max(20),
+  customerAddress: z.string().min(5).max(220),
+  // Optional: omitted (or skipPathao=true) means this order is logged for
+  // records/stock purposes only and never sent to Pathao — e.g. the admin
+  // is arranging delivery another way, or it's a pickup order.
+  cityId: z.number().int().optional().nullable(),
+  zoneId: z.number().int().optional().nullable(),
+  areaId: z.number().int().optional().nullable(),
+  specialInstruction: z.string().optional().nullable(),
+  weight: z.number().min(0.1).max(50).default(0.5),
+  deliveryFee: z.number().min(0).default(0),
+  source: z.enum(["instagram", "tiktok", "facebook", "whatsapp", "manual"]),
+  skipStockCheck: z.boolean().default(false),
+  skipPathao: z.boolean().default(false),
+});
 
-    if (!storeId) {
-      await supabaseAdmin.from("orders").update({ status: "awaiting_pathao_config" }).eq("id", order.id);
-      return { orderId: order.id, pathao: null, warning: "Pathao store_id not configured in admin settings" };
+export const createManualOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(manualOrderSchema)
+  .handler(async ({ data, context }) => {
+    const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
+    if (!roles || roles.length === 0) throw new Error("Forbidden");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const subtotal = data.unitPrice * data.quantity;
+    const skipPathao = data.skipPathao || !data.cityId || !data.zoneId;
+    const total = subtotal + (skipPathao ? 0 : data.deliveryFee);
+
+    if (data.productId && !data.skipStockCheck) {
+      const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
+        p_product_id: data.productId,
+        p_color: data.color as string,
+        p_size: data.size as string,
+        p_quantity: data.quantity,
+      });
+      if (stockErr) throw new Error(stockErr.message);
+      if (!stockOk) throw new Error("Not enough stock for this product/variant. Adjust quantity or stock first.");
     }
 
-    const variantLabel = [data.color, data.size].filter(Boolean).join(", ");
-    try {
-      const { pathao } = await import("./pathao.server");
-      const pathaoRes = await pathao.createOrder({
-        store_id: storeId,
-        merchant_order_id: order.id,
-        recipient_name: data.customerName,
-        recipient_phone: data.customerPhone,
-        recipient_address: data.customerAddress,
-        recipient_city: data.cityId,
-        recipient_zone: data.zoneId,
-        ...(data.areaId ? { recipient_area: data.areaId } : {}),
-        delivery_type: 48,
-        item_type: 2,
-        special_instruction: data.specialInstruction ?? "",
-        item_quantity: data.quantity,
-        item_weight: data.weight,
-        item_description: `${data.productName}${variantLabel ? ` (${variantLabel})` : ""}`,
-        // Collect product subtotal + delivery fee — Pathao hands the full
-        // amount to us and pays the courier itself from the delivery portion.
-        amount_to_collect: Math.round(total),
-      }) as { data?: { consignment_id?: string } };
-
-      await supabaseAdmin.from("orders").update({
-        pathao_consignment_id: pathaoRes?.data?.consignment_id ?? null,
-        pathao_response: pathaoRes as never,
-        status: "submitted",
-      }).eq("id", order.id);
-      return { orderId: order.id, pathao: pathaoRes };
-    } catch (e) {
-      await supabaseAdmin.from("orders").update({ status: "pathao_failed", pathao_response: { error: String(e) } as never }).eq("id", order.id);
-      return { orderId: order.id, pathao: null, warning: `Order saved, Pathao failed: ${String(e)}` };
+    if (skipPathao) {
+      // Logged for records and stock only — no Pathao consignment created.
+      const { data: order, error } = await supabaseAdmin
+        .from("orders")
+        .insert({
+          product_id: data.productId,
+          product_name: data.productName,
+          color: data.color,
+          size: data.size,
+          quantity: data.quantity,
+          unit_price: data.unitPrice,
+          delivery_fee: 0,
+          total,
+          customer_name: data.customerName,
+          customer_phone: data.customerPhone,
+          customer_address: data.customerAddress,
+          recipient_city: data.cityId ?? null,
+          recipient_zone: data.zoneId ?? null,
+          recipient_area: data.areaId ?? null,
+          special_instruction: data.specialInstruction ?? null,
+          status: "pending",
+          source: data.source,
+        })
+        .select()
+        .single();
+      if (error || !order) throw new Error(error?.message ?? "Order insert failed");
+      return { orderId: order.id, pathao: null, warning: undefined };
     }
+
+    return insertOrderAndSubmitToPathao(supabaseAdmin, {
+      productId: data.productId,
+      productName: data.productName,
+      color: data.color,
+      size: data.size,
+      quantity: data.quantity,
+      unitPrice: data.unitPrice,
+      deliveryFee: data.deliveryFee,
+      total,
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      customerAddress: data.customerAddress,
+      cityId: data.cityId as number,
+      zoneId: data.zoneId as number,
+      areaId: data.areaId ?? null,
+      specialInstruction: data.specialInstruction ?? null,
+      weight: data.weight,
+      source: data.source,
+    });
   });

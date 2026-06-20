@@ -45,6 +45,7 @@ export type Order = {
   status: string;
   pathao_consignment_id: string | null;
   pathao_status: string | null;
+  source: string;
   created_at: string;
 };
 
@@ -114,6 +115,20 @@ export const STATUS_COLORS: Record<string, string> = {
   delivered: "#10b981",
   cancelled: "#ef4444",
 };
+
+// Where an order came from. 'website' is the implicit default for normal
+// checkout orders; the rest are used when an admin manually logs a sale
+// that actually happened over DM on Instagram/TikTok/Facebook/WhatsApp.
+export const ORDER_SOURCES: { value: string; label: string }[] = [
+  { value: "website", label: "Website" },
+  { value: "instagram", label: "Instagram" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "facebook", label: "Facebook" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "manual", label: "Other / manual" },
+];
+
+export const sourceLabel = (s: string): string => ORDER_SOURCES.find((o) => o.value === s)?.label ?? s;
 
 export const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
   if (s === "delivered") return "default";
