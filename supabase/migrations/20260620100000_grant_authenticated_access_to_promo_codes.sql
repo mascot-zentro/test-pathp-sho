@@ -1,0 +1,12 @@
+-- Same gap as 20260618070000 (products/categories/faqs/etc): the
+-- "admin manage promo_codes" RLS policy is correct, but the original
+-- migration only ever granted table-level access to service_role —
+-- GRANT ALL ON public.promo_codes TO service_role — and never granted
+-- anything to authenticated. RLS policies only narrow access within
+-- privileges a role already has; with no table-level GRANT at all for
+-- authenticated, every query against promo_codes from the admin's own
+-- logged-in session (the Promos admin page uses the regular client-side
+-- Supabase client, not the server) is rejected before RLS is even
+-- evaluated — including the SELECT that's supposed to show the live
+-- used_count after a checkout redeems a code.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.promo_codes TO authenticated;

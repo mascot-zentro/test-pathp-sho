@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Trash2 } from "lucide-react";
+import { Trash2, RefreshCw } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type PromoCode } from "@/lib/admin-types";
 
@@ -33,15 +33,29 @@ function PromosPage() {
   const [codes, setCodes] = useState<PromoCode[]>([]);
   const [editing, setEditing] = useState<PromoCode | null>(null);
   const [active, setActive] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = () =>
-    supabase.from("promo_codes").select("*").order("created_at", { ascending: false })
+  const load = () => {
+    setRefreshing(true);
+    return supabase.from("promo_codes").select("*").order("created_at", { ascending: false })
       .then(({ data, error }) => {
         if (error) toast.error(`Couldn't load promo codes: ${error.message}`);
         setCodes((data as PromoCode[]) ?? []);
+        setRefreshing(false);
       });
+  };
   useEffect(() => { load(); }, []);
   useEffect(() => { setActive(editing?.active ?? true); }, [editing]);
+  // Usage counts change from customer-facing checkouts, not from anything
+  // this admin tab does, so a snapshot fetched once on mount goes stale
+  // the moment an order comes in elsewhere. Refreshing on focus means
+  // tabbing back to this page after a sale always shows the current count
+  // without a manual reload.
+  useEffect(() => {
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   const save = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -81,7 +95,16 @@ function PromosPage() {
 
   return (
     <div>
-      <AdminPageHeader title="Promo codes" description="Percent-off codes customers can apply at checkout or in the cart." />
+      <AdminPageHeader
+        title="Promo codes"
+        description="Percent-off codes customers can apply at checkout or in the cart."
+        actions={
+          <Button type="button" variant="outline" size="sm" onClick={load} disabled={refreshing}>
+            <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </Button>
+        }
+      />
       <div className="grid lg:grid-cols-[1fr,1.4fr] gap-6">
         <Card className="shadow-sm h-fit">
           <CardHeader className="pb-3">
