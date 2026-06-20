@@ -94,16 +94,18 @@ export const savePathaoCredentials = createServerFn({ method: "POST" })
 // Live delivery-fee quote for the checkout page. Public — no auth needed,
 // it's the same information a customer would see before placing the order.
 // Reads pathao_store_id from settings server-side so the client never needs
-// to know it. Returns null (rather than throwing) on any failure so the
-// checkout flow can fall back to "delivery charged by courier on arrival"
-// instead of blocking the page.
+// to know it. Returns a discriminated result rather than just a number or
+// null: a missing store_id and a failed Pathao API call used to both
+// collapse to "no fee", which left the checkout UI stuck showing "Select
+// city & zone" forever even after city/zone *were* selected — there was no
+// way to tell the customer (or the admin debugging it) why.
 export const getDeliveryEstimate = createServerFn({ method: "POST" })
   .inputValidator(z.object({ cityId: z.number(), zoneId: z.number(), weight: z.number().min(0.5).max(10) }))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
     const storeId = setting?.value ? Number(setting.value) : null;
-    if (!storeId) return null;
+    if (!storeId) return { ok: false as const, reason: "not_configured" as const };
     const { pathao } = await import("./pathao.server");
     try {
       const res = (await pathao.pricePlan({
@@ -114,9 +116,11 @@ export const getDeliveryEstimate = createServerFn({ method: "POST" })
         recipient_city: data.cityId,
         recipient_zone: data.zoneId,
       })) as { data?: { final_price?: number } };
-      return res?.data?.final_price ?? null;
+      const fee = res?.data?.final_price;
+      if (typeof fee !== "number") return { ok: false as const, reason: "unavailable" as const };
+      return { ok: true as const, fee };
     } catch {
-      return null;
+      return { ok: false as const, reason: "unavailable" as const };
     }
   });
 

@@ -38,6 +38,7 @@ function Checkout() {
   const [pathaoUp, setPathaoUp] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+  const [deliveryError, setDeliveryError] = useState<"not_configured" | "unavailable" | null>(null);
 
   const fetchCities = useServerFn(getCities);
   const fetchZones = useServerFn(getZones);
@@ -104,11 +105,16 @@ function Checkout() {
   }, [availableStock, qty]);
 
   useEffect(() => {
-    if (!cityId || !zoneId || !product) { setDeliveryFee(null); return; }
+    if (!cityId || !zoneId || !product) { setDeliveryFee(null); setDeliveryError(null); return; }
     setDeliveryFeeLoading(true);
+    setDeliveryError(null);
     fetchDeliveryEstimate({ data: { cityId, zoneId, weight: Number(product.weight) || 0.5 } })
-      .then((fee: unknown) => setDeliveryFee(typeof fee === "number" ? fee : null))
-      .catch(() => setDeliveryFee(null))
+      .then((res: unknown) => {
+        const r = res as { ok: boolean; fee?: number; reason?: "not_configured" | "unavailable" };
+        if (r?.ok) { setDeliveryFee(r.fee ?? null); setDeliveryError(null); }
+        else { setDeliveryFee(null); setDeliveryError(r?.reason ?? "unavailable"); }
+      })
+      .catch(() => { setDeliveryFee(null); setDeliveryError("unavailable"); })
       .finally(() => setDeliveryFeeLoading(false));
   }, [cityId, zoneId, product, fetchDeliveryEstimate]);
 
@@ -210,10 +216,20 @@ function Checkout() {
               ? "Out of stock"
               : submitting
               ? "Placing order…"
+              : deliveryError
+              ? "Delivery unavailable — see below"
               : !deliveryReady
               ? "Select city & zone to continue"
               : `Place order — NRS ${grandTotal} (Cash on delivery)`}
           </Button>
+          {deliveryError && (
+            <p className="text-sm text-destructive">
+              {deliveryError === "not_configured"
+                ? "Online checkout isn't set up for delivery pricing yet."
+                : "Couldn't calculate the delivery fee for this area right now."}{" "}
+              Please message us on WhatsApp from the product page to place this order instead.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
           <p className="text-xs text-muted-foreground">
             By placing this order, you agree to our{" "}
@@ -243,6 +259,8 @@ function Checkout() {
               <span className="text-muted-foreground">Calculating…</span>
             ) : deliveryFee !== null ? (
               <span>NRS {deliveryFee}</span>
+            ) : deliveryError ? (
+              <span className="text-destructive text-xs">Unavailable</span>
             ) : (
               <span className="text-muted-foreground text-xs">Select city &amp; zone</span>
             )}
