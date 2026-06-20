@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { syncOrderStatus } from "@/lib/pathao.functions";
+import { syncOrderStatus, setOrderStatusAdmin } from "@/lib/pathao.functions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,9 +48,15 @@ function OrdersPage() {
     load();
   }, []);
 
+  const runSetStatus = useServerFn(setOrderStatusAdmin);
   const setOrderStatus = async (id: string, value: string) => {
-    await supabase.from("orders").update({ status: value }).eq("id", id);
-    load();
+    try {
+      const res = (await runSetStatus({ data: { orderId: id, status: value as "pending" | "submitted" | "shipped" | "delivered" | "cancelled" } })) as { restocked: boolean };
+      load();
+      if (res.restocked) toast.success("Order cancelled — stock added back automatically.");
+    } catch (e) {
+      toast.error(`Couldn't update status: ${String(e)}`);
+    }
   };
 
   const refreshPathaoStatus = async (id: string) => {

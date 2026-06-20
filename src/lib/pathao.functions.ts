@@ -133,9 +133,49 @@ export const getDeliveryEstimate = createServerFn({ method: "POST" })
     }
   });
 
-// Pulls the live status from Pathao for one order and stores it in
-// orders.pathao_status, separate from the admin's own manual `status`
-// workflow field so neither overwrites the other.
+// Admin's manual workflow-status dropdown (Orders page) — separate from
+// syncOrderStatus, which only fires when the admin clicks "Check status"
+// and Pathao itself reports Cancelled/Returned. This covers the much more
+// common path: the admin directly picks "Cancelled" from the dropdown
+// (e.g. customer called to cancel before any Pathao sync happened), which
+// used to go straight to a client-side Supabase update with no restock at
+// all — stock only ever came back if the admin happened to also sync
+// Pathao's status afterwards, which most people don't think to do.
+export const setOrderStatusAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ orderId: z.string().uuid(), status: z.enum(["pending", "submitted", "shipped", "delivered", "cancelled"]) }))
+  .handler(async ({ data, context }) => {
+    const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
+    if (!roles || roles.length === 0) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: order, error } = await supabaseAdmin
+      .from("orders")
+      .select("product_id, color, size, quantity, stock_restocked, status")
+      .eq("id", data.orderId)
+      .maybeSingle();
+    if (error || !order) throw new Error("Order not found");
+
+    await supabaseAdmin.from("orders").update({ status: data.status }).eq("id", data.orderId);
+
+    // Only restock on the transition INTO cancelled, not every save while
+    // it's already cancelled, and never twice for the same order.
+    let restocked = false;
+    if (data.status === "cancelled" && order.status !== "cancelled" && !order.stock_restocked && order.product_id) {
+      const { error: incErr } = await supabaseAdmin.rpc("increment_stock", {
+        p_product_id: order.product_id,
+        p_color: order.color as string,
+        p_size: order.size as string,
+        p_quantity: order.quantity,
+      });
+      if (!incErr) {
+        await supabaseAdmin.from("orders").update({ stock_restocked: true }).eq("id", data.orderId);
+        restocked = true;
+      }
+    }
+    return { restocked };
+  });
+
 // Pulls the live status from Pathao for one order and stores it in
 // orders.pathao_status, separate from the admin's own manual `status`
 // workflow field so neither overwrites the other. If Pathao reports the
