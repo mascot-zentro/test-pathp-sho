@@ -198,10 +198,22 @@ function Checkout() {
           <Link to="/product/$id" params={{ id: product.id }} className="text-sm text-muted-foreground">← Back</Link>
           <h1 className="text-3xl font-display">Checkout</h1>
 
-          {/* Honeypot: hidden from real users, simple bots fill every field they find */}
+          {/* Honeypot: hidden from real users, simple bots fill every field they
+              find. Named/labeled to avoid matching browser autofill heuristics —
+              a plain "company"/"organization" field gets auto-filled by some
+              mobile browsers' saved business-profile data, which broke real
+              checkouts here. */}
           <div className="absolute -left-[9999px]" aria-hidden="true">
-            <label htmlFor="company">Company</label>
-            <input id="company" name="company" type="text" tabIndex={-1} autoComplete="off" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+            <label htmlFor="hp_field">Leave this blank</label>
+            <input
+              id="hp_field"
+              name="hp_field"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={form.company}
+              onChange={(e) => setForm({ ...form, company: e.target.value })}
+            />
           </div>
 
           {!pathaoUp && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">Delivery service is offline — please try again later, or use WhatsApp from the product page.</div>}
