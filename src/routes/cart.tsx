@@ -31,6 +31,7 @@ function CartPage() {
   const [pathaoUp, setPathaoUp] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+  const [deliveryError, setDeliveryError] = useState<"not_configured" | "unavailable" | null>(null);
   const [promoInput, setPromoInput] = useState("");
   const [promo, setPromo] = useState<{ code: string; discountPercent: number } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -73,11 +74,20 @@ function CartPage() {
   }, [zoneId, fetchAreas]);
 
   useEffect(() => {
-    if (!cityId || !zoneId || items.length === 0) { setDeliveryFee(null); return; }
+    if (!cityId || !zoneId || items.length === 0) { setDeliveryFee(null); setDeliveryError(null); return; }
     setDeliveryFeeLoading(true);
+    setDeliveryError(null);
     fetchDeliveryEstimate({ data: { cityId, zoneId, weight: Math.min(10, Math.max(0.5, totalWeight)) } })
-      .then((fee: unknown) => setDeliveryFee(typeof fee === "number" ? fee : null))
-      .catch(() => setDeliveryFee(null))
+      .then((res: unknown) => {
+        // getDeliveryEstimate returns { ok: true, fee } or { ok: false, reason },
+        // never a bare number — this used to check `typeof fee === "number"`
+        // against the whole response object, which is always false, so the
+        // delivery fee silently stayed null even when Pathao succeeded.
+        const r = res as { ok: boolean; fee?: number; reason?: "not_configured" | "unavailable" };
+        if (r?.ok && typeof r.fee === "number") { setDeliveryFee(r.fee); setDeliveryError(null); }
+        else { setDeliveryFee(null); setDeliveryError(r?.reason ?? "unavailable"); }
+      })
+      .catch(() => { setDeliveryFee(null); setDeliveryError("unavailable"); })
       .finally(() => setDeliveryFeeLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId, zoneId, items.length, fetchDeliveryEstimate]);
@@ -232,8 +242,22 @@ function CartPage() {
             <div><Label>Special instructions (optional)</Label><Textarea value={form.instruction} onChange={(e) => setForm({ ...form, instruction: e.target.value })} /></div>
 
             <Button size="lg" className="w-full" disabled={submitting || !deliveryReady}>
-              {submitting ? "Placing order…" : !deliveryReady ? "Select city & zone to continue" : `Place order — NRS ${grandTotal} (Cash on delivery)`}
+              {submitting
+                ? "Placing order…"
+                : deliveryError
+                ? "Delivery unavailable — see below"
+                : !deliveryReady
+                ? "Select city & zone to continue"
+                : `Place order — NRS ${grandTotal} (Cash on delivery)`}
             </Button>
+            {deliveryError && (
+              <p className="text-sm text-destructive">
+                {deliveryError === "not_configured"
+                  ? "Online checkout isn't set up for delivery pricing yet."
+                  : "Couldn't calculate the delivery fee for this area right now."}{" "}
+                Please message us on WhatsApp to place this order instead.
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
           </form>
         </div>
@@ -265,6 +289,8 @@ function CartPage() {
               <span className="text-muted-foreground">Calculating…</span>
             ) : deliveryFee !== null ? (
               <span>NRS {deliveryFee}</span>
+            ) : deliveryError ? (
+              <span className="text-destructive text-xs">Unavailable</span>
             ) : (
               <span className="text-muted-foreground text-xs">Select city &amp; zone</span>
             )}
