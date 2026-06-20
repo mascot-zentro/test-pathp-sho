@@ -117,9 +117,18 @@ export const getDeliveryEstimate = createServerFn({ method: "POST" })
         recipient_zone: data.zoneId,
       })) as { data?: { final_price?: number } };
       const fee = res?.data?.final_price;
-      if (typeof fee !== "number") return { ok: false as const, reason: "unavailable" as const };
+      if (typeof fee !== "number") {
+        console.error("[getDeliveryEstimate] Pathao responded but with no final_price:", JSON.stringify(res));
+        return { ok: false as const, reason: "unavailable" as const };
+      }
       return { ok: true as const, fee };
-    } catch {
+    } catch (e) {
+      // Swallowing this used to leave both the customer and the admin with
+      // zero clue why delivery pricing broke (wrong store_id for the
+      // current credentials, expired/invalid token, Pathao API down,
+      // etc.) — logging it server-side means it's visible in deployment
+      // logs even though the client only ever sees "unavailable".
+      console.error("[getDeliveryEstimate] Pathao price-plan call failed:", String(e));
       return { ok: false as const, reason: "unavailable" as const };
     }
   });

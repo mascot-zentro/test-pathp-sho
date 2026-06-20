@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getPathaoStores, getPathaoCredentials, savePathaoCredentials } from "@/lib/pathao.functions";
+import { getPathaoStores, getPathaoCredentials, savePathaoCredentials, getCities, getZones, getDeliveryEstimate } from "@/lib/pathao.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,52 @@ function SettingsPage() {
   >(null);
   const [storesLoading, setStoresLoading] = useState(false);
   const fetchStores = useServerFn(getPathaoStores);
+
+  // End-to-end diagnostic: runs the exact same calls checkout does (cities
+  // -> zones -> price-plan) using the first city/zone Pathao returns, so
+  // the admin can tell at a glance whether delivery-fee calculation is
+  // broken because of credentials, store_id, or something else — instead
+  // of having to place a real test order to find out.
+  const fetchCities = useServerFn(getCities);
+  const fetchZones = useServerFn(getZones);
+  const fetchDeliveryEstimate = useServerFn(getDeliveryEstimate);
+  const [testingDelivery, setTestingDelivery] = useState(false);
+  const [deliveryTestResult, setDeliveryTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const testDeliveryFee = async () => {
+    setTestingDelivery(true);
+    setDeliveryTestResult(null);
+    try {
+      const citiesRes = (await fetchCities()) as { data?: { data?: { city_id: number; city_name: string }[] }; error?: string };
+      if (citiesRes?.error) { setDeliveryTestResult({ ok: false, message: `Couldn't load cities: ${citiesRes.error}` }); return; }
+      const city = citiesRes?.data?.data?.[0];
+      if (!city) { setDeliveryTestResult({ ok: false, message: "Pathao returned no cities — check credentials above." }); return; }
+
+      const zonesRes = (await fetchZones({ data: { cityId: city.city_id } })) as { data?: { data?: { zone_id: number; zone_name: string }[] }; error?: string };
+      if (zonesRes?.error) { setDeliveryTestResult({ ok: false, message: `Couldn't load zones for ${city.city_name}: ${zonesRes.error}` }); return; }
+      const zone = zonesRes?.data?.data?.[0];
+      if (!zone) { setDeliveryTestResult({ ok: false, message: `Pathao returned no zones for ${city.city_name}.` }); return; }
+
+      const feeRes = (await fetchDeliveryEstimate({ data: { cityId: city.city_id, zoneId: zone.zone_id, weight: 0.5 } })) as
+        | { ok: true; fee: number }
+        | { ok: false; reason: "not_configured" | "unavailable" };
+      if (!feeRes.ok) {
+        setDeliveryTestResult({
+          ok: false,
+          message:
+            feeRes.reason === "not_configured"
+              ? "No Pathao store is selected below — pick one from 'Load stores' first."
+              : `Pathao's price-plan call failed for ${city.city_name} / ${zone.zone_name}. Check the server logs for the exact error, or re-check your credentials and selected store above.`,
+        });
+        return;
+      }
+      setDeliveryTestResult({ ok: true, message: `Success — NRS ${feeRes.fee} for ${city.city_name} / ${zone.zone_name} (0.5kg).` });
+    } catch (e) {
+      setDeliveryTestResult({ ok: false, message: `Unexpected error: ${String(e)}` });
+    } finally {
+      setTestingDelivery(false);
+    }
+  };
 
   // Pathao production API credentials — stored in the DB (pathao_credentials
   // table, service-role only) instead of hardcoded, so going live doesn't
@@ -268,6 +314,25 @@ function SettingsPage() {
               </div>
             ))}
         </div>
+
+        <div className="space-y-2 border-t pt-6">
+          <div>
+            <h3 className="font-medium">Test delivery fee calculation</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Runs the exact same check checkout does — fetches a city and zone from Pathao, then asks for
+              a price. Use this if customers are reporting that the delivery fee won't calculate.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={testDeliveryFee} disabled={testingDelivery}>
+            {testingDelivery ? "Testing…" : "Test delivery fee"}
+          </Button>
+          {deliveryTestResult && (
+            <p className={`text-xs ${deliveryTestResult.ok ? "text-green-700" : "text-destructive"}`}>
+              {deliveryTestResult.message}
+            </p>
+          )}
+        </div>
+
         <div className="border-t pt-6 space-y-4">
           <div>
             <h3 className="font-medium">Pathao API credentials</h3>
