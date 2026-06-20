@@ -215,6 +215,10 @@ function Checkout() {
               : `Place order — NRS ${grandTotal} (Cash on delivery)`}
           </Button>
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
+          <p className="text-xs text-muted-foreground">
+            By placing this order, you agree to our{" "}
+            <Link to="/terms" target="_blank" className="text-accent hover:underline">Terms &amp; Conditions</Link>.
+          </p>
         </form>
 
         <aside className="border rounded-lg p-5 h-fit bg-card">

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SaleRouteImport } from './routes/sale'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as FaqRouteImport } from './routes/faq'
@@ -31,6 +32,11 @@ import { Route as AdminAdSpendingRouteImport } from './routes/admin/ad-spending'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin/products.index'
 import { Route as AdminProductsSlugRouteImport } from './routes/admin/products.$slug'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SaleRoute = SaleRouteImport.update({
   id: '/sale',
   path: '/sale',
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
+  '/terms': typeof TermsRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
+  '/terms': typeof TermsRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
+  '/terms': typeof TermsRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/order-confirmed'
     | '/sale'
+    | '/terms'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/order-confirmed'
     | '/sale'
+    | '/terms'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/order-confirmed'
     | '/sale'
+    | '/terms'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
@@ -283,12 +295,20 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   SaleRoute: typeof SaleRoute
+  TermsRoute: typeof TermsRoute
   CheckoutProductIdRoute: typeof CheckoutProductIdRoute
   ProductIdRoute: typeof ProductIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sale': {
       id: '/sale'
       path: '/sale'
@@ -489,6 +509,7 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
   SaleRoute: SaleRoute,
+  TermsRoute: TermsRoute,
   CheckoutProductIdRoute: CheckoutProductIdRoute,
   ProductIdRoute: ProductIdRoute,
 }

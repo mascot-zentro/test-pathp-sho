@@ -17,9 +17,18 @@ export const Route = createFileRoute("/admin/orders")({
   component: OrdersPage,
 });
 
+function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destructive" | "outline" {
+  if (!slug) return "outline";
+  const s = slug.toLowerCase();
+  if (s.includes("deliver")) return "default";
+  if (s.includes("cancel") || s.includes("return") || s.includes("hold")) return "destructive";
+  return "secondary";
+}
+
 function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [bulkSyncing, setBulkSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const runSync = useServerFn(syncOrderStatus);
@@ -52,6 +61,31 @@ function OrdersPage() {
     } finally {
       setSyncing(null);
     }
+  };
+
+  // Checks Pathao status for every order that has a consignment and isn't
+  // already in a terminal state, one at a time to stay easy on the API.
+  const refreshAllPathaoStatus = async () => {
+    const targets = orders.filter(
+      (o) => o.pathao_consignment_id && !["delivered", "cancelled"].includes((o.pathao_status || "").toLowerCase())
+    );
+    if (targets.length === 0) {
+      toast.info("No active Pathao shipments to check.");
+      return;
+    }
+    setBulkSyncing(true);
+    let failed = 0;
+    for (const o of targets) {
+      try {
+        await runSync({ data: { orderId: o.id } });
+      } catch {
+        failed += 1;
+      }
+    }
+    setBulkSyncing(false);
+    load();
+    if (failed > 0) toast.error(`Checked ${targets.length} orders — ${failed} failed.`);
+    else toast.success(`Checked status for ${targets.length} order${targets.length === 1 ? "" : "s"}.`);
   };
 
   const totalSales = orders
@@ -109,6 +143,16 @@ function OrdersPage() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={refreshAllPathaoStatus}
+                disabled={bulkSyncing}
+                className="text-xs border rounded-md px-2.5 py-2 bg-background hover:border-accent hover:text-accent disabled:opacity-40 flex items-center gap-1.5"
+                title="Check Pathao status for every active shipment"
+              >
+                <RefreshCw className={`size-3.5 ${bulkSyncing ? "animate-spin" : ""}`} />
+                {bulkSyncing ? "Checking…" : "Check all"}
+              </button>
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -148,21 +192,25 @@ function OrdersPage() {
                     {new Date(o.created_at).toLocaleString()}
                   </div>
                   {o.pathao_consignment_id && (
-                    <div className="text-xs text-accent flex items-center gap-1.5 mt-1">
-                      <Truck className="size-3" /> #{o.pathao_consignment_id}
-                      {o.pathao_status && (
-                        <span className="text-muted-foreground">
-                          · {o.pathao_status.replace(/_/g, " ")}
-                        </span>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Truck className="size-3 text-accent shrink-0" />
+                      <span className="text-xs text-muted-foreground">#{o.pathao_consignment_id}</span>
+                      {o.pathao_status ? (
+                        <Badge variant={pathaoStatusTone(o.pathao_status)} className="text-[10px] px-1.5 py-0 h-5 capitalize font-normal">
+                          {o.pathao_status.replace(/_/g, " ")}
+                        </Badge>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">no status yet</span>
                       )}
                       <button
                         type="button"
                         onClick={() => refreshPathaoStatus(o.id)}
                         disabled={syncing === o.id}
-                        title="Refresh status from Pathao"
-                        className="text-muted-foreground hover:text-foreground disabled:opacity-40"
+                        title="Check latest status from Pathao"
+                        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-0.5"
                       >
                         <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
+                        {syncing === o.id ? "Checking…" : "Check status"}
                       </button>
                     </div>
                   )}

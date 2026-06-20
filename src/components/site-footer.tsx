@@ -25,6 +25,7 @@ export function SiteFooter() {
         </div>
         <nav className="flex items-center gap-4">
           <Link to="/faq" className="hover:text-foreground">FAQ</Link>
+          <Link to="/terms" className="hover:text-foreground">Terms</Link>
           {vals.contact_email && <a href={`mailto:${vals.contact_email}`} className="hover:text-foreground">{vals.contact_email}</a>}
           {vals.contact_phone && <a href={`tel:${vals.contact_phone}`} className="hover:text-foreground">{vals.contact_phone}</a>}
           {vals.social_instagram && <a href={vals.social_instagram} target="_blank" rel="noreferrer" className="hover:text-foreground">Instagram</a>}
