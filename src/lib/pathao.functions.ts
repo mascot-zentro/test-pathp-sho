@@ -30,6 +30,67 @@ export const getPathaoStores = createServerFn({ method: "GET" })
     try { return await pathao.stores(); } catch (e) { return { error: String(e) }; }
   });
 
+// Returns the current Pathao credentials with secrets masked, so the admin
+// can see what's configured (and whether it looks like sandbox vs a real
+// production client_id) without the client_secret/password ever reaching
+// the browser in plain text.
+export const getPathaoCredentials = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
+    if (!roles || roles.length === 0) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin.from("pathao_credentials").select("*").eq("id", 1).maybeSingle();
+    const mask = (v: string | null | undefined) => (v ? `${"•".repeat(Math.max(0, v.length - 4))}${v.slice(-4)}` : "");
+    return {
+      configured: !!data,
+      baseUrl: data?.base_url ?? "",
+      clientId: data?.client_id ?? "",
+      username: data?.username ?? "",
+      clientSecretMasked: mask(data?.client_secret),
+      passwordMasked: mask(data?.password),
+      updatedAt: data?.updated_at ?? null,
+    };
+  });
+
+const pathaoCredentialsSchema = z.object({
+  baseUrl: z.string().url(),
+  clientId: z.string().min(1),
+  // Empty string means "keep the existing secret" — lets the admin update
+  // baseUrl/clientId/username alone without retyping the secret/password
+  // every time, since the masked value is never sent back from the GET.
+  clientSecret: z.string(),
+  username: z.string().min(1),
+  password: z.string(),
+});
+
+export const savePathaoCredentials = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(pathaoCredentialsSchema)
+  .handler(async ({ data, context }) => {
+    const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
+    if (!roles || roles.length === 0) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const existing = await supabaseAdmin.from("pathao_credentials").select("client_secret,password").eq("id", 1).maybeSingle();
+
+    const { error } = await supabaseAdmin.from("pathao_credentials").upsert({
+      id: 1,
+      base_url: data.baseUrl,
+      client_id: data.clientId,
+      client_secret: data.clientSecret || existing.data?.client_secret || "",
+      username: data.username,
+      password: data.password || existing.data?.password || "",
+      updated_at: new Date().toISOString(),
+      updated_by: context.userId,
+    });
+    if (error) throw new Error(error.message);
+
+    const { clearPathaoConfigCache } = await import("./pathao.server");
+    clearPathaoConfigCache();
+    return { ok: true };
+  });
+
 // Live delivery-fee quote for the checkout page. Public — no auth needed,
 // it's the same information a customer would see before placing the order.
 // Reads pathao_store_id from settings server-side so the client never needs

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getPathaoStores } from "@/lib/pathao.functions";
+import { getPathaoStores, getPathaoCredentials, savePathaoCredentials } from "@/lib/pathao.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,74 @@ function SettingsPage() {
   >(null);
   const [storesLoading, setStoresLoading] = useState(false);
   const fetchStores = useServerFn(getPathaoStores);
+
+  // Pathao production API credentials — stored in the DB (pathao_credentials
+  // table, service-role only) instead of hardcoded, so going live doesn't
+  // require touching code or redeploying. See pathao.server.ts for how
+  // these are resolved: DB row -> PATHAO_* env vars -> sandbox defaults.
+  const fetchCreds = useServerFn(getPathaoCredentials);
+  const saveCreds = useServerFn(savePathaoCredentials);
+  const [credsLoading, setCredsLoading] = useState(true);
+  const [credsSaving, setCredsSaving] = useState(false);
+  const [credsConfigured, setCredsConfigured] = useState(false);
+  const [credsUpdatedAt, setCredsUpdatedAt] = useState<string | null>(null);
+  const [creds, setCreds] = useState({
+    baseUrl: "https://api-hermes.pathao.com",
+    clientId: "",
+    clientSecret: "",
+    username: "",
+    password: "",
+  });
+  const [secretMaskHint, setSecretMaskHint] = useState("");
+  const [passwordMaskHint, setPasswordMaskHint] = useState("");
+
+  const loadCredentials = async () => {
+    setCredsLoading(true);
+    try {
+      const res = await fetchCreds();
+      setCredsConfigured(res.configured);
+      setCredsUpdatedAt(res.updatedAt);
+      setCreds((c) => ({
+        ...c,
+        baseUrl: res.baseUrl || c.baseUrl,
+        clientId: res.clientId || "",
+        username: res.username || "",
+        clientSecret: "",
+        password: "",
+      }));
+      setSecretMaskHint(res.clientSecretMasked);
+      setPasswordMaskHint(res.passwordMasked);
+    } catch (e) {
+      toast.error(`Couldn't load Pathao credentials: ${String(e)}`);
+    } finally {
+      setCredsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCredentials();
+  }, []);
+
+  const handleSaveCredentials = async () => {
+    if (!creds.clientId.trim() || !creds.username.trim()) {
+      toast.error("Client ID and username are required.");
+      return;
+    }
+    if (!credsConfigured && (!creds.clientSecret || !creds.password)) {
+      toast.error("Client secret and password are required the first time you set this up.");
+      return;
+    }
+    setCredsSaving(true);
+    try {
+      await saveCreds({ data: creds });
+      toast.success("Pathao credentials saved. New requests will use them right away.");
+      await loadCredentials();
+    } catch (e) {
+      toast.error(`Couldn't save: ${String(e)}`);
+    } finally {
+      setCredsSaving(false);
+    }
+  };
 
   useEffect(() => {
     supabase
@@ -200,10 +268,70 @@ function SettingsPage() {
               </div>
             ))}
         </div>
-        <div className="text-xs text-muted-foreground border-t pt-4">
-          Pathao API uses sandbox credentials by default. Set PATHAO_CLIENT_ID,
-          PATHAO_CLIENT_SECRET, PATHAO_USERNAME, PATHAO_PASSWORD, PATHAO_BASE_URL secrets to go
-          live.
+        <div className="border-t pt-6 space-y-4">
+          <div>
+            <h3 className="font-medium">Pathao API credentials</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {credsLoading
+                ? "Loading…"
+                : credsConfigured
+                ? `Custom credentials configured${credsUpdatedAt ? ` · last updated ${new Date(credsUpdatedAt).toLocaleString()}` : ""}.`
+                : "Not configured yet — currently using sandbox test credentials. Fill this in and save to go live."}
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label>API base URL</Label>
+            <Input
+              value={creds.baseUrl}
+              onChange={(e) => setCreds({ ...creds, baseUrl: e.target.value })}
+              placeholder="https://api-hermes.pathao.com"
+            />
+            <p className="text-xs text-muted-foreground">
+              Sandbox: https://courier-api-sandbox.pathao.com · Production: https://api-hermes.pathao.com
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Client ID</Label>
+            <Input value={creds.clientId} onChange={(e) => setCreds({ ...creds, clientId: e.target.value })} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Client secret</Label>
+            <Input
+              type="password"
+              value={creds.clientSecret}
+              onChange={(e) => setCreds({ ...creds, clientSecret: e.target.value })}
+              placeholder={secretMaskHint ? `Currently: ${secretMaskHint} — leave blank to keep` : "Enter client secret"}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Pathao account email</Label>
+            <Input value={creds.username} onChange={(e) => setCreds({ ...creds, username: e.target.value })} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Pathao account password</Label>
+            <Input
+              type="password"
+              value={creds.password}
+              onChange={(e) => setCreds({ ...creds, password: e.target.value })}
+              placeholder={passwordMaskHint ? `Currently: ${passwordMaskHint} — leave blank to keep` : "Enter password"}
+            />
+          </div>
+
+          <Button onClick={handleSaveCredentials} disabled={credsSaving || credsLoading}>
+            {credsSaving ? "Saving…" : "Save Pathao credentials"}
+          </Button>
+
+          <p className="text-xs text-muted-foreground">
+            These are stored securely and only used by the server when talking to Pathao —
+            they are never sent to the browser. Get production credentials from your Pathao
+            merchant dashboard under API settings. Saving new credentials takes effect on the
+            next Pathao request.
+          </p>
         </div>
       </div>
     </div>

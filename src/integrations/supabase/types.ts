@@ -226,6 +226,39 @@ export type Database = {
           },
         ]
       }
+      pathao_credentials: {
+        Row: {
+          base_url: string | null
+          client_id: string | null
+          client_secret: string | null
+          id: number
+          password: string | null
+          updated_at: string
+          updated_by: string | null
+          username: string | null
+        }
+        Insert: {
+          base_url?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          id?: number
+          password?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          username?: string | null
+        }
+        Update: {
+          base_url?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          id?: number
+          password?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
       pathao_tokens: {
         Row: {
           access_token: string

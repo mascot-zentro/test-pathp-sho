@@ -1,16 +1,65 @@
 // Pathao Courier Merchant API client. Server-only. Caches tokens in DB.
-// Sandbox creds are defaults — override via env vars (PATHAO_*) to go live.
+// Credentials resolve in this order: pathao_credentials table (set by admin
+// in Settings) -> PATHAO_* environment variables -> sandbox test defaults.
+// The DB row is cached in memory for a short time so we don't hit Postgres
+// on every single Pathao call.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const cfg = {
-  baseUrl: process.env.PATHAO_BASE_URL || "https://courier-api-sandbox.pathao.com",
-  clientId: process.env.PATHAO_CLIENT_ID || "QK9b69QaEv",
-  clientSecret: process.env.PATHAO_CLIENT_SECRET || "k12nLGgq0zM3a65Sp65el4SZO6dhhMIxR0rDCavz",
-  username: process.env.PATHAO_USERNAME || "test.parcel@pathao.com",
-  password: process.env.PATHAO_PASSWORD || "lovePathao",
+type PathaoConfig = {
+  baseUrl: string;
+  clientId: string;
+  clientSecret: string;
+  username: string;
+  password: string;
 };
 
+const SANDBOX_DEFAULTS: PathaoConfig = {
+  baseUrl: "https://courier-api-sandbox.pathao.com",
+  clientId: "QK9b69QaEv",
+  clientSecret: "k12nLGgq0zM3a65Sp65el4SZO6dhhMIxR0rDCavz",
+  username: "test.parcel@pathao.com",
+  password: "lovePathao",
+};
+
+let cachedConfig: PathaoConfig | null = null;
+let cachedAt = 0;
+const CONFIG_CACHE_MS = 30_000;
+
+async function loadConfig(): Promise<PathaoConfig> {
+  if (cachedConfig && Date.now() - cachedAt < CONFIG_CACHE_MS) return cachedConfig;
+
+  const envFallback: PathaoConfig = {
+    baseUrl: process.env.PATHAO_BASE_URL || SANDBOX_DEFAULTS.baseUrl,
+    clientId: process.env.PATHAO_CLIENT_ID || SANDBOX_DEFAULTS.clientId,
+    clientSecret: process.env.PATHAO_CLIENT_SECRET || SANDBOX_DEFAULTS.clientSecret,
+    username: process.env.PATHAO_USERNAME || SANDBOX_DEFAULTS.username,
+    password: process.env.PATHAO_PASSWORD || SANDBOX_DEFAULTS.password,
+  };
+
+  const { data } = await supabaseAdmin.from("pathao_credentials").select("*").eq("id", 1).maybeSingle();
+  const resolved: PathaoConfig = {
+    baseUrl: data?.base_url || envFallback.baseUrl,
+    clientId: data?.client_id || envFallback.clientId,
+    clientSecret: data?.client_secret || envFallback.clientSecret,
+    username: data?.username || envFallback.username,
+    password: data?.password || envFallback.password,
+  };
+
+  cachedConfig = resolved;
+  cachedAt = Date.now();
+  return resolved;
+}
+
+// Settings page calls this after a successful save so the very next Pathao
+// call (e.g. "fetch my stores") uses the new credentials immediately
+// instead of waiting out the cache window.
+export function clearPathaoConfigCache() {
+  cachedConfig = null;
+  cachedAt = 0;
+}
+
 async function fetchNewToken() {
+  const cfg = await loadConfig();
   const res = await fetch(`${cfg.baseUrl}/aladdin/api/v1/issue-token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -38,6 +87,7 @@ export async function getPathaoToken(): Promise<string> {
 }
 
 async function pathaoGet(path: string) {
+  const cfg = await loadConfig();
   const token = await getPathaoToken();
   const res = await fetch(`${cfg.baseUrl}${path}`, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -47,6 +97,7 @@ async function pathaoGet(path: string) {
 }
 
 async function pathaoPost(path: string, body: unknown) {
+  const cfg = await loadConfig();
   const token = await getPathaoToken();
   const res = await fetch(`${cfg.baseUrl}${path}`, {
     method: "POST",
