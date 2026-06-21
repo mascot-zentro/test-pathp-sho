@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
+import { Reveal } from "@/components/reveal";
 import { Truck, ShieldCheck, RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -87,23 +88,29 @@ function Index() {
             </div>
           )}
           <div className="container mx-auto px-6 py-24 md:py-32 text-center">
-            <h1 className="text-4xl md:text-6xl font-display tracking-tight max-w-3xl mx-auto leading-[1.1]">
-              {hero.title}
-            </h1>
-            <p className="mt-5 text-muted-foreground max-w-md mx-auto text-base md:text-lg">
-              {hero.subtitle}
-            </p>
-            <a
-              href="#shop"
-              className="mt-9 inline-flex items-center px-7 py-3 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-85 transition"
-            >
-              Shop the collection
-            </a>
+            <Reveal>
+              <h1 className="text-4xl md:text-6xl font-display tracking-tight max-w-3xl mx-auto leading-[1.1]">
+                {hero.title}
+              </h1>
+            </Reveal>
+            <Reveal delay={100}>
+              <p className="mt-5 text-muted-foreground max-w-md mx-auto text-base md:text-lg">
+                {hero.subtitle}
+              </p>
+            </Reveal>
+            <Reveal delay={200}>
+              <a
+                href="#shop"
+                className="mt-9 inline-flex items-center px-7 py-3 rounded-full bg-foreground text-background text-sm font-medium transition-all duration-300 hover:opacity-85 hover:scale-[1.03] hover:shadow-lg"
+              >
+                Shop the collection
+              </a>
+            </Reveal>
           </div>
         </section>
 
         {/* Trust strip */}
-        <div className="border-t border-b">
+        <Reveal as="div" className="border-t border-b" direction="none">
           <div className="container mx-auto px-6 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-2">
               <Truck className="size-3.5" /> Nationwide delivery
@@ -115,7 +122,7 @@ function Index() {
               <RotateCcw className="size-3.5" /> Easy returns
             </span>
           </div>
-        </div>
+        </Reveal>
 
         {/* Product grid */}
         <section id="shop" className="container mx-auto px-6 py-16 md:py-20">
@@ -131,10 +138,10 @@ function Index() {
               <button
                 type="button"
                 onClick={() => setActiveCategory(null)}
-                className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                className={`text-sm px-3 py-1.5 rounded-full border transition-all duration-200 ${
                   activeCategory === null
                     ? "border-foreground text-foreground"
-                    : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                    : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground hover:scale-[1.04]"
                 }`}
               >
                 All
@@ -144,10 +151,10 @@ function Index() {
                   key={c}
                   type="button"
                   onClick={() => setActiveCategory(c)}
-                  className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                  className={`text-sm px-3 py-1.5 rounded-full border transition-all duration-200 ${
                     activeCategory === c
                       ? "border-foreground text-foreground"
-                      : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                      : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground hover:scale-[1.04]"
                   }`}
                 >
                   {c}
@@ -172,45 +179,47 @@ function Index() {
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
-              {visibleProducts.map((p) => {
+              {visibleProducts.map((p, i) => {
                 const outOfStock = p.stock_quantity === 0;
                 return (
-                  <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
-                    <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
-                      {p.image_url ? (
-                        <img
-                          src={p.image_url}
-                          alt={p.name}
-                          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${outOfStock ? "opacity-50" : ""}`}
-                        />
-                      ) : (
-                        <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
-                      )}
-                      {outOfStock && (
-                        <span className="absolute top-2 left-2 bg-background/90 text-muted-foreground text-xs font-medium px-2 py-1 rounded">
-                          Out of stock
-                        </span>
-                      )}
-                      {p.on_sale && p.sale_price && !outOfStock && (
-                        <span className="absolute top-2 left-2 bg-foreground text-background text-xs font-medium px-2 py-1 rounded">
-                          Sale
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-4 flex items-start justify-between gap-2">
-                      <h3 className="text-sm leading-tight">{p.name}</h3>
-                      <div className="text-sm tabular-nums whitespace-nowrap">
-                        {p.on_sale && p.sale_price ? (
-                          <span>
-                            <span className="text-muted-foreground line-through mr-1.5 text-xs">NRS {p.price}</span>
-                            <span className="text-accent">NRS {p.sale_price}</span>
-                          </span>
+                  <Reveal key={p.id} delay={(i % 8) * 60}>
+                    <Link to="/product/$id" params={{ id: p.id }} className="group">
+                      <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
+                        {p.image_url ? (
+                          <img
+                            src={p.image_url}
+                            alt={p.name}
+                            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${outOfStock ? "opacity-50" : ""}`}
+                          />
                         ) : (
-                          <span>NRS {p.price}</span>
+                          <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
+                        )}
+                        {outOfStock && (
+                          <span className="absolute top-2 left-2 bg-background/90 text-muted-foreground text-xs font-medium px-2 py-1 rounded">
+                            Out of stock
+                          </span>
+                        )}
+                        {p.on_sale && p.sale_price && !outOfStock && (
+                          <span className="absolute top-2 left-2 bg-foreground text-background text-xs font-medium px-2 py-1 rounded">
+                            Sale
+                          </span>
                         )}
                       </div>
-                    </div>
-                  </Link>
+                      <div className="mt-4 flex items-start justify-between gap-2">
+                        <h3 className="text-sm leading-tight transition-colors group-hover:text-accent">{p.name}</h3>
+                        <div className="text-sm tabular-nums whitespace-nowrap">
+                          {p.on_sale && p.sale_price ? (
+                            <span>
+                              <span className="text-muted-foreground line-through mr-1.5 text-xs">NRS {p.price}</span>
+                              <span className="text-accent">NRS {p.sale_price}</span>
+                            </span>
+                          ) : (
+                            <span>NRS {p.price}</span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  </Reveal>
                 );
               })}
             </div>
@@ -222,16 +231,16 @@ function Index() {
           <section className="border-t bg-muted/30">
             <div className="container mx-auto px-6 py-20 grid md:grid-cols-2 gap-10 items-center">
               {about.image && (
-                <div className="aspect-[4/3] rounded-md overflow-hidden order-first md:order-none">
+                <Reveal direction="none" className="aspect-[4/3] rounded-md overflow-hidden order-first md:order-none">
                   <img src={about.image} alt="" className="w-full h-full object-cover" />
-                </div>
+                </Reveal>
               )}
-              <div>
+              <Reveal delay={100}>
                 <h2 className="text-3xl font-display">{about.title}</h2>
                 {about.body && (
                   <p className="mt-4 text-muted-foreground leading-relaxed whitespace-pre-line">{about.body}</p>
                 )}
-              </div>
+              </Reveal>
             </div>
           </section>
         )}
