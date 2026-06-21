@@ -17,6 +17,12 @@ export const logPageVisit = createServerFn({ method: "POST" })
     const region = headers.get("x-vercel-ip-country-region");
     const country = headers.get("x-vercel-ip-country");
 
+    // Generous cap (this fires on every storefront page view, including
+    // fast SPA navigation) — just enough to stop a script from flooding
+    // page_visits, not enough to ever affect a real visitor browsing normally.
+    const { enforceRateLimit } = await import("@/lib/rate-limit.server");
+    await enforceRateLimit("page_visit", { maxHits: 60, windowSeconds: 60 });
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("page_visits").insert({
       path: data.path,

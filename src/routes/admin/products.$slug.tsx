@@ -449,7 +449,7 @@ function ProductEditPage() {
                     key={img.id}
                     className="relative size-20 rounded-md border overflow-hidden group"
                   >
-                    <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                    <img src={img.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
                       {i > 0 && (
                         <button

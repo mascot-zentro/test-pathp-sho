@@ -3,6 +3,8 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const getCities = createServerFn({ method: "GET" }).handler(async () => {
+  const { enforceRateLimit } = await import("./rate-limit.server");
+  await enforceRateLimit("pathao_lookup", { maxHits: 60, windowSeconds: 60 });
   const { pathao } = await import("./pathao.server");
   try { return await pathao.cities(); } catch (e) { return { error: String(e) }; }
 });
@@ -10,6 +12,8 @@ export const getCities = createServerFn({ method: "GET" }).handler(async () => {
 export const getZones = createServerFn({ method: "POST" })
   .inputValidator(z.object({ cityId: z.number() }))
   .handler(async ({ data }) => {
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("pathao_lookup", { maxHits: 60, windowSeconds: 60 });
     const { pathao } = await import("./pathao.server");
     try { return await pathao.zones(data.cityId); } catch (e) { return { error: String(e) }; }
   });
@@ -17,6 +21,8 @@ export const getZones = createServerFn({ method: "POST" })
 export const getAreas = createServerFn({ method: "POST" })
   .inputValidator(z.object({ zoneId: z.number() }))
   .handler(async ({ data }) => {
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("pathao_lookup", { maxHits: 60, windowSeconds: 60 });
     const { pathao } = await import("./pathao.server");
     try { return await pathao.areas(data.zoneId); } catch (e) { return { error: String(e) }; }
   });
@@ -102,6 +108,8 @@ export const savePathaoCredentials = createServerFn({ method: "POST" })
 export const getDeliveryEstimate = createServerFn({ method: "POST" })
   .inputValidator(z.object({ cityId: z.number(), zoneId: z.number(), weight: z.number().min(0.5).max(10) }))
   .handler(async ({ data }) => {
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("delivery_estimate", { maxHits: 30, windowSeconds: 60 });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
     const storeId = setting?.value ? Number(setting.value) : null;
@@ -358,6 +366,12 @@ async function insertOrderAndSubmitToPathao(
 export const previewPromoCode = createServerFn({ method: "POST" })
   .inputValidator(z.object({ code: z.string().trim().min(1) }))
   .handler(async ({ data }) => {
+    // Tighter limit than the other lookups on purpose: this is the one
+    // endpoint that lets a script guess discount codes one at a time, so
+    // it's capped at a rate a real shopper typing/pasting a code would
+    // never hit but a brute-force loop would.
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("promo_preview", { maxHits: 15, windowSeconds: 60 });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: promo } = await supabaseAdmin.from("promo_codes").select("*").ilike("code", data.code).maybeSingle();
     if (!promo || !promo.active) return { valid: false, message: "Invalid promo code." };
@@ -372,6 +386,20 @@ export const createOrder = createServerFn({ method: "POST" })
   .inputValidator(orderSchema)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // IP-based limit runs first and before the promo redemption, so a
+    // script hammering this endpoint never even gets to consume a promo
+    // use or touch stock. This is in addition to (not instead of) the
+    // phone-number check below: phone is customer-supplied and easy to
+    // rotate, IP is harder to — together they cover both an attacker
+    // varying the phone and one stuck on a single IP.
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("create_order_ip", {
+      maxHits: 10,
+      windowSeconds: 600,
+      message: "Too many orders from this connection recently. Please wait a few minutes, or contact us directly if you need to order more.",
+    });
+
     const subtotal = data.unitPrice * data.quantity;
 
     // Promo code: redeemed (and its use counted) before stock is touched.
@@ -575,6 +603,16 @@ export const createCartOrder = createServerFn({ method: "POST" })
   .inputValidator(cartOrderSchema)
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // See createOrder above for why this IP check runs alongside (not
+    // instead of) the phone-based one further down.
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("create_order_ip", {
+      maxHits: 10,
+      windowSeconds: 600,
+      message: "Too many orders from this connection recently. Please wait a few minutes, or contact us directly if you need to order more.",
+    });
+
     const subtotal = data.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
     let discountAmount = 0;

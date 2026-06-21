@@ -178,7 +178,7 @@ function CartPage() {
             {items.map((i) => (
               <div key={i.key} className="p-4 flex items-center gap-4">
                 <div className="size-16 rounded-md bg-muted overflow-hidden shrink-0">
-                  {i.image && <img src={i.image} alt={i.productName} className="w-full h-full object-cover" />}
+                  {i.image && <img src={i.image} alt={i.productName} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{i.productName}</div>

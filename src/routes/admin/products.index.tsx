@@ -425,7 +425,7 @@ function ProductsPage() {
                   <TableCell>
                     <div className="size-12 bg-muted rounded-md overflow-hidden border">
                       {p.image_url && (
-                        <img src={p.image_url} alt="" className="w-full h-full object-cover" />
+                        <img src={p.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       )}
                     </div>
                   </TableCell>

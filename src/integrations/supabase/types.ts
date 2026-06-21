@@ -268,6 +268,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_hits: {
+        Row: {
+          created_at: string
+          id: number
+          key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          key: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          key?: string
+        }
+        Relationships: []
+      }
       pathao_credentials: {
         Row: {
           base_url: string | null
@@ -605,6 +623,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          p_key: string
+          p_max_hits: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       decrement_stock: {
         Args: {
           p_color: string

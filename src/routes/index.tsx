@@ -84,7 +84,7 @@ function Index() {
         <section className="relative overflow-hidden">
           {hero.image && (
             <div className="absolute inset-0 -z-10">
-              <img src={hero.image} alt="" className="w-full h-full object-cover opacity-[0.12]" />
+              <img src={hero.image} alt="" fetchPriority="high" className="w-full h-full object-cover opacity-[0.12]" />
             </div>
           )}
           <div className="container mx-auto px-6 py-24 md:py-32 text-center">
@@ -189,6 +189,8 @@ function Index() {
                           <img
                             src={p.image_url}
                             alt={p.name}
+                            loading="lazy"
+                            decoding="async"
                             className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03] ${outOfStock ? "opacity-50" : ""}`}
                           />
                         ) : (
@@ -232,7 +234,7 @@ function Index() {
             <div className="container mx-auto px-6 py-20 grid md:grid-cols-2 gap-10 items-center">
               {about.image && (
                 <Reveal direction="none" className="aspect-[4/3] rounded-md overflow-hidden order-first md:order-none">
-                  <img src={about.image} alt="" className="w-full h-full object-cover" />
+                  <img src={about.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </Reveal>
               )}
               <Reveal delay={100}>

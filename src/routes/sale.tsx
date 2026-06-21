@@ -33,7 +33,7 @@ function SalePage() {
           {items.map((p) => (
             <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
               <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
-                {p.image_url && <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
+                {p.image_url && <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
                 {p.stock_quantity === 0 && (
                   <span className="absolute top-2 left-2 bg-background/90 text-destructive text-xs font-medium px-2 py-1 rounded">Out of stock</span>
                 )}

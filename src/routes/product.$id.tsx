@@ -100,14 +100,14 @@ function ProductPage() {
       <div className="container mx-auto px-6 py-10 grid md:grid-cols-2 gap-10 flex-1">
         <div>
           <div className="aspect-[4/5] bg-muted rounded-md overflow-hidden">
-            {images[activeImage] && <img src={images[activeImage]} alt={product.name} className="w-full h-full object-cover" />}
+            {images[activeImage] && <img src={images[activeImage]} alt={product.name} fetchPriority="high" className="w-full h-full object-cover" />}
           </div>
           {images.length > 1 && (
             <div className="flex gap-2 mt-3">
               {images.map((url, i) => (
                 <button key={i} type="button" onClick={() => setActiveImage(i)}
                   className={`size-16 rounded-md overflow-hidden border-2 shrink-0 ${i === activeImage ? "border-accent" : "border-transparent"}`}>
-                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -202,7 +202,7 @@ function ProductPage() {
                 <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
                   <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
                     {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
                       <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
                     )}

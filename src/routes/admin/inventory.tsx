@@ -376,7 +376,7 @@ function InventoryPage() {
                       <TableCell>
                         <div className="size-10 bg-muted rounded-md overflow-hidden border">
                           {r.imageUrl && (
-                            <img src={r.imageUrl} alt="" className="w-full h-full object-cover" />
+                            <img src={r.imageUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           )}
                         </div>
                       </TableCell>
