@@ -94,7 +94,7 @@ function Index() {
           {hero.image ? (
             <>
               <div className="absolute inset-0 -z-10">
-                <img src={hero.image} alt="" fetchPriority="high" className="w-full h-full object-cover" />
+                <img src={hero.image} alt="" fetchPriority="high" decoding="async" className="w-full h-full object-cover" />
               </div>
               <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/20 via-background/50 to-background/90" />
             </>
@@ -152,6 +152,8 @@ function Index() {
                     <img
                       src={products[0].image_url}
                       alt={products[0].name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

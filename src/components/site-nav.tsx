@@ -142,22 +142,50 @@ export function SiteNav() {
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
+    const NAV_CACHE_KEY = "nav_settings";
+    const NAV_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    try {
+      const cached = JSON.parse(localStorage.getItem(NAV_CACHE_KEY) ?? "null");
+      if (cached && Date.now() - cached.ts < NAV_CACHE_TTL) {
+        if (cached.storeName) setStoreName(cached.storeName);
+        if (cached.logoUrl) setLogoUrl(cached.logoUrl);
+        if (cached.announcement) setAnnouncement(cached.announcement);
+        return;
+      }
+    } catch {}
     supabase.from("app_settings").select("key,value").in("key", ["store_name", "logo_url", "announcement_text", "announcement_link"]).then(({ data }) => {
-      let text = "", link = "";
+      let text = "", link = "", sName = "", lUrl = "";
       (data ?? []).forEach((r) => {
-        if (r.key === "store_name" && r.value) setStoreName(r.value);
-        if (r.key === "logo_url" && r.value) setLogoUrl(r.value);
+        if (r.key === "store_name" && r.value) { setStoreName(r.value); sName = r.value; }
+        if (r.key === "logo_url" && r.value) { setLogoUrl(r.value); lUrl = r.value; }
         if (r.key === "announcement_text") text = r.value ?? "";
         if (r.key === "announcement_link") link = r.value ?? "";
       });
-      if (text) setAnnouncement({ text, link });
+      const ann = text ? { text, link } : null;
+      if (ann) setAnnouncement(ann);
+      try {
+        localStorage.setItem(NAV_CACHE_KEY, JSON.stringify({ storeName: sName, logoUrl: lUrl, announcement: ann, ts: Date.now() }));
+      } catch {}
     });
   }, []);
 
   useEffect(() => {
     if (!user) { setIsAdmin(false); return; }
+    const ROLE_CACHE_KEY = `admin_role_${user.id}`;
+    const ROLE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+    try {
+      const cached = JSON.parse(localStorage.getItem(ROLE_CACHE_KEY) ?? "null");
+      if (cached && Date.now() - cached.ts < ROLE_CACHE_TTL) {
+        setIsAdmin(cached.isAdmin);
+        return;
+      }
+    } catch {}
     supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle()
-      .then(({ data }) => setIsAdmin(!!data));
+      .then(({ data }) => {
+        const result = !!data;
+        setIsAdmin(result);
+        try { localStorage.setItem(`admin_role_${user.id}`, JSON.stringify({ isAdmin: result, ts: Date.now() })); } catch {}
+      });
   }, [user]);
 
   useEffect(() => {
@@ -169,7 +197,7 @@ export function SiteNav() {
 
   const renderLogo = (className: string) => (
     logoUrl ? (
-      <img src={logoUrl} alt={storeName} className={className} />
+      <img src={logoUrl} alt={storeName} decoding="async" className={className} />
     ) : (
       <>
         <ShoppingBag className="size-5 text-accent transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-110" />

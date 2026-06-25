@@ -60,6 +60,7 @@ function DashboardPage() {
       .from("orders")
       .select("*")
       .order("created_at", { ascending: false })
+      .limit(500)
       .then(({ data, error }) => {
         if (error) toast.error(`Couldn't load orders: ${error.message}`);
         setOrders((data as Order[]) ?? []);

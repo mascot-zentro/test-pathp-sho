@@ -65,32 +65,33 @@ function ProductPage() {
   const imgRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Resolve slug → product by loading all active products and matching by name
-    supabase.from("products").select("*").eq("active", true).then(({ data }) => {
+    // Fetch product + whatsapp setting in parallel, then batch variant queries
+    Promise.all([
+      supabase.from("products").select("*").eq("active", true).ilike("name", slug.replace(/-/g, "%")),
+      supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle(),
+    ]).then(([{ data }, { data: waSetting }]) => {
+      setDefaultWa(waSetting?.value ?? "");
       const all = (data as Product[]) ?? [];
       const match = all.find((p) => slugify(p.name) === slug) ?? null;
       if (!match) { setNotFound(true); return; }
       setProduct(match);
       const id = match.id;
-      supabase.from("product_colors").select("*").eq("product_id", id).then(({ data: cd }) => {
-        const list = (cd as Color[]) ?? [];
-        setColors(list);
-        const firstInStock = list.find((c) => c.stock_quantity !== 0);
-        setSelected((firstInStock ?? list[0])?.name ?? null);
-      });
-      supabase.from("product_sizes").select("*").eq("product_id", id).order("position").then(({ data: sd }) => {
-        const list = (sd as Size[]) ?? [];
-        setSizes(list);
-        const firstInStock = list.find((s) => s.stock_quantity !== 0);
-        setSelectedSize((firstInStock ?? list[0])?.name ?? null);
-      });
-      supabase.from("product_images").select("image_url").eq("product_id", id).order("position").then(({ data: gd }) => {
+      // Batch all variant queries in parallel
+      Promise.all([
+        supabase.from("product_colors").select("*").eq("product_id", id),
+        supabase.from("product_sizes").select("*").eq("product_id", id).order("position"),
+        supabase.from("product_images").select("image_url").eq("product_id", id).order("position"),
+      ]).then(([{ data: cd }, { data: sd }, { data: gd }]) => {
+        const colorList = (cd as Color[]) ?? [];
+        setColors(colorList);
+        setSelected((colorList.find((c) => c.stock_quantity !== 0) ?? colorList[0])?.name ?? null);
+        const sizeList = (sd as Size[]) ?? [];
+        setSizes(sizeList);
+        setSelectedSize((sizeList.find((s) => s.stock_quantity !== 0) ?? sizeList[0])?.name ?? null);
         setGallery((gd ?? []).map((r: { image_url: string }) => r.image_url));
         setActiveImage(0);
       });
     });
-    supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle()
-      .then(({ data }) => setDefaultWa(data?.value ?? ""));
   }, [slug]);
 
   useEffect(() => {
@@ -183,6 +184,7 @@ function ProductPage() {
                   src={images[activeImage]}
                   alt={product.name}
                   fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                 />
                 {zoomOpen && (
