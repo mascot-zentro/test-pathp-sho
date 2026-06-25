@@ -7,7 +7,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, Truck, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Package, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 export const Route = createFileRoute("/track")({
   component: TrackPage,
@@ -156,22 +156,6 @@ function OrderCard({ group }: { group: OrderGroup }) {
           </div>
         )}
       </div>
-
-      {/* Pathao consignment */}
-      {group.consignmentId && (
-        <div className="mx-5 mb-4 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2.5">
-          <Truck className="size-3.5 text-accent shrink-0" />
-          <div>
-            <p className="text-[11px] text-muted-foreground">Pathao consignment</p>
-            <p className="text-xs font-mono font-medium">{group.consignmentId}</p>
-          </div>
-          {group.pathaoStatus && (
-            <Badge variant="outline" className="ml-auto text-[10px] capitalize font-medium">
-              {group.pathaoStatus.replace(/_/g, " ")}
-            </Badge>
-          )}
-        </div>
-      )}
 
       {/* Items */}
       <div className="border-t">

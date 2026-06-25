@@ -13,10 +13,15 @@ export const Route = createFileRoute("/order-confirmed")({
         <SiteNav />
         <div className="container mx-auto px-6 py-24 text-center max-w-md flex-1">
           <CheckCircle2 className="size-16 text-accent mx-auto" />
-          <h1 className="text-3xl font-display mt-6">Order confirmed</h1>
-          <p className="text-muted-foreground mt-2">Thanks! We'll call to confirm and dispatch via Pathao Courier.</p>
-          {id && <p className="text-xs text-muted-foreground mt-4 font-mono">#{id.slice(0, 8)}</p>}
-          <Link to="/" className="inline-block mt-8 underline">Continue shopping</Link>
+          <h1 className="text-3xl font-display mt-6">Order confirmed!</h1>
+          <p className="text-lg text-foreground mt-3 font-light">Your parcel is on the way.</p>
+          <p className="text-muted-foreground mt-2 text-sm">We'll dispatch it within 1 business day. Thank you for your order!</p>
+          {id && <p className="text-xs text-muted-foreground mt-4 font-mono">Order #{id.slice(0, 8).toUpperCase()}</p>}
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to="/track" className="text-sm underline text-accent">Track your order</Link>
+            <span className="hidden sm:inline text-muted-foreground/40">·</span>
+            <Link to="/" className="text-sm underline text-muted-foreground">Continue shopping</Link>
+          </div>
         </div>
         <SiteFooter />
       </div>
