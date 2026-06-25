@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2 } from "lucide-react";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2, Printer } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
@@ -79,6 +79,63 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
   return "secondary";
 }
 
+function printSlip(group: OrderGroup, storeName: string) {
+  const date = new Date(group.createdAt).toLocaleDateString("en-US", {
+    day: "numeric", month: "long", year: "numeric",
+  });
+  const items = group.rows.map((r) => {
+    const variant = [r.color, r.size].filter(Boolean).join(", ");
+    return `<tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">${r.product_name}${variant ? ` <span style="color:#6b7280;font-size:12px">(${variant})</span>` : ""}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">${r.quantity}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">NRS ${Number(r.total).toFixed(0)}</td>
+    </tr>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Packing Slip</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;font-size:13px;color:#111;padding:32px;max-width:600px;margin:auto}
+    h1{font-size:20px;font-weight:700;margin-bottom:2px}
+    .sub{color:#6b7280;font-size:12px;margin-bottom:24px}
+    .section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px}
+    .box{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;padding:0 8px 8px}
+    th:last-child,td:last-child{text-align:right}
+    th:nth-child(2),td:nth-child(2){text-align:center}
+    .total{font-weight:700;font-size:14px;text-align:right;padding-top:8px;border-top:2px solid #111}
+    .footer{margin-top:32px;padding-top:16px;border-top:1px dashed #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
+    @media print{@page{margin:20mm}}
+  </style></head><body>
+  <h1>${storeName}</h1>
+  <p class="sub">Packing Slip &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Order #${group.groupId.slice(0, 8).toUpperCase()}</p>
+
+  <p class="section-label">Ship to</p>
+  <div class="box">
+    <strong>${group.customerName}</strong><br>
+    ${group.customerPhone}<br>
+    <span style="color:#6b7280">${group.customerAddress}</span>
+  </div>
+
+  <p class="section-label">Items</p>
+  <table>
+    <thead><tr><th>Product</th><th>Qty</th><th>Amount</th></tr></thead>
+    <tbody>${items}</tbody>
+  </table>
+  <div class="total">Total &nbsp; NRS ${group.groupTotal.toFixed(0)}</div>
+
+  <div class="footer">Thank you for your order! Please handle with care.</div>
+  </body></html>`;
+
+  const win = window.open("", "_blank", "width=700,height=900");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
 function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [syncing, setSyncing] = useState<string | null>(null);
@@ -89,6 +146,7 @@ function OrdersPage() {
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [storeName, setStoreName] = useState("Store");
 
   const runSync = useServerFn(syncOrderStatus);
   const runSetStatus = useServerFn(setOrderStatusAdmin);
@@ -106,6 +164,11 @@ function OrdersPage() {
       });
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "store_name").maybeSingle()
+      .then(({ data }) => { if (data?.value) setStoreName(data.value); });
+  }, []);
 
   const groups = useMemo(() => buildGroups(orders), [orders]);
 
@@ -405,19 +468,39 @@ function OrdersPage() {
                               <RotateCcw className="size-3" /> Stock returned
                             </span>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => refreshGroupStatus(g)}
-                            disabled={syncing === g.groupId}
-                            title="Check latest status from Pathao"
-                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-auto"
-                          >
-                            <RefreshCw className={`size-3 ${syncing === g.groupId ? "animate-spin" : ""}`} />
-                            {syncing === g.groupId ? "Checking…" : "Check status"}
-                          </button>
+                          <div className="ml-auto flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => refreshGroupStatus(g)}
+                              disabled={syncing === g.groupId}
+                              title="Check latest status from Pathao"
+                              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent disabled:opacity-40"
+                            >
+                              <RefreshCw className={`size-3 ${syncing === g.groupId ? "animate-spin" : ""}`} />
+                              {syncing === g.groupId ? "Checking…" : "Check status"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => printSlip(g, storeName)}
+                              title="Print packing slip"
+                              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent"
+                            >
+                              <Printer className="size-3" /> Print slip
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
+                          <button
+                            type="button"
+                            onClick={() => printSlip(g, storeName)}
+                            title="Print packing slip"
+                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent ml-auto"
+                          >
+                            <Printer className="size-3" /> Print slip
+                          </button>
+                        </div>
                       )}
                     </div>
 
