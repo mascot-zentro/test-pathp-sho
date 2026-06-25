@@ -48,6 +48,7 @@ export type Order = {
   pathao_status: string | null;
   source: string;
   stock_restocked: boolean;
+  order_group_id: string | null;
   created_at: string;
 };
 

@@ -7,7 +7,7 @@ import { syncOrderStatus, setOrderStatusAdmin } from "@/lib/pathao.functions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw } from "lucide-react";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
@@ -17,6 +17,52 @@ export const Route = createFileRoute("/admin/orders")({
   ssr: false,
   component: OrdersPage,
 });
+
+// A "group" is either a multi-item cart order (sharing order_group_id) or a
+// single-item order. The UI renders one card per group so a 4-item cart
+// checkout doesn't appear as 4 separate orders.
+type OrderGroup = {
+  groupId: string; // order_group_id or order.id for singles
+  rows: Order[];
+  // Representative values (same across all rows in a group)
+  consignmentId: string | null;
+  pathaoStatus: string | null;
+  status: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  source: string;
+  createdAt: string;
+  groupTotal: number;
+  anyRestocked: boolean;
+};
+
+function buildGroups(orders: Order[]): OrderGroup[] {
+  const map = new Map<string, Order[]>();
+  for (const o of orders) {
+    const key = o.order_group_id ?? o.id;
+    const arr = map.get(key) ?? [];
+    arr.push(o);
+    map.set(key, arr);
+  }
+  return Array.from(map.entries()).map(([groupId, rows]) => {
+    const rep = rows[0];
+    return {
+      groupId,
+      rows,
+      consignmentId: rep.pathao_consignment_id,
+      pathaoStatus: rep.pathao_status,
+      status: rep.status,
+      customerName: rep.customer_name,
+      customerPhone: rep.customer_phone,
+      customerAddress: rep.customer_address,
+      source: rep.source,
+      createdAt: rep.created_at,
+      groupTotal: rows.reduce((s, r) => s + Number(r.total), 0),
+      anyRestocked: rows.some((r) => r.stock_restocked),
+    };
+  });
+}
 
 function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destructive" | "outline" {
   if (!slug) return "outline";
@@ -44,25 +90,38 @@ function OrdersPage() {
         if (error) toast.error(`Couldn't load orders: ${error.message}`);
         setOrders((data as Order[]) ?? []);
       });
-  useEffect(() => {
-    load();
-  }, []);
+
+  useEffect(() => { load(); }, []);
 
   const runSetStatus = useServerFn(setOrderStatusAdmin);
-  const setOrderStatus = async (id: string, value: string) => {
+
+  // When a grouped order's status changes, update every row in the group.
+  const setGroupStatus = async (group: OrderGroup, value: string) => {
     try {
-      const res = (await runSetStatus({ data: { orderId: id, status: value as "pending" | "submitted" | "shipped" | "delivered" | "cancelled" } })) as { restocked: boolean };
+      let anyRestocked = false;
+      for (const row of group.rows) {
+        const res = (await runSetStatus({
+          data: { orderId: row.id, status: value as "pending" | "submitted" | "shipped" | "delivered" | "cancelled" },
+        })) as { restocked: boolean };
+        if (res.restocked) anyRestocked = true;
+      }
       load();
-      if (res.restocked) toast.success("Order cancelled — stock added back automatically.");
+      if (anyRestocked) toast.success("Order cancelled — stock added back automatically.");
     } catch (e) {
       toast.error(`Couldn't update status: ${String(e)}`);
     }
   };
 
-  const refreshPathaoStatus = async (id: string) => {
-    setSyncing(id);
+  // Sync Pathao status for one group (all rows share the same consignment).
+  const refreshGroupStatus = async (group: OrderGroup) => {
+    if (!group.consignmentId) return;
+    setSyncing(group.groupId);
     try {
-      const res = (await runSync({ data: { orderId: id } })) as { pathaoStatus: string | null; restocked: boolean };
+      // Sync via the first row — they all share the same consignment_id.
+      const res = (await runSync({ data: { orderId: group.rows[0].id } })) as {
+        pathaoStatus: string | null;
+        restocked: boolean;
+      };
       load();
       if (res.restocked) toast.success("Order cancelled/returned — stock added back automatically.");
     } catch (e) {
@@ -72,58 +131,49 @@ function OrdersPage() {
     }
   };
 
-  // Checks Pathao status for every order that has a consignment and isn't
-  // already in a terminal state, one at a time to stay easy on the API.
+  const groups = useMemo(() => buildGroups(orders), [orders]);
+
+  const isExcludedFromSales = (o: Order) =>
+    o.status === "cancelled" || (!!o.pathao_status && /cancel|return/i.test(o.pathao_status));
+  const totalSales = orders.filter((o) => !isExcludedFromSales(o)).reduce((s, o) => s + Number(o.total), 0);
+
+  // "Submitted to Pathao" counts unique consignments, not rows.
+  const uniqueConsignments = new Set(orders.map((o) => o.pathao_consignment_id).filter(Boolean)).size;
+
   const refreshAllPathaoStatus = async () => {
-    const targets = orders.filter(
-      (o) => o.pathao_consignment_id && !["delivered", "cancelled"].includes((o.pathao_status || "").toLowerCase())
+    const targets = groups.filter(
+      (g) => g.consignmentId && !["delivered", "cancelled"].includes((g.pathaoStatus || "").toLowerCase()),
     );
-    if (targets.length === 0) {
-      toast.info("No active Pathao shipments to check.");
-      return;
-    }
+    if (targets.length === 0) { toast.info("No active Pathao shipments to check."); return; }
     setBulkSyncing(true);
     let failed = 0;
     let restockedCount = 0;
-    for (const o of targets) {
+    for (const g of targets) {
       try {
-        const res = (await runSync({ data: { orderId: o.id } })) as { pathaoStatus: string | null; restocked: boolean };
+        const res = (await runSync({ data: { orderId: g.rows[0].id } })) as { pathaoStatus: string | null; restocked: boolean };
         if (res.restocked) restockedCount += 1;
-      } catch {
-        failed += 1;
-      }
+      } catch { failed += 1; }
     }
     setBulkSyncing(false);
     load();
-    if (failed > 0) toast.error(`Checked ${targets.length} orders — ${failed} failed.`);
-    else toast.success(`Checked status for ${targets.length} order${targets.length === 1 ? "" : "s"}.`);
+    if (failed > 0) toast.error(`Checked ${targets.length} shipments — ${failed} failed.`);
+    else toast.success(`Checked status for ${targets.length} shipment${targets.length === 1 ? "" : "s"}.`);
     if (restockedCount > 0) toast.success(`Added stock back for ${restockedCount} cancelled/returned order${restockedCount === 1 ? "" : "s"}.`);
   };
 
-  // Excludes orders cancelled either through the admin's own status field
-  // OR reported cancelled/returned by the courier. syncOrderStatus now
-  // keeps these in sync going forward, but this also protects against
-  // orders that haven't been re-synced since a courier-side cancellation
-  // (e.g. right after a "Pickup Cancelled" event, before the next sync).
-  const isExcludedFromSales = (o: Order) =>
-    o.status === "cancelled" || (!!o.pathao_status && /cancel|return/i.test(o.pathao_status));
-  const totalSales = orders
-    .filter((o) => !isExcludedFromSales(o))
-    .reduce((s, o) => s + Number(o.total), 0);
-
-  const filtered = useMemo(() => {
+  const filteredGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return orders.filter((o) => {
-      if (status !== "all" && o.status !== status) return false;
-      if (sourceFilter !== "all" && o.source !== sourceFilter) return false;
+    return groups.filter((g) => {
+      if (status !== "all" && g.status !== status) return false;
+      if (sourceFilter !== "all" && g.source !== sourceFilter) return false;
       if (!q) return true;
       return (
-        o.product_name.toLowerCase().includes(q) ||
-        o.customer_name.toLowerCase().includes(q) ||
-        o.customer_phone.toLowerCase().includes(q)
+        g.customerName.toLowerCase().includes(q) ||
+        g.customerPhone.toLowerCase().includes(q) ||
+        g.rows.some((r) => r.product_name.toLowerCase().includes(q))
       );
     });
-  }, [orders, search, status, sourceFilter]);
+  }, [groups, search, status, sourceFilter]);
 
   return (
     <div>
@@ -134,28 +184,18 @@ function OrdersPage() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Stat
-          label="Total orders"
-          value={orders.length.toString()}
-          icon={ShoppingCart}
-          tone="accent"
-        />
-        <Stat
-          label="Total revenue"
-          value={`NRS ${totalSales.toFixed(0)}`}
-          icon={DollarSign}
-          tone="success"
-        />
+        <Stat label="Total orders" value={groups.length.toString()} icon={ShoppingCart} tone="accent" />
+        <Stat label="Total revenue" value={`NRS ${totalSales.toFixed(0)}`} icon={DollarSign} tone="success" />
         <Stat
           label="Submitted to Pathao"
-          value={orders.filter((o) => o.pathao_consignment_id).length.toString()}
+          value={uniqueConsignments.toString()}
           icon={Truck}
           tone="default"
           sub="courier shipments"
         />
         <Stat
           label="Social media orders"
-          value={orders.filter((o) => o.source !== "website").length.toString()}
+          value={groups.filter((g) => g.source !== "website").length.toString()}
           icon={Megaphone}
           tone="default"
         />
@@ -167,7 +207,7 @@ function OrdersPage() {
             <div>
               <CardTitle className="text-base font-display">All orders</CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                {filtered.length} of {orders.length} shown
+                {filteredGroups.length} of {groups.length} shown
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -216,54 +256,68 @@ function OrdersPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y border-t">
-            {filtered.map((o) => (
-              <div key={o.id} className="p-4 sm:p-5 hover:bg-muted/30 transition">
+            {filteredGroups.map((g) => (
+              <div key={g.groupId} className="p-4 sm:p-5 hover:bg-muted/30 transition">
                 <div className="flex flex-col sm:flex-row sm:items-start gap-4">
 
-                  {/* Product + shipment */}
+                  {/* Items + shipment */}
                   <div className="min-w-0 flex-1 space-y-2.5">
-                    <div>
-                      <div className="font-semibold text-[15px] leading-snug">
-                        {o.product_name}
-                        {o.color && <span className="text-muted-foreground font-normal"> · {o.color}</span>}
-                        {o.size && <span className="text-muted-foreground font-normal"> · {o.size}</span>}
-                        <span className="text-muted-foreground font-normal text-sm"> × {o.quantity}</span>
-                        {o.source && o.source !== "website" && (
-                          <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0 h-5 align-middle font-normal">
-                            {sourceLabel(o.source)}
+                    {/* Item list */}
+                    <div className="space-y-1">
+                      {g.rows.map((r) => (
+                        <div key={r.id} className="flex items-baseline gap-1.5">
+                          {g.rows.length > 1 && <Package className="size-3 text-muted-foreground shrink-0 mt-0.5" />}
+                          <span className="font-semibold text-[15px] leading-snug">
+                            {r.product_name}
+                            {r.color && <span className="text-muted-foreground font-normal"> · {r.color}</span>}
+                            {r.size && <span className="text-muted-foreground font-normal"> · {r.size}</span>}
+                            <span className="text-muted-foreground font-normal text-sm"> × {r.quantity}</span>
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(g.createdAt).toLocaleString()}
+                        </div>
+                        {g.source && g.source !== "website" && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+                            {sourceLabel(g.source)}
                           </Badge>
                         )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(o.created_at).toLocaleString()}
+                        {g.rows.length > 1 && (
+                          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                            {g.rows.length} items · 1 parcel
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {o.pathao_consignment_id ? (
+                    {/* Pathao consignment strip */}
+                    {g.consignmentId ? (
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 bg-muted/50 rounded-md px-2.5 py-2">
                         <Truck className="size-3.5 text-accent shrink-0" />
-                        <span className="text-xs font-mono text-muted-foreground">#{o.pathao_consignment_id}</span>
-                        {o.pathao_status ? (
-                          <Badge variant={pathaoStatusTone(o.pathao_status)} className="text-[11px] px-2 py-0.5 capitalize font-medium">
-                            {o.pathao_status.replace(/_/g, " ")}
+                        <span className="text-xs font-mono text-muted-foreground">#{g.consignmentId}</span>
+                        {g.pathaoStatus ? (
+                          <Badge variant={pathaoStatusTone(g.pathaoStatus)} className="text-[11px] px-2 py-0.5 capitalize font-medium">
+                            {g.pathaoStatus.replace(/_/g, " ")}
                           </Badge>
                         ) : (
                           <span className="text-[11px] text-muted-foreground">No status yet</span>
                         )}
-                        {o.stock_restocked && (
+                        {g.anyRestocked && (
                           <span className="text-[11px] text-green-700 flex items-center gap-1" title="Stock was added back automatically">
                             <RotateCcw className="size-3" /> Stock returned
                           </span>
                         )}
                         <button
                           type="button"
-                          onClick={() => refreshPathaoStatus(o.id)}
-                          disabled={syncing === o.id}
+                          onClick={() => refreshGroupStatus(g)}
+                          disabled={syncing === g.groupId}
                           title="Check latest status from Pathao"
                           className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-auto"
                         >
-                          <RefreshCw className={`size-3 ${syncing === o.id ? "animate-spin" : ""}`} />
-                          {syncing === o.id ? "Checking…" : "Check status"}
+                          <RefreshCw className={`size-3 ${syncing === g.groupId ? "animate-spin" : ""}`} />
+                          {syncing === g.groupId ? "Checking…" : "Check status"}
                         </button>
                       </div>
                     ) : (
@@ -274,22 +328,22 @@ function OrdersPage() {
                   {/* Customer */}
                   <div className="min-w-0 flex-1 sm:max-w-[260px] space-y-1 sm:border-l sm:pl-4">
                     <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Customer</div>
-                    <div className="text-sm font-medium truncate">{o.customer_name}</div>
-                    <div className="text-sm text-muted-foreground">{o.customer_phone}</div>
-                    <div className="text-xs text-muted-foreground leading-relaxed">{o.customer_address}</div>
+                    <div className="text-sm font-medium truncate">{g.customerName}</div>
+                    <div className="text-sm text-muted-foreground">{g.customerPhone}</div>
+                    <div className="text-xs text-muted-foreground leading-relaxed">{g.customerAddress}</div>
                   </div>
 
-                  {/* Total + status control */}
+                  {/* Total + status */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:w-36 sm:border-l sm:pl-4 sm:text-right">
                     <div>
                       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-right">Total</div>
-                      <div className="tabular-nums font-bold text-lg leading-tight">NRS {o.total}</div>
+                      <div className="tabular-nums font-bold text-lg leading-tight">NRS {g.groupTotal.toFixed(1)}</div>
                     </div>
                     <select
-                      value={o.status}
-                      onChange={(e) => setOrderStatus(o.id, e.target.value)}
+                      value={g.status}
+                      onChange={(e) => setGroupStatus(g, e.target.value)}
                       className="text-xs font-medium border rounded-md pl-2.5 pr-2 py-1.5 bg-background hover:border-accent cursor-pointer capitalize"
-                      style={{ borderLeftColor: STATUS_COLORS[o.status] ?? undefined, borderLeftWidth: 3 }}
+                      style={{ borderLeftColor: STATUS_COLORS[g.status] ?? undefined, borderLeftWidth: 3 }}
                     >
                       <option value="pending">Pending</option>
                       <option value="submitted">Submitted</option>
@@ -302,9 +356,9 @@ function OrdersPage() {
                 </div>
               </div>
             ))}
-            {filtered.length === 0 && (
+            {filteredGroups.length === 0 && (
               <div className="p-10 text-center text-sm text-muted-foreground">
-                {orders.length === 0 ? "No orders yet." : "No orders match your search."}
+                {groups.length === 0 ? "No orders yet." : "No orders match your search."}
               </div>
             )}
           </div>
