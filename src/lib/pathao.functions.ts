@@ -738,3 +738,36 @@ export const createCartOrder = createServerFn({ method: "POST" })
       return { orderIds: groupOrderIds, pathao: null, warning: `Order saved, Pathao failed: ${String(e)}` };
     }
   });
+
+// Admin bulk delete. Accepts individual order row IDs (not group IDs).
+// Restocks any non-cancelled, non-restocked rows before deleting so
+// inventory stays accurate.
+export const deleteOrders = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ orderIds: z.array(z.string().uuid()).min(1).max(200) }))
+  .handler(async ({ data, context }) => {
+    const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
+    if (!roles || roles.length === 0) throw new Error("Forbidden");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Restock any rows that were not already cancelled/restocked.
+    const { data: rows } = await supabaseAdmin
+      .from("orders")
+      .select("id, product_id, color, size, quantity, status, stock_restocked")
+      .in("id", data.orderIds);
+
+    for (const row of rows ?? []) {
+      if (row.product_id && row.status !== "cancelled" && !row.stock_restocked) {
+        await supabaseAdmin.rpc("increment_stock", {
+          p_product_id: row.product_id,
+          p_color: row.color as string,
+          p_size: row.size as string,
+          p_quantity: row.quantity,
+        });
+      }
+    }
+
+    const { error } = await supabaseAdmin.from("orders").delete().in("id", data.orderIds);
+    if (error) throw new Error(error.message);
+    return { deleted: data.orderIds.length };
+  });

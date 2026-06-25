@@ -3,11 +3,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { syncOrderStatus, setOrderStatusAdmin } from "@/lib/pathao.functions";
+import { syncOrderStatus, setOrderStatusAdmin, deleteOrders } from "@/lib/pathao.functions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2 } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
@@ -18,13 +29,9 @@ export const Route = createFileRoute("/admin/orders")({
   component: OrdersPage,
 });
 
-// A "group" is either a multi-item cart order (sharing order_group_id) or a
-// single-item order. The UI renders one card per group so a 4-item cart
-// checkout doesn't appear as 4 separate orders.
 type OrderGroup = {
-  groupId: string; // order_group_id or order.id for singles
+  groupId: string;
   rows: Order[];
-  // Representative values (same across all rows in a group)
   consignmentId: string | null;
   pathaoStatus: string | null;
   status: string;
@@ -79,7 +86,13 @@ function OrdersPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const runSync = useServerFn(syncOrderStatus);
+  const runSetStatus = useServerFn(setOrderStatusAdmin);
+  const runDelete = useServerFn(deleteOrders);
 
   const load = () =>
     supabase
@@ -89,13 +102,18 @@ function OrdersPage() {
       .then(({ data, error }) => {
         if (error) toast.error(`Couldn't load orders: ${error.message}`);
         setOrders((data as Order[]) ?? []);
+        setSelectedGroupIds(new Set());
       });
 
   useEffect(() => { load(); }, []);
 
-  const runSetStatus = useServerFn(setOrderStatusAdmin);
+  const groups = useMemo(() => buildGroups(orders), [orders]);
 
-  // When a grouped order's status changes, update every row in the group.
+  const isExcludedFromSales = (o: Order) =>
+    o.status === "cancelled" || (!!o.pathao_status && /cancel|return/i.test(o.pathao_status));
+  const totalSales = orders.filter((o) => !isExcludedFromSales(o)).reduce((s, o) => s + Number(o.total), 0);
+  const uniqueConsignments = new Set(orders.map((o) => o.pathao_consignment_id).filter(Boolean)).size;
+
   const setGroupStatus = async (group: OrderGroup, value: string) => {
     try {
       let anyRestocked = false;
@@ -112,12 +130,10 @@ function OrdersPage() {
     }
   };
 
-  // Sync Pathao status for one group (all rows share the same consignment).
   const refreshGroupStatus = async (group: OrderGroup) => {
     if (!group.consignmentId) return;
     setSyncing(group.groupId);
     try {
-      // Sync via the first row — they all share the same consignment_id.
       const res = (await runSync({ data: { orderId: group.rows[0].id } })) as {
         pathaoStatus: string | null;
         restocked: boolean;
@@ -130,15 +146,6 @@ function OrdersPage() {
       setSyncing(null);
     }
   };
-
-  const groups = useMemo(() => buildGroups(orders), [orders]);
-
-  const isExcludedFromSales = (o: Order) =>
-    o.status === "cancelled" || (!!o.pathao_status && /cancel|return/i.test(o.pathao_status));
-  const totalSales = orders.filter((o) => !isExcludedFromSales(o)).reduce((s, o) => s + Number(o.total), 0);
-
-  // "Submitted to Pathao" counts unique consignments, not rows.
-  const uniqueConsignments = new Set(orders.map((o) => o.pathao_consignment_id).filter(Boolean)).size;
 
   const refreshAllPathaoStatus = async () => {
     const targets = groups.filter(
@@ -174,6 +181,52 @@ function OrdersPage() {
       );
     });
   }, [groups, search, status, sourceFilter]);
+
+  const allFilteredSelected =
+    filteredGroups.length > 0 && filteredGroups.every((g) => selectedGroupIds.has(g.groupId));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedGroupIds((prev) => {
+        const next = new Set(prev);
+        filteredGroups.forEach((g) => next.delete(g.groupId));
+        return next;
+      });
+    } else {
+      setSelectedGroupIds((prev) => {
+        const next = new Set(prev);
+        filteredGroups.forEach((g) => next.add(g.groupId));
+        return next;
+      });
+    }
+  };
+
+  const toggleSelect = (groupId: string) => {
+    setSelectedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const selectedGroups = groups.filter((g) => selectedGroupIds.has(g.groupId));
+      const allRowIds = selectedGroups.flatMap((g) => g.rows.map((r) => r.id));
+      const res = (await runDelete({ data: { orderIds: allRowIds } })) as { deleted: number };
+      toast.success(`Deleted ${selectedGroups.length} order${selectedGroups.length === 1 ? "" : "s"}.`);
+      load();
+      setDeleteDialogOpen(false);
+    } catch (e) {
+      toast.error(`Delete failed: ${String(e)}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const selectedCount = selectedGroupIds.size;
 
   return (
     <div>
@@ -211,24 +264,34 @@ function OrdersPage() {
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={refreshAllPathaoStatus}
-                disabled={bulkSyncing}
-                className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent disabled:opacity-40 flex items-center gap-1.5 transition-colors"
-                title="Check Pathao delivery status for all active shipments"
-              >
-                <RefreshCw className={`size-3.5 ${bulkSyncing ? "animate-spin" : ""}`} />
-                {bulkSyncing ? "Checking…" : "Sync Pathao"}
-              </button>
-              <div className="relative">
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search…"
-                  className="w-44 pl-3 text-xs"
-                />
-              </div>
+              {selectedCount > 0 ? (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="text-xs h-8 gap-1.5"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete {selectedCount} selected
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={refreshAllPathaoStatus}
+                  disabled={bulkSyncing}
+                  className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent disabled:opacity-40 flex items-center gap-1.5 transition-colors"
+                  title="Check Pathao delivery status for all active shipments"
+                >
+                  <RefreshCw className={`size-3.5 ${bulkSyncing ? "animate-spin" : ""}`} />
+                  {bulkSyncing ? "Checking…" : "Sync Pathao"}
+                </button>
+              )}
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search…"
+                className="w-44 pl-3 text-xs"
+              />
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
@@ -255,107 +318,140 @@ function OrdersPage() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y border-t">
-            {filteredGroups.map((g) => (
-              <div key={g.groupId} className="p-4 sm:p-5 hover:bg-muted/30 transition">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          {/* Select-all header — only visible when there are rows */}
+          {filteredGroups.length > 0 && (
+            <div className="flex items-center gap-3 px-4 sm:px-5 py-2.5 border-t border-b bg-muted/30">
+              <input
+                type="checkbox"
+                checked={allFilteredSelected}
+                onChange={toggleSelectAll}
+                className="size-4 rounded accent-accent cursor-pointer"
+                aria-label="Select all"
+              />
+              <span className="text-xs text-muted-foreground">
+                {allFilteredSelected
+                  ? `All ${filteredGroups.length} selected`
+                  : selectedCount > 0
+                    ? `${selectedCount} selected`
+                    : "Select all"}
+              </span>
+            </div>
+          )}
 
-                  {/* Items + shipment */}
-                  <div className="min-w-0 flex-1 space-y-2.5">
-                    {/* Item list */}
-                    <div className="space-y-1">
-                      {g.rows.map((r) => (
-                        <div key={r.id} className="flex items-baseline gap-1.5">
-                          {g.rows.length > 1 && <Package className="size-3 text-muted-foreground shrink-0 mt-0.5" />}
-                          <span className="font-semibold text-[15px] leading-snug">
-                            {r.product_name}
-                            {r.color && <span className="text-muted-foreground font-normal"> · {r.color}</span>}
-                            {r.size && <span className="text-muted-foreground font-normal"> · {r.size}</span>}
-                            <span className="text-muted-foreground font-normal text-sm"> × {r.quantity}</span>
-                          </span>
+          <div className="divide-y">
+            {filteredGroups.map((g) => {
+              const isSelected = selectedGroupIds.has(g.groupId);
+              return (
+                <div
+                  key={g.groupId}
+                  className={`p-4 sm:p-5 transition flex gap-3 ${isSelected ? "bg-accent/5" : "hover:bg-muted/30"}`}
+                >
+                  {/* Checkbox */}
+                  <div className="pt-0.5 shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(g.groupId)}
+                      className="size-4 rounded accent-accent cursor-pointer"
+                      aria-label="Select order"
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-4 flex-1 min-w-0">
+                    {/* Items + shipment */}
+                    <div className="min-w-0 flex-1 space-y-2.5">
+                      <div className="space-y-1">
+                        {g.rows.map((r) => (
+                          <div key={r.id} className="flex items-baseline gap-1.5">
+                            {g.rows.length > 1 && <Package className="size-3 text-muted-foreground shrink-0 mt-0.5" />}
+                            <span className="font-semibold text-[15px] leading-snug">
+                              {r.product_name}
+                              {r.color && <span className="text-muted-foreground font-normal"> · {r.color}</span>}
+                              {r.size && <span className="text-muted-foreground font-normal"> · {r.size}</span>}
+                              <span className="text-muted-foreground font-normal text-sm"> × {r.quantity}</span>
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(g.createdAt).toLocaleString()}
+                          </div>
+                          {g.source && g.source !== "website" && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+                              {sourceLabel(g.source)}
+                            </Badge>
+                          )}
+                          {g.rows.length > 1 && (
+                            <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                              {g.rows.length} items · 1 parcel
+                            </span>
+                          )}
                         </div>
-                      ))}
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(g.createdAt).toLocaleString()}
-                        </div>
-                        {g.source && g.source !== "website" && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal">
-                            {sourceLabel(g.source)}
-                          </Badge>
-                        )}
-                        {g.rows.length > 1 && (
-                          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
-                            {g.rows.length} items · 1 parcel
-                          </span>
-                        )}
                       </div>
+
+                      {g.consignmentId ? (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 bg-muted/50 rounded-md px-2.5 py-2">
+                          <Truck className="size-3.5 text-accent shrink-0" />
+                          <span className="text-xs font-mono text-muted-foreground">#{g.consignmentId}</span>
+                          {g.pathaoStatus ? (
+                            <Badge variant={pathaoStatusTone(g.pathaoStatus)} className="text-[11px] px-2 py-0.5 capitalize font-medium">
+                              {g.pathaoStatus.replace(/_/g, " ")}
+                            </Badge>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">No status yet</span>
+                          )}
+                          {g.anyRestocked && (
+                            <span className="text-[11px] text-green-700 flex items-center gap-1" title="Stock was added back automatically">
+                              <RotateCcw className="size-3" /> Stock returned
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => refreshGroupStatus(g)}
+                            disabled={syncing === g.groupId}
+                            title="Check latest status from Pathao"
+                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-auto"
+                          >
+                            <RefreshCw className={`size-3 ${syncing === g.groupId ? "animate-spin" : ""}`} />
+                            {syncing === g.groupId ? "Checking…" : "Check status"}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
+                      )}
                     </div>
 
-                    {/* Pathao consignment strip */}
-                    {g.consignmentId ? (
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 bg-muted/50 rounded-md px-2.5 py-2">
-                        <Truck className="size-3.5 text-accent shrink-0" />
-                        <span className="text-xs font-mono text-muted-foreground">#{g.consignmentId}</span>
-                        {g.pathaoStatus ? (
-                          <Badge variant={pathaoStatusTone(g.pathaoStatus)} className="text-[11px] px-2 py-0.5 capitalize font-medium">
-                            {g.pathaoStatus.replace(/_/g, " ")}
-                          </Badge>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground">No status yet</span>
-                        )}
-                        {g.anyRestocked && (
-                          <span className="text-[11px] text-green-700 flex items-center gap-1" title="Stock was added back automatically">
-                            <RotateCcw className="size-3" /> Stock returned
-                          </span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => refreshGroupStatus(g)}
-                          disabled={syncing === g.groupId}
-                          title="Check latest status from Pathao"
-                          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent disabled:opacity-40 ml-auto"
-                        >
-                          <RefreshCw className={`size-3 ${syncing === g.groupId ? "animate-spin" : ""}`} />
-                          {syncing === g.groupId ? "Checking…" : "Check status"}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
-                    )}
-                  </div>
-
-                  {/* Customer */}
-                  <div className="min-w-0 flex-1 sm:max-w-[260px] space-y-1 sm:border-l sm:pl-4">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Customer</div>
-                    <div className="text-sm font-medium truncate">{g.customerName}</div>
-                    <div className="text-sm text-muted-foreground">{g.customerPhone}</div>
-                    <div className="text-xs text-muted-foreground leading-relaxed">{g.customerAddress}</div>
-                  </div>
-
-                  {/* Total + status */}
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:w-36 sm:border-l sm:pl-4 sm:text-right">
-                    <div>
-                      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-right">Total</div>
-                      <div className="tabular-nums font-bold text-lg leading-tight">NRS {g.groupTotal.toFixed(1)}</div>
+                    {/* Customer */}
+                    <div className="min-w-0 flex-1 sm:max-w-[260px] space-y-1 sm:border-l sm:pl-4">
+                      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Customer</div>
+                      <div className="text-sm font-medium truncate">{g.customerName}</div>
+                      <div className="text-sm text-muted-foreground">{g.customerPhone}</div>
+                      <div className="text-xs text-muted-foreground leading-relaxed">{g.customerAddress}</div>
                     </div>
-                    <select
-                      value={g.status}
-                      onChange={(e) => setGroupStatus(g, e.target.value)}
-                      className="text-xs font-medium border rounded-md pl-2.5 pr-2 py-1.5 bg-background hover:border-accent cursor-pointer capitalize"
-                      style={{ borderLeftColor: STATUS_COLORS[g.status] ?? undefined, borderLeftWidth: 3 }}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="submitted">Submitted</option>
-                      <option value="shipped">Shipped</option>
-                      <option value="delivered">Delivered</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </div>
 
+                    {/* Total + status */}
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 sm:w-36 sm:border-l sm:pl-4 sm:text-right">
+                      <div>
+                        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:text-right">Total</div>
+                        <div className="tabular-nums font-bold text-lg leading-tight">NRS {g.groupTotal.toFixed(1)}</div>
+                      </div>
+                      <select
+                        value={g.status}
+                        onChange={(e) => setGroupStatus(g, e.target.value)}
+                        className="text-xs font-medium border rounded-md pl-2.5 pr-2 py-1.5 bg-background hover:border-accent cursor-pointer capitalize"
+                        style={{ borderLeftColor: STATUS_COLORS[g.status] ?? undefined, borderLeftWidth: 3 }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="submitted">Submitted</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {filteredGroups.length === 0 && (
               <div className="p-10 text-center text-sm text-muted-foreground">
                 {groups.length === 0 ? "No orders yet." : "No orders match your search."}
@@ -364,6 +460,29 @@ function OrdersPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedCount} order{selectedCount === 1 ? "" : "s"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the selected order{selectedCount === 1 ? "" : "s"} from your records.
+              Stock for any non-cancelled items will be added back automatically.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : `Delete ${selectedCount} order${selectedCount === 1 ? "" : "s"}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
