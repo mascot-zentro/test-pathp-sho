@@ -1,12 +1,29 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MessageCircle, Share2, Copy, Facebook, X, ZoomIn, Ruler } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
+// ── Recently Viewed ──────────────────────────────────────────────────────────
+const RV_KEY = "recently_viewed";
+const RV_MAX = 6;
+
+type RVItem = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null };
+
+function getRV(): RVItem[] {
+  try { return JSON.parse(localStorage.getItem(RV_KEY) ?? "[]"); } catch { return []; }
+}
+
+function pushRV(item: RVItem) {
+  const list = getRV().filter((p) => p.id !== item.id);
+  list.unshift(item);
+  localStorage.setItem(RV_KEY, JSON.stringify(list.slice(0, RV_MAX)));
+}
 
 export const Route = createFileRoute("/product/$id")({
   component: ProductPage,
@@ -37,6 +54,10 @@ function ProductPage() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [defaultWa, setDefaultWa] = useState("");
   const [related, setRelated] = useState<RelatedProduct[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<RVItem[]>([]);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const imgRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.from("products").select("*").eq("id", id).maybeSingle().then(({ data }) => setProduct(data as Product | null));
@@ -59,6 +80,13 @@ function ProductPage() {
     supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle()
       .then(({ data }) => setDefaultWa(data?.value ?? ""));
   }, [id]);
+
+  useEffect(() => {
+    if (!product) return;
+    // Track this product as recently viewed and load the list (excluding current)
+    pushRV({ id: product.id, name: product.name, price: product.price, sale_price: product.sale_price, on_sale: product.on_sale, image_url: product.image_url });
+    setRecentlyViewed(getRV().filter((p) => p.id !== product.id).slice(0, 4));
+  }, [product?.id]);
 
   useEffect(() => {
     if (!product) return;
@@ -93,14 +121,66 @@ function ProductPage() {
   const variantLabel = [selected, selectedSize].filter(Boolean).join(", ");
   const waMessage = `Hi! I want to order: ${product.name}${variantLabel ? ` (${variantLabel})` : ""} — NRS ${price}`;
   const waLink = !outOfStock && waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}` : null;
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const shareText = `Check out ${product.name} — NRS ${price}`;
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setZoomPos({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    });
+  };
+
+  const handleShare = async (platform: "whatsapp" | "facebook" | "copy") => {
+    if (platform === "whatsapp") {
+      window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, "_blank");
+    } else if (platform === "facebook") {
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, "_blank");
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Link copied!");
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pb-24 sm:pb-0">
       <SiteNav />
       <div className="container mx-auto px-6 py-10 grid md:grid-cols-2 gap-10 flex-1">
+        {/* ── Image gallery with zoom ── */}
         <div>
-          <div className="aspect-[4/5] bg-muted rounded-md overflow-hidden">
-            {images[activeImage] && <img src={images[activeImage]} alt={product.name} fetchPriority="high" className="w-full h-full object-cover" />}
+          <div
+            ref={imgRef}
+            className="aspect-[4/5] bg-muted rounded-md overflow-hidden relative group cursor-zoom-in"
+            onMouseMove={handleMouseMove}
+            onMouseEnter={() => setZoomOpen(true)}
+            onMouseLeave={() => setZoomOpen(false)}
+          >
+            {images[activeImage] && (
+              <>
+                <img
+                  src={images[activeImage]}
+                  alt={product.name}
+                  fetchPriority="high"
+                  className="w-full h-full object-cover"
+                />
+                {/* Zoom overlay — magnified view follows cursor */}
+                {zoomOpen && (
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      backgroundImage: `url(${images[activeImage]})`,
+                      backgroundSize: "250%",
+                      backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+                      backgroundRepeat: "no-repeat",
+                    }}
+                  />
+                )}
+                <span className="absolute bottom-2 right-2 bg-background/70 rounded-full p-1.5 opacity-60 group-hover:opacity-0 transition pointer-events-none">
+                  <ZoomIn className="size-4" />
+                </span>
+              </>
+            )}
           </div>
           {images.length > 1 && (
             <div className="flex gap-2 mt-3">
@@ -113,6 +193,8 @@ function ProductPage() {
             </div>
           )}
         </div>
+
+        {/* ── Product info ── */}
         <div>
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to shop</Link>
           <h1 className="text-3xl md:text-4xl font-display mt-4">{product.name}</h1>
@@ -148,7 +230,55 @@ function ProductPage() {
 
           {sizes.length > 0 && (
             <div className="mt-6">
-              <div className="text-sm font-medium mb-3">Size: <span className="text-muted-foreground">{selectedSize}</span></div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-medium">Size: <span className="text-muted-foreground">{selectedSize}</span></div>
+                {/* Size guide modal */}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      <Ruler className="size-3.5" /> Size guide
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Size Guide</DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      <p className="mb-4">Measure yourself and compare with the chart below. All measurements are in cm.</p>
+                      <table className="w-full text-center border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="py-2 px-3 text-left font-medium text-foreground">Size</th>
+                            <th className="py-2 px-3 font-medium text-foreground">Chest</th>
+                            <th className="py-2 px-3 font-medium text-foreground">Waist</th>
+                            <th className="py-2 px-3 font-medium text-foreground">Hip</th>
+                            <th className="py-2 px-3 font-medium text-foreground">Length</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { size: "XS", chest: "82–86", waist: "62–66", hip: "88–92", length: "64" },
+                            { size: "S",  chest: "86–90", waist: "66–70", hip: "92–96", length: "65" },
+                            { size: "M",  chest: "90–94", waist: "70–74", hip: "96–100", length: "66" },
+                            { size: "L",  chest: "94–98", waist: "74–78", hip: "100–104", length: "68" },
+                            { size: "XL", chest: "98–104", waist: "78–84", hip: "104–110", length: "70" },
+                            { size: "XXL", chest: "104–110", waist: "84–90", hip: "110–116", length: "72" },
+                          ].map((r) => (
+                            <tr key={r.size} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
+                              <td className="py-2 px-3 text-left font-medium text-foreground">{r.size}</td>
+                              <td className="py-2 px-3">{r.chest}</td>
+                              <td className="py-2 px-3">{r.waist}</td>
+                              <td className="py-2 px-3">{r.hip}</td>
+                              <td className="py-2 px-3">{r.length}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="mt-4 text-xs">If you're between sizes, we recommend sizing up.</p>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((s) => {
                   const sizeOut = s.stock_quantity === 0;
@@ -164,22 +294,15 @@ function ProductPage() {
             </div>
           )}
 
-          <div className="mt-10 flex flex-col sm:flex-row gap-3">
+          {/* CTA buttons — hidden on mobile (sticky bar handles it) */}
+          <div className="mt-10 hidden sm:flex flex-col sm:flex-row gap-3">
             <Button size="lg" className="flex-1" disabled={outOfStock}
               onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
               {outOfStock ? "Out of stock" : "Buy now — Cash on delivery"}
             </Button>
             <Button size="lg" variant="outline" className="flex-1" disabled={outOfStock}
               onClick={() => {
-                addToCart({
-                  productId: product.id,
-                  productName: product.name,
-                  image: product.image_url,
-                  color: selected ?? null,
-                  size: selectedSize ?? null,
-                  unitPrice: price,
-                  weight: Number(product.weight) || 0.5,
-                }, 1);
+                addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
                 toast.success("Added to cart");
               }}>
               Add to cart
@@ -190,9 +313,78 @@ function ProductPage() {
               </Button>
             )}
           </div>
-          {!outOfStock && !waLink && <p className="text-xs text-muted-foreground mt-2">WhatsApp ordering unavailable — admin hasn't set a number.</p>}
+          {!outOfStock && !waLink && <p className="text-xs text-muted-foreground mt-2 hidden sm:block">WhatsApp ordering unavailable — admin hasn't set a number.</p>}
+
+          {/* Social share */}
+          <div className="mt-6 flex items-center gap-3">
+            <span className="text-xs text-muted-foreground flex items-center gap-1"><Share2 className="size-3.5" /> Share</span>
+            <button type="button" onClick={() => handleShare("whatsapp")} title="Share on WhatsApp"
+              className="size-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
+              <MessageCircle className="size-3.5" />
+            </button>
+            <button type="button" onClick={() => handleShare("facebook")} title="Share on Facebook"
+              className="size-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
+              <Facebook className="size-3.5" />
+            </button>
+            <button type="button" onClick={() => handleShare("copy")} title="Copy link"
+              className="size-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
+              <Copy className="size-3.5" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* ── Sticky mobile CTA ── */}
+      <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur border-t p-3 flex gap-2">
+        <Button size="lg" className="flex-1" disabled={outOfStock}
+          onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
+          {outOfStock ? "Out of stock" : "Buy now"}
+        </Button>
+        <Button size="lg" variant="outline" disabled={outOfStock}
+          onClick={() => {
+            addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
+            toast.success("Added to cart");
+          }}>
+          Add to cart
+        </Button>
+        {waLink && (
+          <Button asChild size="lg" variant="outline">
+            <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /></a>
+          </Button>
+        )}
+      </div>
+      {/* Recently viewed */}
+      {recentlyViewed.length > 0 && (
+        <section className="border-t">
+          <div className="container mx-auto px-6 py-16 pb-4">
+            <h2 className="text-xl font-display mb-8">Recently viewed</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+              {recentlyViewed.map((p) => (
+                <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
+                  <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-start justify-between gap-2">
+                    <h3 className="text-sm font-medium leading-tight">{p.name}</h3>
+                    <div className="text-sm tabular-nums whitespace-nowrap">
+                      {p.on_sale && p.sale_price ? (
+                        <span><span className="text-muted-foreground line-through mr-1">NRS {p.price}</span><span className="text-accent">NRS {p.sale_price}</span></span>
+                      ) : (
+                        <span>NRS {p.price}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {related.length > 0 && (
         <section className="border-t">
           <div className="container mx-auto px-6 py-16">

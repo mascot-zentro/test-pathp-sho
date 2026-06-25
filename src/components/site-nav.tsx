@@ -1,6 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Menu, ShoppingBag, ShoppingCart, User as UserIcon } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { Menu, Search, ShoppingBag, ShoppingCart, User as UserIcon, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/lib/cart";
@@ -14,6 +14,91 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+
+type SearchResult = { id: string; name: string; image_url: string | null; price: number; sale_price: number | null; on_sale: boolean };
+
+function SearchBar({ onClose }: { onClose?: () => void }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setResults([]); setOpen(false); return; }
+    const t = setTimeout(() => {
+      supabase.from("products")
+        .select("id,name,image_url,price,sale_price,on_sale")
+        .eq("active", true)
+        .ilike("name", `%${query.trim()}%`)
+        .limit(6)
+        .then(({ data }) => {
+          setResults((data as SearchResult[]) ?? []);
+          setOpen(true);
+        });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const go = (id: string) => {
+    setOpen(false);
+    onClose?.();
+    navigate({ to: "/product/$id", params: { id } });
+  };
+
+  return (
+    <div className="relative w-full">
+      <div className="flex items-center border rounded-md px-3 gap-2 bg-background">
+        <Search className="size-4 text-muted-foreground shrink-0" />
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Escape") { setOpen(false); onClose?.(); } }}
+          placeholder="Search products…"
+          className="flex-1 py-2 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+        />
+        {query && (
+          <button type="button" onClick={() => { setQuery(""); setResults([]); setOpen(false); }} className="text-muted-foreground hover:text-foreground transition">
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-background border rounded-md shadow-lg overflow-hidden">
+          {results.map((r) => {
+            const displayPrice = r.on_sale && r.sale_price ? r.sale_price : r.price;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => go(r.id)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors"
+              >
+                <div className="size-10 rounded bg-muted shrink-0 overflow-hidden">
+                  {r.image_url && <img src={r.image_url} alt="" className="w-full h-full object-cover" />}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{r.name}</div>
+                  <div className="text-xs text-muted-foreground">NRS {displayPrice}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {open && query.trim().length >= 2 && results.length === 0 && (
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-background border rounded-md shadow-lg px-3 py-3 text-sm text-muted-foreground">
+          No products found for "{query}"
+        </div>
+      )}
+    </div>
+  );
+}
 
 const NAV_LINKS = [
   { to: "/", label: "Shop" },
@@ -52,6 +137,7 @@ export function SiteNav() {
   const [announcement, setAnnouncement] = useState<{ text: string; link: string } | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     supabase.from("app_settings").select("key,value").in("key", ["store_name", "logo_url", "announcement_text", "announcement_link"]).then(({ data }) => {
@@ -119,16 +205,33 @@ export function SiteNav() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1 text-sm">
-            {NAV_LINKS.map((l) => (
+            {!searchOpen && NAV_LINKS.map((l) => (
               <span key={l.to} className="group">
                 <NavLink to={l.to} label={l.label} />
               </span>
             ))}
-            {isAdmin && (
+            {!searchOpen && isAdmin && (
               <Link to="/admin" className="px-3 py-2 text-muted-foreground transition-colors hover:text-foreground">
                 Admin
               </Link>
             )}
+
+            {/* Search */}
+            {searchOpen ? (
+              <div className="w-72">
+                <SearchBar onClose={() => setSearchOpen(false)} />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Search"
+              >
+                <Search className="size-4" />
+              </button>
+            )}
+
             <Link
               to="/cart"
               className="relative px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
@@ -156,6 +259,19 @@ export function SiteNav() {
 
           {/* Mobile controls */}
           <div className="flex items-center gap-1 md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Search">
+                  <Search className="size-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="top" className="pt-8 pb-4 px-4">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Search</SheetTitle>
+                </SheetHeader>
+                <SearchBar />
+              </SheetContent>
+            </Sheet>
             <Link to="/cart" className="relative p-2 text-muted-foreground transition-colors hover:text-foreground" aria-label="Cart">
               <ShoppingCart className="size-5" />
               {count > 0 && (

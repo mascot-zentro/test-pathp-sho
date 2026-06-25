@@ -14,6 +14,7 @@ import {
   FileBarChart,
   Megaphone,
   Tag,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +44,7 @@ const NAV_ITEMS = [
     alertKey: "stock" as const,
   },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/promos", label: "Promo codes", icon: Tag },
   { to: "/admin/sales-report", label: "Sales report", icon: FileBarChart },
   { to: "/admin/ad-spending", label: "Ad spending", icon: Megaphone },
