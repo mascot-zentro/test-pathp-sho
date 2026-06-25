@@ -7,7 +7,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Package, Truck, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 export const Route = createFileRoute("/track")({
   component: TrackPage,
