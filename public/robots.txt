@@ -2,5 +2,9 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /account
+Disallow: /cart
 Disallow: /checkout
 Disallow: /order-confirmed
+Disallow: /auth
+
+Sitemap: https://YOUR_DOMAIN/sitemap.xml
