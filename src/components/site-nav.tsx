@@ -105,6 +105,7 @@ const NAV_LINKS = [
   { to: "/", label: "Shop" },
   { to: "/sale", label: "Sale" },
   { to: "/faq", label: "FAQ" },
+  { to: "/track", label: "Track order" },
 ] as const;
 
 function NavLink({ to, label }: { to: string; label: string }) {

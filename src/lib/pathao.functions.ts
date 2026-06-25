@@ -771,3 +771,22 @@ export const deleteOrders = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { deleted: data.orderIds.length };
   });
+
+// Public order lookup by phone number — no auth needed.
+// Returns orders grouped by order_group_id so multi-item cart checkouts
+// appear as one shipment. Rate-limited to prevent phone enumeration.
+export const lookupOrdersByPhone = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ phone: z.string().min(7).max(20) }))
+  .handler(async ({ data }) => {
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit("order_lookup", { maxHits: 10, windowSeconds: 60 });
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, product_name, color, size, quantity, total, status, pathao_consignment_id, pathao_status, order_group_id, created_at, delivery_fee, discount_amount, promo_code")
+      .eq("customer_phone", data.phone.trim())
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [] };
+  });
