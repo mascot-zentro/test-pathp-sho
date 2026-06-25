@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AdminShell } from "@/components/admin/admin-shell";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Stat } from "@/components/admin/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search, ChevronDown, ChevronUp } from "lucide-react";
 
 export const Route = createFileRoute("/admin/customers")({
   ssr: false,
@@ -52,7 +49,6 @@ function buildCustomers(orders: RawOrder[]): Customer[] {
     if (!["cancelled"].includes(o.status)) c.totalSpent += o.total;
     c.lastOrderAt = c.lastOrderAt > o.created_at ? c.lastOrderAt : o.created_at;
   }
-  // orderCount = distinct order groups (one checkout = multiple order rows when cart has multiple items)
   for (const c of map.values()) {
     const groups = new Set(c.orders.map((o) => o.order_group_id ?? o.id));
     c.orderCount = groups.size;
@@ -67,12 +63,132 @@ function statusVariant(s: string): "default" | "secondary" | "destructive" | "ou
   return "outline";
 }
 
+function nameInitials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function CustomerCard({ c }: { c: Customer }) {
+  const [open, setOpen] = useState(false);
+  const initials = nameInitials(c.name);
+  const isReturning = c.orderCount > 1;
+
+  return (
+    <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+      <button
+        type="button"
+        className="w-full text-left hover:bg-muted/30 transition-colors"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="p-4 sm:p-5 flex items-center gap-4">
+          {/* Avatar */}
+          <div className="size-10 rounded-full bg-accent/12 text-accent grid place-items-center shrink-0 font-medium text-sm">
+            {initials}
+          </div>
+
+          {/* Name + contact */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium">{c.name}</span>
+              {isReturning && (
+                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-accent/12 text-accent border-transparent font-medium">
+                  Returning
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Phone className="size-3 shrink-0" />
+                {c.phone}
+              </span>
+              <span className="flex items-center gap-1 min-w-0">
+                <MapPin className="size-3 shrink-0" />
+                <span className="truncate max-w-[200px]">{c.address}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Stats + toggle */}
+          <div className="shrink-0 flex items-center gap-6">
+            <div className="text-right hidden sm:block">
+              <div className="text-sm font-semibold tabular-nums">NRS {c.totalSpent.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {c.orderCount} order{c.orderCount !== 1 ? "s" : ""}
+              </div>
+            </div>
+            <div className="text-right sm:hidden">
+              <div className="text-sm font-semibold tabular-nums">NRS {c.totalSpent.toLocaleString()}</div>
+            </div>
+            {open ? (
+              <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+            )}
+          </div>
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t bg-muted/20 px-4 sm:px-5 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+            Order history
+          </p>
+          <div className="space-y-2">
+            {c.orders.map((o) => (
+              <div
+                key={o.id}
+                className="flex items-start justify-between gap-3 text-sm py-1.5 border-b border-border/50 last:border-0"
+              >
+                <div className="min-w-0">
+                  <span className="font-medium">{o.product_name}</span>
+                  {(o.color || o.size) && (
+                    <span className="text-muted-foreground text-xs ml-1">
+                      — {[o.color, o.size].filter(Boolean).join(", ")}
+                    </span>
+                  )}
+                  <span className="text-muted-foreground text-xs ml-1">×{o.quantity}</span>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {new Date(o.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant={statusVariant(o.status)} className="capitalize text-[10px]">
+                    {o.status}
+                  </Badge>
+                  <span className="font-medium text-xs tabular-nums">NRS {o.total.toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="bg-card rounded-xl border shadow-sm p-5 flex items-center gap-4">
+      <div className="size-10 rounded-full bg-muted animate-pulse shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div className="h-4 bg-muted rounded animate-pulse w-40" />
+        <div className="h-3 bg-muted rounded animate-pulse w-56" />
+      </div>
+      <div className="hidden sm:block space-y-1.5 text-right">
+        <div className="h-4 bg-muted rounded animate-pulse w-24" />
+        <div className="h-3 bg-muted rounded animate-pulse w-16 ml-auto" />
+      </div>
+    </div>
+  );
+}
+
 function CustomersPage() {
-  const { user } = useAuth();
   const [orders, setOrders] = useState<RawOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -97,97 +213,58 @@ function CustomersPage() {
 
   const totalRevenue = customers.reduce((s, c) => s + c.totalSpent, 0);
   const returning = customers.filter((c) => c.orderCount > 1).length;
+  const returningPct = customers.length ? Math.round((returning / customers.length) * 100) : 0;
 
   return (
-    <AdminShell email={user?.email}>
-      <AdminPageHeader title="Customers" description="All customers derived from order history." />
+    <div>
+      <AdminPageHeader
+        title="Customers"
+        description="Every customer derived from order history — sorted by most recent activity."
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Stat label="Total customers" value={String(customers.length)} icon={Users} />
-        <Stat label="Total revenue" value={`NRS ${totalRevenue.toLocaleString()}`} icon={DollarSign} />
-        <Stat label="Returning customers" value={String(returning)} icon={TrendingUp} />
+        <Stat label="Total customers" value={String(customers.length)} icon={Users} tone="accent" />
+        <Stat label="Total revenue" value={`NRS ${totalRevenue.toLocaleString()}`} icon={DollarSign} tone="success" />
+        <Stat
+          label="Returning customers"
+          value={String(returning)}
+          icon={TrendingUp}
+          tone="accent"
+          sub={customers.length > 0 ? `${returningPct}% of total` : undefined}
+        />
         <Stat label="Total orders" value={String(orders.length)} icon={ShoppingCart} />
       </div>
 
-      <div className="relative mb-6">
+      <div className="relative mb-5">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         <Input
-          className="pl-9"
+          className="pl-9 bg-card"
           placeholder="Search by name, phone, or address…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-muted-foreground text-sm py-12 text-center">
-          {customers.length === 0 ? "No customers yet." : "No customers match your search."}
+      {search && (
+        <p className="text-xs text-muted-foreground mb-4">
+          {filtered.length} of {customers.length} customers
         </p>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((c) => {
-            const isOpen = expanded === c.phone;
-            return (
-              <Card key={c.phone} className="overflow-hidden">
-                <button
-                  type="button"
-                  className="w-full text-left"
-                  onClick={() => setExpanded(isOpen ? null : c.phone)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <CardTitle className="text-base">{c.name}</CardTitle>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Phone className="size-3" />{c.phone}</span>
-                          <span className="flex items-center gap-1 truncate"><MapPin className="size-3 shrink-0" />{c.address}</span>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="font-medium text-sm">NRS {c.totalSpent.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {c.orderCount} order{c.orderCount !== 1 ? "s" : ""}
-                          {c.orderCount > 1 && <span className="ml-1.5 text-accent font-medium">Returning</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </button>
-
-                {isOpen && (
-                  <CardContent className="pt-0 pb-4">
-                    <div className="border-t pt-4 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Order history</p>
-                      {c.orders.map((o) => (
-                        <div key={o.id} className="flex items-center justify-between gap-3 text-sm">
-                          <div className="min-w-0">
-                            <span className="font-medium truncate">{o.product_name}</span>
-                            {(o.color || o.size) && (
-                              <span className="text-muted-foreground ml-1">— {[o.color, o.size].filter(Boolean).join(", ")}</span>
-                            )}
-                            <span className="text-muted-foreground ml-1">×{o.quantity}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-muted-foreground text-xs">{new Date(o.created_at).toLocaleDateString()}</span>
-                            <Badge variant={statusVariant(o.status)} className="capitalize text-xs">{o.status}</Badge>
-                            <span className="font-medium text-xs">NRS {o.total.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
-        </div>
       )}
-    </AdminShell>
+
+      <div className="space-y-3">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <Users className="size-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">
+              {customers.length === 0 ? "No customers yet." : "No customers match your search."}
+            </p>
+          </div>
+        ) : (
+          filtered.map((c) => <CustomerCard key={c.phone} c={c} />)
+        )}
+      </div>
+    </div>
   );
 }

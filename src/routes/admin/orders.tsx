@@ -133,7 +133,7 @@ function OrdersPage() {
         actions={<AddOrderDialog onCreated={load} />}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <Stat
           label="Total orders"
           value={orders.length.toString()}
@@ -141,7 +141,7 @@ function OrdersPage() {
           tone="accent"
         />
         <Stat
-          label="Total sales"
+          label="Total revenue"
           value={`NRS ${totalSales.toFixed(0)}`}
           icon={DollarSign}
           tone="success"
@@ -151,6 +151,7 @@ function OrdersPage() {
           value={orders.filter((o) => o.pathao_consignment_id).length.toString()}
           icon={Truck}
           tone="default"
+          sub="courier shipments"
         />
         <Stat
           label="Social media orders"
@@ -162,46 +163,48 @@ function OrdersPage() {
 
       <Card className="shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <CardTitle className="text-base">All orders</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-base font-display">All orders</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
                 {filtered.length} of {orders.length} shown
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={refreshAllPathaoStatus}
                 disabled={bulkSyncing}
-                className="text-xs border rounded-md px-2.5 py-2 bg-background hover:border-accent hover:text-accent disabled:opacity-40 flex items-center gap-1.5"
-                title="Check Pathao status for every active shipment"
+                className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent disabled:opacity-40 flex items-center gap-1.5 transition-colors"
+                title="Check Pathao delivery status for all active shipments"
               >
                 <RefreshCw className={`size-3.5 ${bulkSyncing ? "animate-spin" : ""}`} />
-                {bulkSyncing ? "Checking…" : "Check all"}
+                {bulkSyncing ? "Checking…" : "Sync Pathao"}
               </button>
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search product or customer…"
-                className="w-56"
-              />
+              <div className="relative">
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="w-44 pl-3 text-xs"
+                />
+              </div>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="text-xs border rounded-md px-2 py-2 bg-background hover:border-accent cursor-pointer"
+                className="text-xs border rounded-lg px-2.5 py-2 bg-background hover:border-accent cursor-pointer transition-colors"
               >
                 <option value="all">All statuses</option>
-                <option value="pending">pending</option>
-                <option value="submitted">submitted</option>
-                <option value="shipped">shipped</option>
-                <option value="delivered">delivered</option>
-                <option value="cancelled">cancelled</option>
+                <option value="pending">Pending</option>
+                <option value="submitted">Submitted</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
               </select>
               <select
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
-                className="text-xs border rounded-md px-2 py-2 bg-background hover:border-accent cursor-pointer"
+                className="text-xs border rounded-lg px-2.5 py-2 bg-background hover:border-accent cursor-pointer transition-colors"
               >
                 <option value="all">All sources</option>
                 {ORDER_SOURCES.map((s) => (

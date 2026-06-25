@@ -20,6 +20,7 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
+import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
 import { Route as CheckoutProductIdRouteImport } from './routes/checkout.$productId'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
@@ -88,6 +89,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const ProductSlugRoute = ProductSlugRouteImport.update({
   id: '/product/$slug',
   path: '/product/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WishlistRoute = WishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminCustomersRoute = AdminCustomersRouteImport.update({
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
+  '/wishlist': typeof WishlistRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
@@ -197,6 +204,7 @@ export interface FileRoutesByTo {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
+  '/wishlist': typeof WishlistRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
+  '/wishlist': typeof WishlistRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
   '/admin/dashboard': typeof AdminDashboardRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/sale'
     | '/terms'
+    | '/wishlist'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/sale'
     | '/terms'
+    | '/wishlist'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/dashboard'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/sale'
     | '/terms'
+    | '/wishlist'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/customers'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   SaleRoute: typeof SaleRoute
   TermsRoute: typeof TermsRoute
+  WishlistRoute: typeof WishlistRoute
   CheckoutProductIdRoute: typeof CheckoutProductIdRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
@@ -521,6 +534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -580,6 +600,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrderConfirmedRoute: OrderConfirmedRoute,
   SaleRoute: SaleRoute,
   TermsRoute: TermsRoute,
+  WishlistRoute: WishlistRoute,
   CheckoutProductIdRoute: CheckoutProductIdRoute,
   ProductSlugRoute: ProductSlugRoute,
 }

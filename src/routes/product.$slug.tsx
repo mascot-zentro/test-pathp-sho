@@ -1,14 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Share2, Copy, Facebook, X, ZoomIn, Ruler } from "lucide-react";
+import { MessageCircle, Copy, Facebook, ZoomIn, Ruler, Heart, Truck, RotateCcw, ShieldCheck, Package } from "lucide-react";
 import { slugify } from "@/lib/slugify";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
+import { toggleWishlist, isWishlisted } from "@/lib/wishlist";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ── Recently Viewed ──────────────────────────────────────────────────────────
 const RV_KEY = "recently_viewed";
@@ -59,6 +61,7 @@ function ProductPage() {
   const [recentlyViewed, setRecentlyViewed] = useState<RVItem[]>([]);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+  const [wishlisted, setWishlisted] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -92,9 +95,9 @@ function ProductPage() {
 
   useEffect(() => {
     if (!product) return;
-    // Track this product as recently viewed and load the list (excluding current)
     pushRV({ id: product.id, name: product.name, price: product.price, sale_price: product.sale_price, on_sale: product.on_sale, image_url: product.image_url });
     setRecentlyViewed(getRV().filter((p) => p.id !== product.id).slice(0, 4));
+    setWishlisted(isWishlisted(product.id));
   }, [product?.id]);
 
   useEffect(() => {
@@ -338,38 +341,88 @@ function ProductPage() {
           )}
 
           {/* CTA buttons — hidden on mobile (sticky bar handles it) */}
-          <div className="mt-8 hidden sm:flex flex-col gap-3">
-            <Button size="lg" className="w-full rounded-full text-sm tracking-wide transition-all duration-300 hover:shadow-[0_8px_25px_oklch(0.62_0.14_358/0.35)] hover:scale-[1.01] btn-press" disabled={outOfStock}
-              onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
-              {outOfStock ? "Sold out" : "Buy now — Cash on delivery"}
-            </Button>
-            <div className="flex gap-3">
-              <Button size="lg" variant="outline" className="flex-1 rounded-full text-sm tracking-wide hover:border-accent hover:text-accent transition-all duration-200" disabled={outOfStock}
-                onClick={() => {
-                  addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
-                  toast.success("Added to cart");
-                }}>
-                Add to cart
+          <TooltipProvider delayDuration={400}>
+            <div className="mt-8 hidden sm:flex flex-col gap-3">
+              <Button size="lg" className="w-full rounded-full text-sm tracking-wide transition-all duration-300 hover:shadow-[0_8px_25px_oklch(0.62_0.14_358/0.35)] hover:scale-[1.01] btn-press" disabled={outOfStock}
+                onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
+                {outOfStock ? "Sold out" : "Buy now — Cash on delivery"}
               </Button>
-              {waLink && (
-                <Button asChild size="lg" variant="outline" className="rounded-full px-4 hover:border-accent hover:text-accent transition-all duration-200">
-                  <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /></a>
-                </Button>
-              )}
-            </div>
-          </div>
+              <div className="flex gap-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="lg" variant="outline" className="flex-1 rounded-full text-sm tracking-wide hover:border-accent hover:text-accent transition-all duration-200" disabled={outOfStock}
+                      onClick={() => {
+                        addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
+                        toast.success("Added to cart");
+                      }}>
+                      Add to cart
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Add to cart and keep shopping</TooltipContent>
+                </Tooltip>
 
-          {/* Social share */}
-          <div className="mt-8 flex items-center gap-3 pt-6 border-t border-border/40">
-            <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Share</span>
-            {(["whatsapp","facebook","copy"] as const).map((p, i) => (
-              <button key={p} type="button" onClick={() => handleShare(p)}
-                title={p === "copy" ? "Copy link" : `Share on ${p}`}
-                className="size-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-all duration-200">
-                {i === 0 ? <MessageCircle className="size-3.5" /> : i === 1 ? <Facebook className="size-3.5" /> : <Copy className="size-3.5" />}
-              </button>
-            ))}
-          </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="lg" variant="outline"
+                      className={`rounded-full px-4 transition-all duration-200 ${wishlisted ? "border-accent text-accent bg-accent/8" : "hover:border-accent hover:text-accent"}`}
+                      onClick={() => {
+                        const added = toggleWishlist({ id: product.id, name: product.name, price: product.price, sale_price: product.sale_price, on_sale: product.on_sale, image_url: product.image_url });
+                        setWishlisted(added);
+                        toast.success(added ? "Saved to wishlist" : "Removed from wishlist");
+                      }}>
+                      <Heart className={`size-4 ${wishlisted ? "fill-accent" : ""}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{wishlisted ? "Remove from wishlist" : "Save to wishlist"}</TooltipContent>
+                </Tooltip>
+
+                {waLink && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button asChild size="lg" variant="outline" className="rounded-full px-4 hover:border-accent hover:text-accent transition-all duration-200">
+                        <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /></a>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Order via WhatsApp</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+
+            {/* Trust strip */}
+            <div className="mt-8 hidden sm:grid grid-cols-2 gap-3">
+              {[
+                { icon: Truck, label: "Nationwide delivery", sub: "Pathao courier" },
+                { icon: Package, label: "Cash on delivery", sub: "No card needed" },
+                { icon: RotateCcw, label: "Easy returns", sub: "Hassle-free" },
+                { icon: ShieldCheck, label: "Authentic product", sub: "Quality guaranteed" },
+              ].map(({ icon: Icon, label, sub }) => (
+                <div key={label} className="flex items-center gap-2.5 py-2.5 px-3 rounded-xl bg-muted/40 border border-border/40">
+                  <Icon className="size-4 text-accent shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium leading-none">{label}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Social share */}
+            <div className="mt-6 flex items-center gap-3 pt-6 border-t border-border/40">
+              <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Share</span>
+              {(["whatsapp","facebook","copy"] as const).map((p, i) => (
+                <Tooltip key={p}>
+                  <TooltipTrigger asChild>
+                    <button type="button" onClick={() => handleShare(p)}
+                      className="size-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-all duration-200">
+                      {i === 0 ? <MessageCircle className="size-3.5" /> : i === 1 ? <Facebook className="size-3.5" /> : <Copy className="size-3.5" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{p === "copy" ? "Copy link" : `Share on ${p}`}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </TooltipProvider>
         </div>
       </div>
 

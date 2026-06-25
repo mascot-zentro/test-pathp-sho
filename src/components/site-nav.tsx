@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { slugify } from "@/lib/slugify";
 import { useEffect, useRef, useState } from "react";
-import { Menu, Search, ShoppingBag, ShoppingCart, User as UserIcon, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, ShoppingCart, User as UserIcon, X, Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/lib/cart";
@@ -234,6 +234,14 @@ export function SiteNav() {
             )}
 
             <Link
+              to="/wishlist"
+              className="px-3 py-2 text-muted-foreground transition-colors hover:text-accent"
+              aria-label="Wishlist"
+              title="Wishlist"
+            >
+              <Heart className="size-4.5" />
+            </Link>
+            <Link
               to="/cart"
               className="relative px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Cart"
@@ -304,6 +312,11 @@ export function SiteNav() {
                       </Link>
                     </SheetClose>
                   ))}
+                  <SheetClose asChild>
+                    <Link to="/wishlist" className="rounded-md px-3 py-2.5 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground flex items-center gap-2">
+                      <Heart className="size-4" /> Wishlist
+                    </Link>
+                  </SheetClose>
                   {isAdmin && (
                     <SheetClose asChild>
                       <Link to="/admin" className="rounded-md px-3 py-2.5 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground">
