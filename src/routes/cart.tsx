@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCart } from "@/lib/cart";
 import { getCities, getZones, getAreas, getDeliveryEstimate, createCartOrder, previewPromoCode } from "@/lib/pathao.functions";
+import { getSavedAddress, saveAddress, type SavedAddress } from "@/lib/saved-address";
 
 export const Route = createFileRoute("/cart")({
   component: CartPage,
@@ -25,8 +26,13 @@ function CartPage() {
   const [zones, setZones] = useState<{ zone_id: number; zone_name: string }[]>([]);
   const [areas, setAreas] = useState<{ area_id: number; area_name: string }[]>([]);
   const [cityId, setCityId] = useState<number | null>(null);
+  const [cityName, setCityName] = useState("");
   const [zoneId, setZoneId] = useState<number | null>(null);
+  const [zoneName, setZoneName] = useState("");
   const [areaId, setAreaId] = useState<number | null>(null);
+  const [areaName, setAreaName] = useState<string | null>(null);
+  const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null);
+  const [savedApplied, setSavedApplied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pathaoUp, setPathaoUp] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
@@ -47,29 +53,59 @@ function CartPage() {
   const totalWeight = items.reduce((s, i) => s + i.weight * i.quantity, 0);
 
   useEffect(() => {
+    const saved = getSavedAddress();
+    if (saved) setSavedAddress(saved);
+  }, []);
+
+  useEffect(() => {
     fetchCities().then((res: unknown) => {
       const r = res as { data?: { data?: { city_id: number; city_name: string }[] } };
       const list = r?.data?.data;
-      if (Array.isArray(list)) setCities(list);
-      else setPathaoUp(false);
+      if (Array.isArray(list)) {
+        setCities(list);
+        // Auto-apply saved address once cities are available
+        const saved = getSavedAddress();
+        if (saved && !savedApplied) {
+          setForm((f) => ({ ...f, name: saved.name, phone: saved.phone, address: saved.address }));
+          setCityId(saved.cityId);
+          setCityName(saved.cityName);
+          setSavedApplied(true);
+        }
+      } else setPathaoUp(false);
     }).catch(() => setPathaoUp(false));
   }, [fetchCities]);
 
   useEffect(() => {
     if (!cityId) return;
-    setZones([]); setAreas([]); setZoneId(null); setAreaId(null);
+    setZones([]); setAreas([]); setZoneId(null); setAreaId(null); setZoneName(""); setAreaName(null);
     fetchZones({ data: { cityId } }).then((res: unknown) => {
       const r = res as { data?: { data?: { zone_id: number; zone_name: string }[] } };
-      if (Array.isArray(r?.data?.data)) setZones(r.data.data);
+      const list = r?.data?.data;
+      if (Array.isArray(list)) {
+        setZones(list);
+        const saved = getSavedAddress();
+        if (saved && saved.cityId === cityId && !zoneId) {
+          setZoneId(saved.zoneId);
+          setZoneName(saved.zoneName);
+        }
+      }
     });
   }, [cityId, fetchZones]);
 
   useEffect(() => {
     if (!zoneId) return;
-    setAreas([]); setAreaId(null);
+    setAreas([]); setAreaId(null); setAreaName(null);
     fetchAreas({ data: { zoneId } }).then((res: unknown) => {
       const r = res as { data?: { data?: { area_id: number; area_name: string }[] } };
-      if (Array.isArray(r?.data?.data)) setAreas(r.data.data);
+      const list = r?.data?.data;
+      if (Array.isArray(list)) {
+        setAreas(list);
+        const saved = getSavedAddress();
+        if (saved && saved.zoneId === zoneId && saved.areaId && !areaId) {
+          setAreaId(saved.areaId);
+          setAreaName(saved.areaName);
+        }
+      }
     });
   }, [zoneId, fetchAreas]);
 
@@ -146,6 +182,20 @@ function CartPage() {
       });
       if ((res as { warning?: string }).warning) toast.warning((res as { warning: string }).warning);
       else toast.success("Order placed! We'll contact you shortly.");
+      // Persist delivery details for next visit
+      if (cityId && zoneId) {
+        saveAddress({
+          name: form.name,
+          phone: form.phone,
+          address: form.address,
+          cityId,
+          cityName,
+          zoneId,
+          zoneName,
+          areaId,
+          areaName,
+        });
+      }
       clear();
       const ids = (res as { orderIds: string[] }).orderIds;
       navigate({ to: "/order-confirmed", search: { id: ids[0] } });
@@ -200,6 +250,29 @@ function CartPage() {
           <form onSubmit={submit} className="space-y-6">
             <h2 className="text-xl font-display">Delivery details</h2>
 
+            {savedAddress && (
+              <div className="rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 flex items-start justify-between gap-3">
+                <div className="text-sm leading-relaxed">
+                  <p className="font-medium text-accent text-xs tracking-wide uppercase mb-1">Saved address</p>
+                  <p className="font-medium">{savedAddress.name} · {savedAddress.phone}</p>
+                  <p className="text-muted-foreground text-xs mt-0.5">{savedAddress.address} · {savedAddress.cityName}{savedAddress.zoneName ? `, ${savedAddress.zoneName}` : ""}{savedAddress.areaName ? `, ${savedAddress.areaName}` : ""}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSavedAddress(null);
+                    setForm((f) => ({ ...f, name: "", phone: "", address: "" }));
+                    setCityId(null); setZoneId(null); setAreaId(null);
+                    setCityName(""); setZoneName(""); setAreaName(null);
+                    import("@/lib/saved-address").then((m) => m.clearSavedAddress());
+                  }}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
             {!pathaoUp && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">Delivery service is offline — please try again later.</div>}
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -211,21 +284,33 @@ function CartPage() {
             <div className="grid sm:grid-cols-3 gap-4">
               <div>
                 <Label>City</Label>
-                <Select value={cityId?.toString() ?? ""} onValueChange={(v) => setCityId(Number(v))}>
+                <Select value={cityId?.toString() ?? ""} onValueChange={(v) => {
+                  const id = Number(v);
+                  setCityId(id);
+                  setCityName(cities.find((c) => c.city_id === id)?.city_name ?? "");
+                }}>
                   <SelectTrigger><SelectValue placeholder="Select city" /></SelectTrigger>
                   <SelectContent>{cities.map((c) => <SelectItem key={c.city_id} value={c.city_id.toString()}>{c.city_name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Zone</Label>
-                <Select value={zoneId?.toString() ?? ""} onValueChange={(v) => setZoneId(Number(v))} disabled={!cityId}>
+                <Select value={zoneId?.toString() ?? ""} onValueChange={(v) => {
+                  const id = Number(v);
+                  setZoneId(id);
+                  setZoneName(zones.find((z) => z.zone_id === id)?.zone_name ?? "");
+                }} disabled={!cityId}>
                   <SelectTrigger><SelectValue placeholder="Select zone" /></SelectTrigger>
                   <SelectContent>{zones.map((z) => <SelectItem key={z.zone_id} value={z.zone_id.toString()}>{z.zone_name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Area (optional)</Label>
-                <Select value={areaId?.toString() ?? ""} onValueChange={(v) => setAreaId(Number(v))} disabled={!zoneId}>
+                <Select value={areaId?.toString() ?? ""} onValueChange={(v) => {
+                  const id = Number(v);
+                  setAreaId(id);
+                  setAreaName(areas.find((a) => a.area_id === id)?.area_name ?? null);
+                }} disabled={!zoneId}>
                   <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
                   <SelectContent>{areas.map((a) => <SelectItem key={a.area_id} value={a.area_id.toString()}>{a.area_name}</SelectItem>)}</SelectContent>
                 </Select>
