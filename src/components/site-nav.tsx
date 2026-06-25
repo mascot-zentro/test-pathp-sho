@@ -1,4 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { slugify } from "@/lib/slugify";
 import { useEffect, useRef, useState } from "react";
 import { Menu, Search, ShoppingBag, ShoppingCart, User as UserIcon, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,10 +45,10 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
     return () => clearTimeout(t);
   }, [query]);
 
-  const go = (id: string) => {
+  const go = (name: string) => {
     setOpen(false);
     onClose?.();
-    navigate({ to: "/product/$id", params: { id } });
+    navigate({ to: "/product/$slug", params: { slug: slugify(name) } });
   };
 
   return (
@@ -76,7 +77,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
               <button
                 key={r.id}
                 type="button"
-                onClick={() => go(r.id)}
+                onClick={() => go(r.name)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors"
               >
                 <div className="size-10 rounded bg-muted shrink-0 overflow-hidden">
@@ -113,7 +114,7 @@ function NavLink({ to, label }: { to: string; label: string }) {
     <Link
       to={to}
       className={cn(
-        "relative px-3 py-2 text-sm transition-colors",
+        "relative px-3 py-2 text-xs tracking-[0.14em] uppercase transition-colors duration-200",
         isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >
@@ -194,12 +195,12 @@ export function SiteNav() {
       )}
       <header
         className={cn(
-          "sticky top-0 z-40 bg-background/80 backdrop-blur transition-shadow duration-300",
-          scrolled ? "border-b shadow-sm" : "border-b border-transparent",
+          "sticky top-0 z-40 bg-background/85 backdrop-blur-md transition-all duration-300",
+          scrolled ? "border-b border-border/60 shadow-[0_1px_20px_oklch(0_0_0/0.06)]" : "border-b border-transparent",
         )}
       >
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="group flex items-center gap-2 font-display text-xl">
+        <div className="container mx-auto px-6 h-[60px] flex items-center justify-between">
+          <Link to="/" className="group flex items-center gap-2 font-display text-2xl font-light tracking-tight">
             {renderLogo("h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105")}
           </Link>
 
@@ -245,12 +246,12 @@ export function SiteNav() {
               )}
             </Link>
             {user ? (
-              <Link to="/account" className="px-3 py-2 flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground">
-                <UserIcon className="size-4" /> Account
+              <Link to="/account" className="px-3 py-2 flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground text-xs tracking-[0.14em] uppercase">
+                <UserIcon className="size-3.5" /> Account
               </Link>
             ) : (
               <Link to="/auth">
-                <Button variant="outline" size="sm" className="ml-2 transition-transform duration-200 hover:scale-[1.03]">
+                <Button variant="outline" size="sm" className="ml-2 text-xs tracking-[0.1em] rounded-full transition-all duration-200 hover:bg-accent hover:text-accent-foreground hover:border-accent hover:scale-[1.03]">
                   Sign in
                 </Button>
               </Link>

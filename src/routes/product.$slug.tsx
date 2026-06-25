@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Share2, Copy, Facebook, X, ZoomIn, Ruler } from "lucide-react";
+import { slugify } from "@/lib/slugify";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
@@ -25,7 +26,7 @@ function pushRV(item: RVItem) {
   localStorage.setItem(RV_KEY, JSON.stringify(list.slice(0, RV_MAX)));
 }
 
-export const Route = createFileRoute("/product/$id")({
+export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
 });
 
@@ -42,10 +43,11 @@ type RelatedProduct = {
 };
 
 function ProductPage() {
-  const { id } = Route.useParams();
+  const { slug } = Route.useParams();
   const navigate = useNavigate();
   const { addItem: addToCart } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [colors, setColors] = useState<Color[]>([]);
   const [sizes, setSizes] = useState<Size[]>([]);
   const [gallery, setGallery] = useState<string[]>([]);
@@ -60,26 +62,33 @@ function ProductPage() {
   const imgRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.from("products").select("*").eq("id", id).maybeSingle().then(({ data }) => setProduct(data as Product | null));
-    supabase.from("product_colors").select("*").eq("product_id", id).then(({ data }) => {
-      const list = (data as Color[]) ?? [];
-      setColors(list);
-      const firstInStock = list.find((c) => c.stock_quantity !== 0);
-      setSelected((firstInStock ?? list[0])?.name ?? null);
-    });
-    supabase.from("product_sizes").select("*").eq("product_id", id).order("position").then(({ data }) => {
-      const list = (data as Size[]) ?? [];
-      setSizes(list);
-      const firstInStock = list.find((s) => s.stock_quantity !== 0);
-      setSelectedSize((firstInStock ?? list[0])?.name ?? null);
-    });
-    supabase.from("product_images").select("image_url").eq("product_id", id).order("position").then(({ data }) => {
-      setGallery((data ?? []).map((r: { image_url: string }) => r.image_url));
-      setActiveImage(0);
+    // Resolve slug → product by loading all active products and matching by name
+    supabase.from("products").select("*").eq("active", true).then(({ data }) => {
+      const all = (data as Product[]) ?? [];
+      const match = all.find((p) => slugify(p.name) === slug) ?? null;
+      if (!match) { setNotFound(true); return; }
+      setProduct(match);
+      const id = match.id;
+      supabase.from("product_colors").select("*").eq("product_id", id).then(({ data: cd }) => {
+        const list = (cd as Color[]) ?? [];
+        setColors(list);
+        const firstInStock = list.find((c) => c.stock_quantity !== 0);
+        setSelected((firstInStock ?? list[0])?.name ?? null);
+      });
+      supabase.from("product_sizes").select("*").eq("product_id", id).order("position").then(({ data: sd }) => {
+        const list = (sd as Size[]) ?? [];
+        setSizes(list);
+        const firstInStock = list.find((s) => s.stock_quantity !== 0);
+        setSelectedSize((firstInStock ?? list[0])?.name ?? null);
+      });
+      supabase.from("product_images").select("image_url").eq("product_id", id).order("position").then(({ data: gd }) => {
+        setGallery((gd ?? []).map((r: { image_url: string }) => r.image_url));
+        setActiveImage(0);
+      });
     });
     supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle()
       .then(({ data }) => setDefaultWa(data?.value ?? ""));
-  }, [id]);
+  }, [slug]);
 
   useEffect(() => {
     if (!product) return;
@@ -104,7 +113,15 @@ function ProductPage() {
       });
   }, [product?.id, product?.category]);
 
-  if (!product) return <div className="min-h-screen"><SiteNav /><div className="container mx-auto px-6 py-20 text-muted-foreground">Loading…</div></div>;
+  if (notFound) return (
+    <div className="min-h-screen flex flex-col"><SiteNav />
+      <div className="container mx-auto px-6 py-20 text-center">
+        <p className="text-4xl font-display font-light mb-4">Product not found</p>
+        <Link to="/" className="text-sm text-accent hover:underline">← Back to shop</Link>
+      </div>
+    </div>
+  );
+  if (!product) return <div className="min-h-screen"><SiteNav /><div className="container mx-auto px-6 py-20 text-muted-foreground animate-pulse">Loading…</div></div>;
 
   const images = gallery.length > 0 ? gallery : product.image_url ? [product.image_url] : [];
   const price = product.on_sale && product.sale_price ? product.sale_price : product.price;
@@ -144,14 +161,15 @@ function ProductPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-24 sm:pb-0">
+    <div className="min-h-screen flex flex-col pb-24 sm:pb-0 page-enter">
       <SiteNav />
-      <div className="container mx-auto px-6 py-10 grid md:grid-cols-2 gap-10 flex-1">
+
+      <div className="container mx-auto px-6 py-12 grid md:grid-cols-2 gap-12 lg:gap-20 flex-1 items-start">
         {/* ── Image gallery with zoom ── */}
-        <div>
+        <div className="md:sticky md:top-[80px]">
           <div
             ref={imgRef}
-            className="aspect-[4/5] bg-muted rounded-md overflow-hidden relative group cursor-zoom-in"
+            className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] rounded-2xl overflow-hidden relative group cursor-zoom-in shadow-lg"
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setZoomOpen(true)}
             onMouseLeave={() => setZoomOpen(false)}
@@ -162,31 +180,30 @@ function ProductPage() {
                   src={images[activeImage]}
                   alt={product.name}
                   fetchPriority="high"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                 />
-                {/* Zoom overlay — magnified view follows cursor */}
                 {zoomOpen && (
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
                       backgroundImage: `url(${images[activeImage]})`,
-                      backgroundSize: "250%",
+                      backgroundSize: "260%",
                       backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
                       backgroundRepeat: "no-repeat",
                     }}
                   />
                 )}
-                <span className="absolute bottom-2 right-2 bg-background/70 rounded-full p-1.5 opacity-60 group-hover:opacity-0 transition pointer-events-none">
-                  <ZoomIn className="size-4" />
+                <span className="absolute bottom-3 right-3 bg-background/70 backdrop-blur rounded-full p-2 opacity-50 group-hover:opacity-0 transition pointer-events-none">
+                  <ZoomIn className="size-3.5" />
                 </span>
               </>
             )}
           </div>
           {images.length > 1 && (
-            <div className="flex gap-2 mt-3">
+            <div className="flex gap-2 mt-4">
               {images.map((url, i) => (
                 <button key={i} type="button" onClick={() => setActiveImage(i)}
-                  className={`size-16 rounded-md overflow-hidden border-2 shrink-0 ${i === activeImage ? "border-accent" : "border-transparent"}`}>
+                  className={`size-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all duration-200 ${i === activeImage ? "border-accent shadow-sm" : "border-transparent opacity-60 hover:opacity-100"}`}>
                   <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
@@ -195,30 +212,55 @@ function ProductPage() {
         </div>
 
         {/* ── Product info ── */}
-        <div>
-          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to shop</Link>
-          <h1 className="text-3xl md:text-4xl font-display mt-4">{product.name}</h1>
-          <div className="mt-3 text-xl tabular-nums">
+        <div className="pt-2">
+          <Link to="/" className="inline-flex items-center gap-1 text-xs tracking-[0.14em] uppercase text-muted-foreground hover:text-accent transition-colors duration-200">
+            ← Shop
+          </Link>
+
+          {product.category && (
+            <p className="mt-4 text-xs tracking-[0.18em] uppercase text-accent font-medium">{product.category}</p>
+          )}
+          <h1 className="text-4xl md:text-5xl font-display font-light mt-2 leading-tight">{product.name}</h1>
+
+          <div className="mt-4 flex items-baseline gap-3">
             {product.on_sale && product.sale_price ? (
-              <><span className="text-muted-foreground line-through mr-2">NRS {product.price}</span><span className="text-accent">NRS {product.sale_price}</span></>
+              <>
+                <span className="text-2xl font-light tabular-nums text-accent">NRS {product.sale_price}</span>
+                <span className="text-base text-muted-foreground line-through tabular-nums">NRS {product.price}</span>
+                <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">Sale</span>
+              </>
             ) : (
-              <>NRS {product.price}</>
+              <span className="text-2xl font-light tabular-nums">NRS {product.price}</span>
             )}
           </div>
-          {outOfStock && <p className="mt-2 text-sm font-medium text-destructive">Out of stock</p>}
-          {!outOfStock && lowStock && <p className="mt-2 text-sm text-amber-600">Only {availableStock} left in stock</p>}
-          {product.description && <p className="mt-6 text-muted-foreground leading-relaxed whitespace-pre-line">{product.description}</p>}
+
+          {outOfStock && <p className="mt-3 text-sm font-medium text-destructive tracking-wide">Sold out</p>}
+          {!outOfStock && lowStock && (
+            <p className="mt-3 text-xs tracking-wide text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-full inline-block">
+              Only {availableStock} left — order soon
+            </p>
+          )}
+
+          {product.description && (
+            <p className="mt-6 text-muted-foreground leading-relaxed font-light whitespace-pre-line text-sm">{product.description}</p>
+          )}
+
+          {/* Divider */}
+          <div className="my-8 h-px bg-border/60" />
 
           {colors.length > 0 && (
-            <div className="mt-8">
-              <div className="text-sm font-medium mb-3">Color: <span className="text-muted-foreground">{selected}</span></div>
-              <div className="flex flex-wrap gap-2">
+            <div className="mb-6">
+              <div className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground mb-3">
+                Colour — <span className="text-foreground">{selected}</span>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
                 {colors.map((c) => {
                   const colorOut = c.stock_quantity === 0;
                   return (
-                    <button key={c.id} type="button" onClick={() => !colorOut && setSelected(c.name)} title={colorOut ? `${c.name} — out of stock` : c.name}
+                    <button key={c.id} type="button" onClick={() => !colorOut && setSelected(c.name)}
+                      title={colorOut ? `${c.name} — out of stock` : c.name}
                       disabled={colorOut}
-                      className={`relative size-9 rounded-full border-2 transition ${selected === c.name ? "border-accent ring-2 ring-accent/30" : "border-border"} ${colorOut ? "opacity-30 cursor-not-allowed" : ""}`}
+                      className={`relative size-8 rounded-full border-2 transition-all duration-200 ${selected === c.name ? "border-accent scale-110 ring-2 ring-accent/25" : "border-border hover:scale-110"} ${colorOut ? "opacity-25 cursor-not-allowed" : ""}`}
                       style={{ background: c.hex }}>
                       {colorOut && <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/90">✕</span>}
                     </button>
@@ -229,30 +271,29 @@ function ProductPage() {
           )}
 
           {sizes.length > 0 && (
-            <div className="mt-6">
+            <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-medium">Size: <span className="text-muted-foreground">{selectedSize}</span></div>
-                {/* Size guide modal */}
+                <div className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                  Size — <span className="text-foreground">{selectedSize}</span>
+                </div>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      <Ruler className="size-3.5" /> Size guide
+                    <button type="button" className="flex items-center gap-1 text-[10px] tracking-[0.12em] uppercase text-muted-foreground hover:text-accent transition-colors">
+                      <Ruler className="size-3" /> Size guide
                     </button>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <DialogHeader>
-                      <DialogTitle>Size Guide</DialogTitle>
+                      <DialogTitle className="font-display font-light text-2xl">Size Guide</DialogTitle>
                     </DialogHeader>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      <p className="mb-4">Measure yourself and compare with the chart below. All measurements are in cm.</p>
+                    <div className="mt-3 text-sm text-muted-foreground">
+                      <p className="mb-4 text-xs leading-relaxed">Measure yourself and compare with the chart below. All measurements are in cm.</p>
                       <table className="w-full text-center border-collapse text-xs">
                         <thead>
                           <tr className="border-b">
-                            <th className="py-2 px-3 text-left font-medium text-foreground">Size</th>
-                            <th className="py-2 px-3 font-medium text-foreground">Chest</th>
-                            <th className="py-2 px-3 font-medium text-foreground">Waist</th>
-                            <th className="py-2 px-3 font-medium text-foreground">Hip</th>
-                            <th className="py-2 px-3 font-medium text-foreground">Length</th>
+                            {["Size","Chest","Waist","Hip","Length"].map((h) => (
+                              <th key={h} className={`py-2 px-2 font-medium text-foreground text-[10px] tracking-wider uppercase ${h === "Size" ? "text-left" : ""}`}>{h}</th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
@@ -262,19 +303,19 @@ function ProductPage() {
                             { size: "M",  chest: "90–94", waist: "70–74", hip: "96–100", length: "66" },
                             { size: "L",  chest: "94–98", waist: "74–78", hip: "100–104", length: "68" },
                             { size: "XL", chest: "98–104", waist: "78–84", hip: "104–110", length: "70" },
-                            { size: "XXL", chest: "104–110", waist: "84–90", hip: "110–116", length: "72" },
+                            { size: "XXL",chest: "104–110",waist: "84–90", hip: "110–116", length: "72" },
                           ].map((r) => (
                             <tr key={r.size} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
-                              <td className="py-2 px-3 text-left font-medium text-foreground">{r.size}</td>
-                              <td className="py-2 px-3">{r.chest}</td>
-                              <td className="py-2 px-3">{r.waist}</td>
-                              <td className="py-2 px-3">{r.hip}</td>
-                              <td className="py-2 px-3">{r.length}</td>
+                              <td className="py-2 px-2 text-left font-medium text-foreground">{r.size}</td>
+                              <td className="py-2 px-2">{r.chest}</td>
+                              <td className="py-2 px-2">{r.waist}</td>
+                              <td className="py-2 px-2">{r.hip}</td>
+                              <td className="py-2 px-2">{r.length}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                      <p className="mt-4 text-xs">If you're between sizes, we recommend sizing up.</p>
+                      <p className="mt-4 text-xs text-muted-foreground/70">If you're between sizes, we recommend sizing up.</p>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -285,7 +326,9 @@ function ProductPage() {
                   return (
                     <button key={s.id} type="button" onClick={() => !sizeOut && setSelectedSize(s.name)}
                       disabled={sizeOut}
-                      className={`min-w-11 h-11 px-3 rounded-md border-2 text-sm font-medium transition ${selectedSize === s.name ? "border-accent bg-accent/10" : "border-border"} ${sizeOut ? "opacity-30 cursor-not-allowed line-through" : "hover:border-accent/60"}`}>
+                      className={`min-w-12 h-10 px-3 rounded-full border text-xs tracking-wider uppercase font-medium transition-all duration-200
+                        ${selectedSize === s.name ? "border-accent bg-accent text-accent-foreground shadow-sm" : "border-border text-muted-foreground"}
+                        ${sizeOut ? "opacity-25 cursor-not-allowed line-through" : "hover:border-accent/60 hover:text-foreground"}`}>
                       {s.name}
                     </button>
                   );
@@ -295,87 +338,83 @@ function ProductPage() {
           )}
 
           {/* CTA buttons — hidden on mobile (sticky bar handles it) */}
-          <div className="mt-10 hidden sm:flex flex-col sm:flex-row gap-3">
-            <Button size="lg" className="flex-1" disabled={outOfStock}
+          <div className="mt-8 hidden sm:flex flex-col gap-3">
+            <Button size="lg" className="w-full rounded-full text-sm tracking-wide transition-all duration-300 hover:shadow-[0_8px_25px_oklch(0.62_0.14_358/0.35)] hover:scale-[1.01] btn-press" disabled={outOfStock}
               onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
-              {outOfStock ? "Out of stock" : "Buy now — Cash on delivery"}
+              {outOfStock ? "Sold out" : "Buy now — Cash on delivery"}
             </Button>
-            <Button size="lg" variant="outline" className="flex-1" disabled={outOfStock}
-              onClick={() => {
-                addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
-                toast.success("Added to cart");
-              }}>
-              Add to cart
-            </Button>
-            {waLink && (
-              <Button asChild size="lg" variant="outline" className="flex-1">
-                <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4 mr-2" /> Order on WhatsApp</a>
+            <div className="flex gap-3">
+              <Button size="lg" variant="outline" className="flex-1 rounded-full text-sm tracking-wide hover:border-accent hover:text-accent transition-all duration-200" disabled={outOfStock}
+                onClick={() => {
+                  addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
+                  toast.success("Added to cart");
+                }}>
+                Add to cart
               </Button>
-            )}
+              {waLink && (
+                <Button asChild size="lg" variant="outline" className="rounded-full px-4 hover:border-accent hover:text-accent transition-all duration-200">
+                  <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /></a>
+                </Button>
+              )}
+            </div>
           </div>
-          {!outOfStock && !waLink && <p className="text-xs text-muted-foreground mt-2 hidden sm:block">WhatsApp ordering unavailable — admin hasn't set a number.</p>}
 
           {/* Social share */}
-          <div className="mt-6 flex items-center gap-3">
-            <span className="text-xs text-muted-foreground flex items-center gap-1"><Share2 className="size-3.5" /> Share</span>
-            <button type="button" onClick={() => handleShare("whatsapp")} title="Share on WhatsApp"
-              className="size-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
-              <MessageCircle className="size-3.5" />
-            </button>
-            <button type="button" onClick={() => handleShare("facebook")} title="Share on Facebook"
-              className="size-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
-              <Facebook className="size-3.5" />
-            </button>
-            <button type="button" onClick={() => handleShare("copy")} title="Copy link"
-              className="size-8 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
-              <Copy className="size-3.5" />
-            </button>
+          <div className="mt-8 flex items-center gap-3 pt-6 border-t border-border/40">
+            <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Share</span>
+            {(["whatsapp","facebook","copy"] as const).map((p, i) => (
+              <button key={p} type="button" onClick={() => handleShare(p)}
+                title={p === "copy" ? "Copy link" : `Share on ${p}`}
+                className="size-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-all duration-200">
+                {i === 0 ? <MessageCircle className="size-3.5" /> : i === 1 ? <Facebook className="size-3.5" /> : <Copy className="size-3.5" />}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* ── Sticky mobile CTA ── */}
-      <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur border-t p-3 flex gap-2">
-        <Button size="lg" className="flex-1" disabled={outOfStock}
+      <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/60 p-3 flex gap-2">
+        <Button size="lg" className="flex-1 rounded-full text-sm" disabled={outOfStock}
           onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
-          {outOfStock ? "Out of stock" : "Buy now"}
+          {outOfStock ? "Sold out" : "Buy now"}
         </Button>
-        <Button size="lg" variant="outline" disabled={outOfStock}
+        <Button size="lg" variant="outline" className="rounded-full px-4" disabled={outOfStock}
           onClick={() => {
             addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
             toast.success("Added to cart");
           }}>
-          Add to cart
+          + Cart
         </Button>
         {waLink && (
-          <Button asChild size="lg" variant="outline">
+          <Button asChild size="lg" variant="outline" className="rounded-full px-4">
             <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /></a>
           </Button>
         )}
       </div>
+
       {/* Recently viewed */}
       {recentlyViewed.length > 0 && (
-        <section className="border-t">
+        <section className="border-t border-border/50 mt-12">
           <div className="container mx-auto px-6 py-16 pb-4">
-            <h2 className="text-xl font-display mb-8">Recently viewed</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-accent mb-2">Your history</p>
+            <h2 className="text-3xl font-display font-light mb-10">Recently viewed</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
               {recentlyViewed.map((p) => (
-                <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
-                  <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md">
+                <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
+                  <div className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-xl">
                     {p.image_url ? (
                       <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
+                      <div className="w-full h-full grid place-items-center text-muted-foreground/40 text-xs">No image</div>
                     )}
                   </div>
-                  <div className="mt-3 flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-medium leading-tight">{p.name}</h3>
-                    <div className="text-sm tabular-nums whitespace-nowrap">
+                  <div className="mt-3 px-0.5">
+                    <h3 className="text-sm font-light leading-snug group-hover:text-accent transition-colors">{p.name}</h3>
+                    <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                       {p.on_sale && p.sale_price ? (
-                        <span><span className="text-muted-foreground line-through mr-1">NRS {p.price}</span><span className="text-accent">NRS {p.sale_price}</span></span>
-                      ) : (
-                        <span>NRS {p.price}</span>
-                      )}
+                        <span><span className="line-through mr-1">NRS {p.price}</span><span className="text-accent font-medium">NRS {p.sale_price}</span></span>
+                      ) : <span>NRS {p.price}</span>}
                     </div>
                   </div>
                 </Link>
@@ -386,30 +425,29 @@ function ProductPage() {
       )}
 
       {related.length > 0 && (
-        <section className="border-t">
+        <section className="border-t border-border/50">
           <div className="container mx-auto px-6 py-16">
-            <h2 className="text-xl font-display mb-8">You may also like</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-accent mb-2">You may love</p>
+            <h2 className="text-3xl font-display font-light mb-10">Complete the look</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
               {related.map((p) => (
-                <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
-                  <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
+                <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
+                  <div className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-xl relative">
                     {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-[1.06] transition-transform duration-600" />
                     ) : (
-                      <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">No image</div>
+                      <div className="w-full h-full grid place-items-center text-muted-foreground/40 text-xs">No image</div>
                     )}
                     {p.stock_quantity === 0 && (
-                      <span className="absolute top-2 left-2 bg-background/90 text-destructive text-xs font-medium px-2 py-1 rounded">Out of stock</span>
+                      <span className="absolute top-3 left-3 bg-background/90 backdrop-blur text-muted-foreground text-[10px] font-medium px-2.5 py-1 rounded-full">Sold out</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-medium leading-tight">{p.name}</h3>
-                    <div className="text-sm tabular-nums whitespace-nowrap">
+                  <div className="mt-3 px-0.5">
+                    <h3 className="text-sm font-light leading-snug group-hover:text-accent transition-colors">{p.name}</h3>
+                    <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                       {p.on_sale && p.sale_price ? (
-                        <span><span className="text-muted-foreground line-through mr-1">NRS {p.price}</span><span className="text-accent">NRS {p.sale_price}</span></span>
-                      ) : (
-                        <span>NRS {p.price}</span>
-                      )}
+                        <span><span className="line-through mr-1">NRS {p.price}</span><span className="text-accent font-medium">NRS {p.sale_price}</span></span>
+                      ) : <span>NRS {p.price}</span>}
                     </div>
                   </div>
                 </Link>

@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { slugify } from "@/lib/slugify";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -149,8 +150,13 @@ function Checkout() {
         setPromo(null);
         setPromoError(res.message ?? "Invalid promo code.");
       }
-    } catch {
-      setPromoError("Couldn't check that code, try again.");
+    } catch (err) {
+      const msg = String(err);
+      if (msg.toLowerCase().includes("too many")) {
+        toast.error("Too many attempts — please wait a moment before trying again.");
+      } else {
+        setPromoError("Couldn't check that code, try again.");
+      }
     } finally {
       setPromoChecking(false);
     }
@@ -185,7 +191,14 @@ function Checkout() {
       else toast.success("Order placed! We'll contact you shortly.");
       navigate({ to: "/order-confirmed", search: { id: (res as { orderId: string }).orderId } });
     } catch (err) {
-      toast.error(`Order failed: ${String(err)}`);
+      const msg = String(err);
+      if (msg.toLowerCase().includes("too many")) {
+        toast.error("Too many orders submitted — please wait a few minutes and try again.", { duration: 6000 });
+      } else if (msg.toLowerCase().includes("stock")) {
+        toast.error("Sorry, this item just went out of stock.");
+      } else {
+        toast.error("Order failed. Please check your details and try again.");
+      }
     } finally { setSubmitting(false); }
   };
 
@@ -194,7 +207,7 @@ function Checkout() {
       <SiteNav />
       <div className="container mx-auto px-6 py-10 grid md:grid-cols-[1fr,360px] gap-10 flex-1">
         <form onSubmit={submit} className="space-y-6">
-          <Link to="/product/$id" params={{ id: product.id }} className="text-sm text-muted-foreground">← Back</Link>
+          <Link to="/product/$slug" params={{ slug: slugify(product.name) }} className="text-sm text-muted-foreground">← Back</Link>
           <h1 className="text-3xl font-display">Checkout</h1>
 
           {!pathaoUp && <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">Delivery service is offline — please try again later, or use WhatsApp from the product page.</div>}

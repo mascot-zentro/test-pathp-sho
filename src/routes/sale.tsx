@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { slugify } from "@/lib/slugify";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
@@ -31,7 +32,7 @@ function SalePage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12 mt-10">
           {items.length === 0 && <p className="text-muted-foreground col-span-full">No sale items right now.</p>}
           {items.map((p) => (
-            <Link key={p.id} to="/product/$id" params={{ id: p.id }} className="group">
+            <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
               <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
                 {p.image_url && <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
                 {p.stock_quantity === 0 && (

@@ -5,8 +5,8 @@ type RevealProps = {
   children: ReactNode;
   className?: string;
   delay?: number;
-  /** "up" fades in while rising slightly; "none" is a plain fade. */
-  direction?: "up" | "none";
+  /** "up" fades in while rising slightly; "left" slides from left; "none" is a plain fade. */
+  direction?: "up" | "left" | "none";
   as?: "div" | "section";
 };
 
@@ -16,6 +16,7 @@ type RevealProps = {
  * prefers-reduced-motion enabled.
  */
 export function Reveal({ children, className, delay = 0, direction = "up", as = "div" }: RevealProps) {
+  // "left" slides in from the left for hero text blocks
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -49,7 +50,13 @@ export function Reveal({ children, className, delay = 0, direction = "up", as = 
       style={{ transitionDelay: visible ? `${delay}ms` : "0ms" }}
       className={cn(
         "transition-[opacity,transform] duration-700 ease-out",
-        visible ? "opacity-100 translate-y-0" : direction === "up" ? "opacity-0 translate-y-4" : "opacity-0",
+        visible
+          ? "opacity-100 translate-y-0 translate-x-0"
+          : direction === "up"
+            ? "opacity-0 translate-y-5"
+            : direction === "left"
+              ? "opacity-0 -translate-x-6"
+              : "opacity-0",
         className,
       )}
     >
