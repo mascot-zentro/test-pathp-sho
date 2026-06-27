@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { Cursor } from "@/components/cursor";
 import { supabase } from "@/integrations/supabase/client";
 import { logPageVisit } from "@/lib/visits.functions";
 
@@ -125,6 +126,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <Cursor />
       <Outlet />
       <Toaster richColors position="top-center" />
     </QueryClientProvider>

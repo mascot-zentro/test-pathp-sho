@@ -35,9 +35,13 @@ function SalePage() {
             <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
               <div className="aspect-[4/5] bg-muted overflow-hidden rounded-md relative">
                 {p.image_url && <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />}
-                {p.stock_quantity === 0 && (
+                {p.stock_quantity === 0 ? (
                   <span className="absolute top-2 left-2 bg-background/90 text-destructive text-xs font-medium px-2 py-1 rounded">Out of stock</span>
-                )}
+                ) : p.sale_price ? (
+                  <span className="absolute top-2 left-2 bg-accent text-accent-foreground text-[10px] font-medium px-2.5 py-1 rounded-full">
+                    −{Math.round((1 - p.sale_price / p.price) * 100)}%
+                  </span>
+                ) : null}
               </div>
               <div className="mt-4 flex items-start justify-between">
                 <h3 className="text-sm font-medium">{p.name}</h3>

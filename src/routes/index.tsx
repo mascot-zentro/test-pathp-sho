@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { slugify } from "@/lib/slugify";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
@@ -37,6 +37,7 @@ const MARQUEE_ITEMS = [
 
 function Index() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [hoverImages, setHoverImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [hero, setHero] = useState({
     title: "Dress the story\nyou want to tell.",
@@ -45,6 +46,22 @@ function Index() {
   });
   const [about, setAbout] = useState({ title: "", body: "", image: "" });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const heroImgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (!hero.image) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    const onScroll = () => {
+      raf = requestAnimationFrame(() => {
+        if (heroImgRef.current) {
+          heroImgRef.current.style.transform = `translateY(${window.scrollY * 0.35}px)`;
+        }
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+  }, [hero.image]);
 
   useEffect(() => {
     supabase
@@ -53,8 +70,23 @@ function Index() {
       .eq("active", true)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
-        setProducts((data as Product[]) ?? []);
+        const list = (data as Product[]) ?? [];
+        setProducts(list);
         setLoading(false);
+        // Fetch the second gallery image for every product in one query.
+        // position=1 is the second image (position=0 is the primary).
+        if (list.length > 0) {
+          supabase
+            .from("product_images")
+            .select("product_id,image_url")
+            .in("product_id", list.map((p) => p.id))
+            .eq("position", 1)
+            .then(({ data: imgs }) => {
+              const map: Record<string, string> = {};
+              (imgs ?? []).forEach((r: { product_id: string; image_url: string }) => { map[r.product_id] = r.image_url; });
+              setHoverImages(map);
+            });
+        }
       });
   }, []);
 
@@ -93,8 +125,8 @@ function Index() {
           {/* Background image with dramatic overlay */}
           {hero.image ? (
             <>
-              <div className="absolute inset-0 -z-10">
-                <img src={hero.image} alt="" fetchPriority="high" decoding="async" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 -z-10 overflow-hidden">
+                <img ref={heroImgRef} src={hero.image} alt="" fetchPriority="high" decoding="async" className="w-full h-[115%] object-cover will-change-transform" style={{ top: 0 }} />
               </div>
               <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/20 via-background/50 to-background/90" />
             </>
@@ -279,13 +311,24 @@ function Index() {
                       {/* Image */}
                       <div className="relative aspect-[3/4] bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-xl">
                         {p.image_url ? (
-                          <img
-                            src={p.image_url}
-                            alt={p.name}
-                            loading="lazy"
-                            decoding="async"
-                            className={`w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06] ${outOfStock ? "opacity-40 grayscale" : ""}`}
-                          />
+                          <>
+                            <img
+                              src={p.image_url}
+                              alt={p.name}
+                              loading="lazy"
+                              decoding="async"
+                              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`}
+                            />
+                            {hoverImages[p.id] && (
+                              <img
+                                src={hoverImages[p.id]}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.04] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.06]"
+                              />
+                            )}
+                          </>
                         ) : (
                           <div className="w-full h-full grid place-items-center text-muted-foreground/40 text-xs tracking-widest uppercase">No image</div>
                         )}
@@ -301,7 +344,7 @@ function Index() {
                         )}
                         {p.on_sale && p.sale_price && !outOfStock && (
                           <span className="absolute top-3 left-3 bg-accent text-accent-foreground text-[10px] font-medium px-2.5 py-1 rounded-full tracking-wide">
-                            Sale
+                            −{Math.round((1 - p.sale_price / p.price) * 100)}%
                           </span>
                         )}
                         {/* Quick-view hint */}

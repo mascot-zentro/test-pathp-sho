@@ -137,7 +137,7 @@ export function SiteNav() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [announcement, setAnnouncement] = useState<{ text: string; link: string } | null>(null);
-  const [scrolled, setScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -189,7 +189,7 @@ export function SiteNav() {
   }, [user]);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
+    const onScroll = () => setScrollProgress(Math.min(1, window.scrollY / 60));
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -223,10 +223,12 @@ export function SiteNav() {
         )
       )}
       <header
-        className={cn(
-          "sticky top-0 z-40 bg-background/85 backdrop-blur-md transition-all duration-300",
-          scrolled ? "border-b border-border/60 shadow-[0_1px_20px_oklch(0_0_0/0.06)]" : "border-b border-transparent",
-        )}
+        className="sticky top-0 z-40 backdrop-blur-md transition-shadow duration-300"
+        style={{
+          backgroundColor: `oklch(0.98 0.008 60 / ${0.7 + scrollProgress * 0.28})`,
+          borderBottom: `1px solid oklch(0.90 0.012 60 / ${scrollProgress * 0.7})`,
+          boxShadow: scrollProgress > 0.1 ? `0 1px ${20 * scrollProgress}px oklch(0 0 0 / ${0.05 * scrollProgress})` : "none",
+        }}
       >
         <div className="container mx-auto px-6 h-[60px] flex items-center justify-between">
           <Link to="/" className="group flex items-center gap-2 font-display text-2xl font-light tracking-tight">
