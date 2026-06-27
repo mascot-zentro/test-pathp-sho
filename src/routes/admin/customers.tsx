@@ -5,7 +5,7 @@ import { AdminPageHeader } from "@/components/admin/page-header";
 import { Stat } from "@/components/admin/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search, ChevronDown, ChevronUp, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/customers")({
   ssr: false,
@@ -63,6 +63,13 @@ function statusVariant(s: string): "default" | "secondary" | "destructive" | "ou
   return "outline";
 }
 
+function waNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("977")) return digits;
+  if (digits.startsWith("0")) return `977${digits.slice(1)}`;
+  return `977${digits}`;
+}
+
 function nameInitials(name: string) {
   return name
     .split(" ")
@@ -99,11 +106,27 @@ function CustomerCard({ c }: { c: Customer }) {
                 </Badge>
               )}
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-muted-foreground">
+              <a
+                href={`tel:${c.phone}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 hover:text-foreground transition-colors"
+                title="Call"
+              >
                 <Phone className="size-3 shrink-0" />
                 {c.phone}
-              </span>
+              </a>
+              <a
+                href={`https://wa.me/${waNumber(c.phone)}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 hover:text-green-600 transition-colors"
+                title="Open WhatsApp"
+              >
+                <MessageCircle className="size-3 shrink-0" />
+                WhatsApp
+              </a>
               <span className="flex items-center gap-1 min-w-0">
                 <MapPin className="size-3 shrink-0" />
                 <span className="truncate max-w-[200px]">{c.address}</span>
