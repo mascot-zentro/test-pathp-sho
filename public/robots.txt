@@ -7,4 +7,5 @@ Disallow: /checkout
 Disallow: /order-confirmed
 Disallow: /auth
 
+# Update YOUR_DOMAIN once your domain is confirmed (also set Site URL in Admin → Settings)
 Sitemap: https://YOUR_DOMAIN/sitemap.xml

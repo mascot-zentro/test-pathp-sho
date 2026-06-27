@@ -118,7 +118,7 @@ function Checkout() {
     fetchDeliveryEstimate({ data: { cityId, zoneId, weight: Number(product.weight) || 0.5 } })
       .then((res: unknown) => {
         const r = res as { ok: boolean; fee?: number; reason?: "not_configured" | "unavailable" };
-        if (r?.ok) { setDeliveryFee(r.fee ?? null); setDeliveryError(null); }
+        if (r?.ok && typeof r.fee === "number") { setDeliveryFee(r.fee); setDeliveryError(null); }
         else { setDeliveryFee(null); setDeliveryError(r?.reason ?? "unavailable"); }
       })
       .catch(() => { setDeliveryFee(null); setDeliveryError("unavailable"); })

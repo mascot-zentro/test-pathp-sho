@@ -32,6 +32,35 @@ export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
 });
 
+function useProductSEO(product: { name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null } | null) {
+  useEffect(() => {
+    if (!product) return;
+    const price = product.on_sale && product.sale_price ? product.sale_price : product.price;
+    const title = `${product.name} — NRS ${price}`;
+    const desc = product.description
+      ? product.description.slice(0, 155)
+      : `Buy ${product.name} for NRS ${price}. Cash on delivery, nationwide.`;
+    const image = product.image_url ?? "";
+
+    document.title = title;
+
+    const set = (sel: string, attr: string, val: string) => {
+      let el = document.querySelector<HTMLMetaElement>(sel);
+      if (!el) { el = document.createElement("meta"); document.head.appendChild(el); }
+      el.setAttribute(attr, val);
+    };
+
+    set('meta[name="description"]', "content", desc);
+    set('meta[property="og:title"]', "content", title);
+    set('meta[property="og:description"]', "content", desc);
+    set('meta[property="og:type"]', "content", "product");
+    if (image) set('meta[property="og:image"]', "content", image);
+    set('meta[name="twitter:title"]', "content", title);
+    set('meta[name="twitter:description"]', "content", desc);
+    if (image) set('meta[name="twitter:image"]', "content", image);
+  }, [product]);
+}
+
 type Product = {
   id: string; name: string; description: string | null; price: number;
   sale_price: number | null; on_sale: boolean; image_url: string | null;
@@ -49,6 +78,7 @@ function ProductPage() {
   const navigate = useNavigate();
   const { addItem: addToCart } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
+  useProductSEO(product);
   const [notFound, setNotFound] = useState(false);
   const [colors, setColors] = useState<Color[]>([]);
   const [sizes, setSizes] = useState<Size[]>([]);
@@ -67,7 +97,7 @@ function ProductPage() {
   useEffect(() => {
     // Fetch product + whatsapp setting in parallel, then batch variant queries
     Promise.all([
-      supabase.from("products").select("*").eq("active", true).ilike("name", slug.replace(/-/g, "%")),
+      supabase.from("products").select("*").eq("active", true),
       supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle(),
     ]).then(([{ data }, { data: waSetting }]) => {
       setDefaultWa(waSetting?.value ?? "");

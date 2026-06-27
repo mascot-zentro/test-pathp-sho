@@ -84,7 +84,7 @@ function CartPage() {
       if (Array.isArray(list)) {
         setZones(list);
         const saved = getSavedAddress();
-        if (saved && saved.cityId === cityId && !zoneId) {
+        if (saved && saved.cityId === cityId && !zoneId && list.some((z) => z.zone_id === saved.zoneId)) {
           setZoneId(saved.zoneId);
           setZoneName(saved.zoneName);
         }
@@ -197,8 +197,8 @@ function CartPage() {
         });
       }
       clear();
-      const ids = (res as { orderIds: string[] }).orderIds;
-      navigate({ to: "/order-confirmed", search: { id: ids[0] } });
+      const ids = (res as { orderIds?: string[] }).orderIds ?? [];
+      navigate({ to: "/order-confirmed", search: { id: ids[0] ?? "" } });
     } catch (err) {
       toast.error(`Order failed: ${String(err)}`);
     } finally { setSubmitting(false); }

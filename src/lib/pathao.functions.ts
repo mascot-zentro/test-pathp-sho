@@ -172,8 +172,8 @@ export const setOrderStatusAdmin = createServerFn({ method: "POST" })
     if (data.status === "cancelled" && order.status !== "cancelled" && !order.stock_restocked && order.product_id) {
       const { error: incErr } = await supabaseAdmin.rpc("increment_stock", {
         p_product_id: order.product_id,
-        p_color: order.color as string,
-        p_size: order.size as string,
+        p_color: order.color ?? null,
+        p_size: order.size ?? null,
         p_quantity: order.quantity,
       });
       if (!incErr) {
@@ -214,8 +214,8 @@ export const syncOrderStatus = createServerFn({ method: "POST" })
     if (isCancelledOrReturned && !order.stock_restocked && order.product_id) {
       const { error: incErr } = await supabaseAdmin.rpc("increment_stock", {
         p_product_id: order.product_id,
-        p_color: order.color as string,
-        p_size: order.size as string,
+        p_color: order.color ?? null,
+        p_size: order.size ?? null,
         p_quantity: order.quantity,
       });
       if (!incErr) {
@@ -287,6 +287,7 @@ async function insertOrderAndSubmitToPathao(
     specialInstruction: string | null;
     weight: number;
     source: string;
+    userId?: string | null;
   },
 ) {
   const { data: order, error: orderErr } = await supabaseAdmin
@@ -311,6 +312,7 @@ async function insertOrderAndSubmitToPathao(
       special_instruction: args.specialInstruction ?? null,
       status: "pending",
       source: args.source,
+      user_id: args.userId ?? null,
     })
     .select()
     .single();
@@ -387,6 +389,22 @@ export const createOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Optionally associate this order with a logged-in user so it appears
+    // on their account page. Auth is not required — guest checkouts leave
+    // user_id NULL. We extract the token ourselves rather than using the
+    // requireSupabaseAuth middleware so this endpoint remains public.
+    let userId: string | null = null;
+    try {
+      const { getRequest } = await import("@tanstack/react-start/server");
+      const req = getRequest();
+      const authHeader = req?.headers?.get("authorization");
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (token) {
+        const { data: claims } = await supabaseAdmin.auth.getUser(token);
+        userId = claims?.user?.id ?? null;
+      }
+    } catch { /* not authenticated — leave userId null */ }
+
     // IP-based limit runs first and before the promo redemption, so a
     // script hammering this endpoint never even gets to consume a promo
     // use or touch stock. This is in addition to (not instead of) the
@@ -434,8 +452,8 @@ export const createOrder = createServerFn({ method: "POST" })
     if (data.productId) {
       const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
         p_product_id: data.productId,
-        p_color: data.color as string,
-        p_size: data.size as string,
+        p_color: data.color ?? null,
+        p_size: data.size ?? null,
         p_quantity: data.quantity,
       });
       if (stockErr) {
@@ -468,6 +486,7 @@ export const createOrder = createServerFn({ method: "POST" })
       specialInstruction: data.specialInstruction ?? null,
       weight: data.weight,
       source: "website",
+      userId,
     });
   });
 
@@ -509,13 +528,13 @@ export const createManualOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const subtotal = data.unitPrice * data.quantity;
     const skipPathao = data.skipPathao || !data.cityId || !data.zoneId;
-    const total = subtotal + (skipPathao ? 0 : data.deliveryFee);
+    const total = subtotal + data.deliveryFee;
 
     if (data.productId && !data.skipStockCheck) {
       const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
         p_product_id: data.productId,
-        p_color: data.color as string,
-        p_size: data.size as string,
+        p_color: data.color ?? null,
+        p_size: data.size ?? null,
         p_quantity: data.quantity,
       });
       if (stockErr) throw new Error(stockErr.message);
@@ -533,7 +552,7 @@ export const createManualOrder = createServerFn({ method: "POST" })
           size: data.size,
           quantity: data.quantity,
           unit_price: data.unitPrice,
-          delivery_fee: 0,
+          delivery_fee: data.deliveryFee,
           total,
           customer_name: data.customerName,
           customer_phone: data.customerPhone,
@@ -604,6 +623,20 @@ export const createCartOrder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Same optional-auth pattern as createOrder: associate the cart order with
+    // a logged-in user if a valid Bearer token is present, otherwise leave NULL.
+    let userId: string | null = null;
+    try {
+      const { getRequest } = await import("@tanstack/react-start/server");
+      const req = getRequest();
+      const authHeader = req?.headers?.get("authorization");
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+      if (token) {
+        const { data: claims } = await supabaseAdmin.auth.getUser(token);
+        userId = claims?.user?.id ?? null;
+      }
+    } catch { /* not authenticated — leave userId null */ }
+
     // See createOrder above for why this IP check runs alongside (not
     // instead of) the phone-based one further down.
     const { enforceRateLimit } = await import("./rate-limit.server");
@@ -642,8 +675,8 @@ export const createCartOrder = createServerFn({ method: "POST" })
     for (const item of data.items) {
       const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
         p_product_id: item.productId,
-        p_color: item.color as string,
-        p_size: item.size as string,
+        p_color: item.color ?? null,
+        p_size: item.size ?? null,
         p_quantity: item.quantity,
       });
       if (stockErr || !stockOk) {
@@ -687,6 +720,7 @@ export const createCartOrder = createServerFn({ method: "POST" })
         special_instruction: data.specialInstruction ?? null,
         status: "pending",
         order_group_id: groupId,
+        user_id: userId,
       };
     });
 
@@ -760,8 +794,8 @@ export const deleteOrders = createServerFn({ method: "POST" })
       if (row.product_id && row.status !== "cancelled" && !row.stock_restocked) {
         await supabaseAdmin.rpc("increment_stock", {
           p_product_id: row.product_id,
-          p_color: row.color as string,
-          p_size: row.size as string,
+          p_color: row.color ?? null,
+          p_size: row.size ?? null,
           p_quantity: row.quantity,
         });
       }

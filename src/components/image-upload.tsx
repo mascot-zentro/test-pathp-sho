@@ -20,14 +20,32 @@ export function ImageUpload({
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const compress = (file: File): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 1200;
+        const scale = img.width > MAX ? MAX / img.width : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Compression failed")), "image/webp", 0.82);
+      };
+      img.onerror = reject;
+      img.src = url;
+    });
+
   const upload = async (file: File) => {
     if (!file.type.startsWith("image/")) { toast.error("Please choose an image file"); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    if (file.size > 20 * 1024 * 1024) { toast.error("Image must be under 20MB"); return; }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from(bucket).upload(path, file, { cacheControl: "3600", upsert: false });
+      const blob = await compress(file);
+      const path = `${crypto.randomUUID()}.webp`;
+      const { error } = await supabase.storage.from(bucket).upload(path, blob, { contentType: "image/webp", cacheControl: "31536000", upsert: false });
       if (error) throw error;
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       onChange(data.publicUrl);

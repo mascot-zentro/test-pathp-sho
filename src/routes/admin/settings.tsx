@@ -249,7 +249,9 @@ function SettingsPage() {
         description="Store branding, homepage hero and shipping configuration."
       />
       <div className="max-w-xl space-y-6">
-        {field("store_name", "Store name")}
+        {field("store_name", "Store name", "Shown in the browser tab, OG share cards, and search results.")}
+        {field("site_url", "Site URL", "Your full domain e.g. https://mystore.com — used in sitemap and share links. No trailing slash.")}
+        {field("site_description", "Store description", "One sentence shown in Google search results and link previews.")}
         {imageField(
           "logo_url",
           "Logo",

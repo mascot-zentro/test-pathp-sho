@@ -92,8 +92,26 @@ function RootComponent() {
   }, [router, queryClient]);
 
   useEffect(() => {
-    supabase.from("app_settings").select("value").eq("key", "theme_accent").maybeSingle().then(({ data }) => {
-      if (data?.value) document.documentElement.style.setProperty("--accent", data.value);
+    supabase.from("app_settings").select("key,value").in("key", ["theme_accent", "store_name", "site_description"]).then(({ data }) => {
+      const obj: Record<string, string> = {};
+      (data ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) obj[r.key] = r.value; });
+      if (obj.theme_accent) document.documentElement.style.setProperty("--accent", obj.theme_accent);
+      if (obj.store_name) {
+        const name = obj.store_name;
+        const desc = obj.site_description ?? "";
+        document.title = name;
+        const set = (sel: string, attr: string, val: string) => {
+          const el = document.querySelector<HTMLMetaElement>(sel);
+          if (el) el.setAttribute("content", val);
+        };
+        set('meta[property="og:title"]', "content", name);
+        set('meta[name="twitter:title"]', "content", name);
+        if (desc) {
+          set('meta[name="description"]', "content", desc);
+          set('meta[property="og:description"]', "content", desc);
+          set('meta[name="twitter:description"]', "content", desc);
+        }
+      }
     });
   }, []);
 
