@@ -105,7 +105,7 @@ function ProgressBar({ status }: { status: string }) {
               <div className={`size-7 rounded-full grid place-items-center transition-colors ${done ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground/40"}`}>
                 <Icon className="size-3.5" />
               </div>
-              <span className={`text-[10px] leading-tight text-center w-14 ${done ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+              <span className={`text-[9px] leading-tight text-center w-12 ${done ? "text-foreground font-medium" : "text-muted-foreground"}`}>
                 {labels[i]}
               </span>
             </div>

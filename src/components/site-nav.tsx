@@ -312,7 +312,7 @@ export function SiteNav() {
                 <SearchBar />
               </SheetContent>
             </Sheet>
-            <Link to="/cart" className="relative p-2 text-muted-foreground transition-colors hover:text-foreground" aria-label="Cart">
+            <Link to="/cart" className="relative p-2.5 text-muted-foreground transition-colors hover:text-foreground" aria-label="Cart">
               <ShoppingCart className="size-5" />
               {count > 0 && (
                 <span className="absolute top-0.5 right-0.5 animate-in zoom-in-50 duration-200 bg-accent text-accent-foreground text-[10px] leading-none rounded-full size-4 grid place-items-center">
@@ -326,7 +326,7 @@ export function SiteNav() {
                   <Menu className="size-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-72 flex flex-col">
+              <SheetContent side="right" className="w-72 max-w-[85vw] flex flex-col">
                 <SheetHeader className="text-left">
                   <SheetTitle className="font-display flex items-center gap-2">
                     {renderLogo("h-7 w-auto object-contain")}

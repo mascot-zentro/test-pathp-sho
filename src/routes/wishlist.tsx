@@ -101,7 +101,7 @@ function WishlistPage() {
                     <button
                       type="button"
                       onClick={() => remove(item.id)}
-                      className="absolute top-3 right-3 size-7 rounded-full bg-background/80 backdrop-blur grid place-items-center text-muted-foreground hover:text-destructive hover:bg-background transition-all opacity-0 group-hover:opacity-100"
+                      className="absolute top-3 right-3 size-8 rounded-full bg-background/80 backdrop-blur grid place-items-center text-muted-foreground hover:text-destructive hover:bg-background transition-all sm:opacity-0 sm:group-hover:opacity-100"
                       title="Remove from wishlist"
                     >
                       <Trash2 className="size-3.5" />
@@ -125,7 +125,7 @@ function WishlistPage() {
                       <button
                         type="button"
                         onClick={() => addToCart(item)}
-                        className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-full border border-border text-xs font-medium tracking-wide text-muted-foreground hover:border-accent hover:text-accent transition-all duration-200 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0"
+                        className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-full border border-border text-xs font-medium tracking-wide text-muted-foreground hover:border-accent hover:text-accent transition-all duration-200 sm:opacity-0 sm:group-hover:opacity-100 sm:translate-y-1 sm:group-hover:translate-y-0"
                       >
                         <ShoppingBag className="size-3.5" />
                         Add to cart

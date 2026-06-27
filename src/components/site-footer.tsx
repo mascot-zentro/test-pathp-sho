@@ -42,7 +42,7 @@ export function SiteFooter() {
   const hasSocial = vals.social_instagram || vals.social_facebook || vals.social_tiktok;
 
   return (
-    <footer className="relative border-t border-border/50 bg-[oklch(0.14_0.012_40)] text-[oklch(0.75_0.008_60)]">
+    <footer className="relative border-t border-border/50 bg-[oklch(0.14_0.012_40)] text-[oklch(0.75_0.008_60)] pb-24 sm:pb-0">
       {/* Accent gradient line */}
       <div className="h-px w-full bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
 
@@ -110,7 +110,7 @@ export function SiteFooter() {
 
       {/* Bottom bar */}
       <div className="border-t border-[oklch(1_0_0/0.07)]">
-        <div className="container mx-auto px-6 py-5 flex flex-col-reverse md:flex-row items-center justify-between gap-3 text-xs text-[oklch(0.45_0.006_60)]">
+        <div className="container mx-auto px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-[oklch(0.45_0.006_60)]">
           <span>© {new Date().getFullYear()} {storeName}. All rights reserved.</span>
           <button
             type="button"

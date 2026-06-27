@@ -29,7 +29,7 @@ function SalePage() {
       <section className="container mx-auto px-6 py-16 flex-1">
         <h1 className="text-4xl md:text-5xl font-display">Sale</h1>
         <p className="mt-2 text-muted-foreground">Selected pieces at reduced prices.</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12 mt-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-12 mt-10">
           {items.length === 0 && <p className="text-muted-foreground col-span-full">No sale items right now.</p>}
           {items.map((p) => (
             <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
@@ -43,11 +43,11 @@ function SalePage() {
                   </span>
                 ) : null}
               </div>
-              <div className="mt-4 flex items-start justify-between">
-                <h3 className="text-sm font-medium">{p.name}</h3>
-                <div className="text-sm tabular-nums">
-                  <span className="text-muted-foreground line-through mr-1">NRS {p.price}</span>
-                  <span className="text-accent">NRS {p.sale_price}</span>
+              <div className="mt-3">
+                <h3 className="text-sm font-medium leading-snug line-clamp-2">{p.name}</h3>
+                <div className="text-sm tabular-nums mt-1 flex items-center gap-1.5 flex-wrap">
+                  <span className="text-muted-foreground line-through text-xs">NRS {p.price}</span>
+                  <span className="text-accent font-medium">NRS {p.sale_price}</span>
                 </div>
               </div>
             </Link>

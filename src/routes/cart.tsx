@@ -221,7 +221,7 @@ function CartPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <SiteNav />
-      <div className="container mx-auto px-6 py-10 grid md:grid-cols-[1fr,380px] gap-10 flex-1">
+      <div className="container mx-auto px-6 py-10 grid md:grid-cols-[1fr,380px] gap-10 flex-1 items-start">
         <div className="space-y-6">
           <h1 className="text-3xl font-display">Your cart</h1>
           <div className="divide-y border rounded-lg">
@@ -326,7 +326,7 @@ function CartPage() {
                 ? "Delivery unavailable — see below"
                 : !deliveryReady
                 ? "Select city & zone to continue"
-                : `Place order — NRS ${grandTotal} (Cash on delivery)`}
+                : `Place order — NRS ${grandTotal}`}
             </Button>
             {deliveryError && (
               <p className="text-sm text-destructive">
@@ -340,7 +340,7 @@ function CartPage() {
           </form>
         </div>
 
-        <aside className="border rounded-lg p-5 h-fit bg-card">
+        <aside className="border rounded-lg p-5 h-fit bg-card order-first md:order-last">
           <h3 className="font-medium mb-3">Order summary</h3>
 
           <div>

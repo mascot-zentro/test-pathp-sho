@@ -235,10 +235,10 @@ function ProductPage() {
             )}
           </div>
           {images.length > 1 && (
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-4 overflow-x-auto pb-1 scrollbar-none">
               {images.map((url, i) => (
                 <button key={i} type="button" onClick={() => setActiveImage(i)}
-                  className={`size-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all duration-200 ${i === activeImage ? "border-accent shadow-sm" : "border-transparent opacity-60 hover:opacity-100"}`}>
+                  className={`size-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all duration-200 flex-none ${i === activeImage ? "border-accent shadow-sm" : "border-transparent opacity-60 hover:opacity-100"}`}>
                   <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
@@ -295,7 +295,7 @@ function ProductPage() {
                     <button key={c.id} type="button" onClick={() => !colorOut && setSelected(c.name)}
                       title={colorOut ? `${c.name} — out of stock` : c.name}
                       disabled={colorOut}
-                      className={`relative size-8 rounded-full border-2 transition-all duration-200 ${selected === c.name ? "border-accent scale-110 ring-2 ring-accent/25" : "border-border hover:scale-110"} ${colorOut ? "opacity-25 cursor-not-allowed" : ""}`}
+                      className={`relative size-11 rounded-full border-2 transition-all duration-200 ${selected === c.name ? "border-accent scale-110 ring-2 ring-accent/25" : "border-border hover:scale-110"} ${colorOut ? "opacity-25 cursor-not-allowed" : ""}`}
                       style={{ background: c.hex }}>
                       {colorOut && <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/90">✕</span>}
                     </button>
@@ -361,7 +361,7 @@ function ProductPage() {
                   return (
                     <button key={s.id} type="button" onClick={() => !sizeOut && setSelectedSize(s.name)}
                       disabled={sizeOut}
-                      className={`min-w-12 h-10 px-3 rounded-full border text-xs tracking-wider uppercase font-medium transition-all duration-200
+                      className={`min-w-11 h-11 px-3 rounded-full border text-xs tracking-wider uppercase font-medium transition-all duration-200
                         ${selectedSize === s.name ? "border-accent bg-accent text-accent-foreground shadow-sm" : "border-border text-muted-foreground"}
                         ${sizeOut ? "opacity-25 cursor-not-allowed line-through" : "hover:border-accent/60 hover:text-foreground"}`}>
                       {s.name}
@@ -473,7 +473,7 @@ function ProductPage() {
         </Button>
         {waLink && (
           <Button asChild size="lg" variant="outline" className="rounded-full px-4">
-            <a href={waLink} target="_blank" rel="noreferrer"><MessageCircle className="size-4" /></a>
+            <a href={waLink} target="_blank" rel="noreferrer" aria-label="Order via WhatsApp"><MessageCircle className="size-4" /></a>
           </Button>
         )}
       </div>

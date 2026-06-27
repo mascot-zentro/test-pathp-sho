@@ -140,7 +140,7 @@ function Index() {
             </div>
           )}
 
-          <div className="container mx-auto px-6 py-28 md:py-40 grid md:grid-cols-2 gap-12 items-center">
+          <div className="container mx-auto px-6 py-16 md:py-40 grid md:grid-cols-2 gap-8 md:gap-12 items-center">
             <div>
               <Reveal>
                 <span className="inline-flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase text-accent mb-6">
@@ -148,7 +148,7 @@ function Index() {
                 </span>
               </Reveal>
               <Reveal delay={80}>
-                <h1 className="text-5xl md:text-7xl font-display font-light leading-[1.05] tracking-tight whitespace-pre-line">
+                <h1 className="text-4xl sm:text-5xl md:text-7xl font-display font-light leading-[1.05] tracking-tight whitespace-pre-line">
                   {hero.title}
                 </h1>
               </Reveal>
@@ -220,7 +220,7 @@ function Index() {
 
         {/* ── Trust badges ───────────────────────────────────────────────── */}
         <Reveal as="div" direction="none">
-          <div className="container mx-auto px-6 py-10 grid grid-cols-3 gap-4">
+          <div className="container mx-auto px-6 py-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { icon: Truck, label: "Nationwide delivery", sub: "Across Nepal" },
               { icon: ShieldCheck, label: "Cash on delivery", sub: "No card needed" },
@@ -260,7 +260,7 @@ function Index() {
                 <button
                   type="button"
                   onClick={() => setActiveCategory(null)}
-                  className={`text-xs px-4 py-1.5 rounded-full tracking-wide transition-all duration-200 border ${
+                  className={`text-xs px-4 py-2.5 min-h-11 rounded-full tracking-wide transition-all duration-200 border ${
                     activeCategory === null
                       ? "border-foreground bg-foreground text-background"
                       : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
@@ -273,7 +273,7 @@ function Index() {
                     key={c}
                     type="button"
                     onClick={() => setActiveCategory(c)}
-                    className={`text-xs px-4 py-1.5 rounded-full tracking-wide transition-all duration-200 border ${
+                    className={`text-xs px-4 py-2.5 min-h-11 rounded-full tracking-wide transition-all duration-200 border ${
                       activeCategory === c
                         ? "border-accent bg-accent text-accent-foreground"
                         : "border-border text-muted-foreground hover:border-accent/50 hover:text-foreground"
