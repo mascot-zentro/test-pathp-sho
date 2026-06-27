@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, RefreshCw } from "lucide-react";
+import { Trash2, RefreshCw, ChevronDown, ChevronUp, ReceiptText } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type PromoCode } from "@/lib/admin-types";
 
@@ -16,6 +16,17 @@ export const Route = createFileRoute("/admin/promos")({
   ssr: false,
   component: PromosPage,
 });
+
+type UsageOrder = {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  product_name: string;
+  total: number;
+  discount_amount: number;
+  created_at: string;
+  status: string;
+};
 
 function toInputDate(v: string | null) {
   return v ? v.slice(0, 10) : "";
@@ -27,6 +38,110 @@ function statusOf(p: PromoCode): { label: string; variant: "secondary" | "destru
   if (p.starts_at && new Date(p.starts_at) > new Date()) return { label: "scheduled", variant: "outline" };
   if (p.max_uses !== null && p.used_count >= p.max_uses) return { label: "used up", variant: "destructive" };
   return { label: "active", variant: "outline" };
+}
+
+function UsagePanel({ code }: { code: string }) {
+  const [orders, setOrders] = useState<UsageOrder[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("orders")
+      .select("id,customer_name,customer_phone,product_name,total,discount_amount,created_at,status")
+      .ilike("promo_code", code)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setOrders((data as UsageOrder[]) ?? []);
+        setLoading(false);
+      });
+  }, [code]);
+
+  if (loading) {
+    return (
+      <div className="px-4 py-3 space-y-2">
+        {[1, 2].map((i) => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}
+      </div>
+    );
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <div className="px-4 py-3 text-xs text-muted-foreground">No orders have used this code yet.</div>
+    );
+  }
+
+  const totalDiscount = orders.reduce((s, o) => s + Number(o.discount_amount), 0);
+  const totalRevenue = orders.reduce((s, o) => s + Number(o.total), 0);
+
+  return (
+    <div className="border-t bg-muted/20">
+      <div className="flex gap-6 px-4 py-3 border-b text-xs text-muted-foreground">
+        <span>{orders.length} order{orders.length === 1 ? "" : "s"}</span>
+        <span>NRS {totalRevenue.toLocaleString()} revenue</span>
+        <span className="text-emerald-700">− NRS {totalDiscount.toLocaleString()} discounted</span>
+      </div>
+      <div className="divide-y max-h-64 overflow-y-auto">
+        {orders.map((o) => (
+          <div key={o.id} className="px-4 py-2.5 flex items-center justify-between gap-4 text-xs">
+            <div className="min-w-0">
+              <p className="font-medium truncate">{o.customer_name} · {o.customer_phone}</p>
+              <p className="text-muted-foreground truncate">{o.product_name}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="font-medium tabular-nums">NRS {Number(o.total).toLocaleString()}</p>
+              <p className="text-emerald-700 tabular-nums">− NRS {Number(o.discount_amount).toLocaleString()}</p>
+              <p className="text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</p>
+            </div>
+            <Badge
+              variant={o.status === "delivered" ? "outline" : o.status === "cancelled" ? "destructive" : "secondary"}
+              className="text-[10px] py-0 shrink-0"
+            >
+              {o.status}
+            </Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PromoRow({ p, onEdit, onDelete }: { p: PromoCode; onEdit: () => void; onDelete: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const s = statusOf(p);
+
+  return (
+    <div>
+      <div className="p-3 flex items-center gap-3 hover:bg-muted/30 transition">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium font-mono">{p.code}</span>
+            <Badge variant={s.variant} className="text-[10px] py-0">{s.label}</Badge>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {p.discount_percent}% off
+            {p.used_count > 0 ? (
+              <span className="text-foreground font-medium"> · {p.used_count} use{p.used_count === 1 ? "" : "s"}</span>
+            ) : " · unused"}
+            {p.max_uses !== null ? `/${p.max_uses} max` : ""}
+            {p.expires_at ? ` · expires ${new Date(p.expires_at).toLocaleDateString()}` : ""}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition px-2 py-1 rounded border"
+          title="View usage history"
+        >
+          <ReceiptText className="size-3.5" />
+          History
+          {expanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        </button>
+        <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>
+        <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="size-4" /></Button>
+      </div>
+      {expanded && <UsagePanel code={p.code} />}
+    </div>
+  );
 }
 
 function PromosPage() {
@@ -46,11 +161,6 @@ function PromosPage() {
   };
   useEffect(() => { load(); }, []);
   useEffect(() => { setActive(editing?.active ?? true); }, [editing]);
-  // Usage counts change from customer-facing checkouts, not from anything
-  // this admin tab does, so a snapshot fetched once on mount goes stale
-  // the moment an order comes in elsewhere. Refreshing on focus means
-  // tabbing back to this page after a sale always shows the current count
-  // without a manual reload.
   useEffect(() => {
     const onFocus = () => load();
     window.addEventListener("focus", onFocus);
@@ -93,6 +203,9 @@ function PromosPage() {
     load();
   };
 
+  const totalUses = codes.reduce((s, c) => s + c.used_count, 0);
+  const activeCodes = codes.filter((c) => statusOf(c).label === "active").length;
+
   return (
     <div>
       <AdminPageHeader
@@ -105,6 +218,22 @@ function PromosPage() {
           </Button>
         }
       />
+
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Total codes</p>
+          <p className="text-2xl font-bold tabular-nums">{codes.length}</p>
+        </div>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Active</p>
+          <p className="text-2xl font-bold tabular-nums text-emerald-600">{activeCodes}</p>
+        </div>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground mb-1">Total uses</p>
+          <p className="text-2xl font-bold tabular-nums">{totalUses}</p>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-[1fr,1.4fr] gap-6">
         <Card className="shadow-sm h-fit">
           <CardHeader className="pb-3">
@@ -126,7 +255,11 @@ function PromosPage() {
               <div>
                 <Label>Max uses</Label>
                 <Input name="max_uses" type="number" min="1" step="1" placeholder="Unlimited" defaultValue={editing?.max_uses ?? ""} />
-                {editing && <p className="text-xs text-muted-foreground mt-1">Used {editing.used_count} time{editing.used_count === 1 ? "" : "s"} so far.</p>}
+                {editing && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Used {editing.used_count} time{editing.used_count === 1 ? "" : "s"} so far.
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Starts (optional)</Label><Input name="starts_at" type="date" defaultValue={toInputDate(editing?.starts_at ?? null)} /></div>
@@ -147,27 +280,21 @@ function PromosPage() {
         <Card className="shadow-sm h-fit">
           <CardHeader className="pb-3">
             <CardTitle className="font-display text-xl">All codes</CardTitle>
-            <CardDescription>{codes.length} {codes.length === 1 ? "code" : "codes"}</CardDescription>
+            <CardDescription>{codes.length} {codes.length === 1 ? "code" : "codes"} · click "History" to see orders</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y border-t">
-              {codes.map((p) => {
-                const s = statusOf(p);
-                return (
-                  <div key={p.id} className="p-3 flex items-center gap-3 hover:bg-muted/30 transition">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium font-mono">{p.code} <Badge variant={s.variant} className="text-[10px] py-0 ml-1">{s.label}</Badge></div>
-                      <div className="text-xs text-muted-foreground">
-                        {p.discount_percent}% off · used {p.used_count}{p.max_uses !== null ? `/${p.max_uses}` : ""}
-                        {p.expires_at ? ` · expires ${new Date(p.expires_at).toLocaleDateString()}` : ""}
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => setEditing(p)}>Edit</Button>
-                    <Button size="sm" variant="ghost" onClick={() => del(p.id)}><Trash2 className="size-4" /></Button>
-                  </div>
-                );
-              })}
-              {codes.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No promo codes yet.</div>}
+              {codes.map((p) => (
+                <PromoRow
+                  key={p.id}
+                  p={p}
+                  onEdit={() => setEditing(p)}
+                  onDelete={() => del(p.id)}
+                />
+              ))}
+              {codes.length === 0 && (
+                <div className="p-10 text-center text-sm text-muted-foreground">No promo codes yet.</div>
+              )}
             </div>
           </CardContent>
         </Card>
