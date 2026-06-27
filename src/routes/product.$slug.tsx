@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Copy, Facebook, ZoomIn, Ruler, Heart, Truck, RotateCcw, ShieldCheck, Package } from "lucide-react";
 import { slugify } from "@/lib/slugify";
@@ -11,6 +12,18 @@ import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// ── Server fetch for SSR OG tags ────────────────────────────────────────────
+const fetchProductMeta = createServerFn({ method: "GET" })
+  .validator((slug: string) => slug)
+  .handler(async ({ data: slug }) => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { slugify: sl } = await import("@/lib/slugify");
+    const { data } = await supabase.from("products").select("name,description,price,sale_price,on_sale,image_url").eq("active", true);
+    type PMeta = { name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null };
+    const product = (data ?? []).find((p: PMeta) => sl(p.name) === slug) as PMeta | undefined;
+    return product ?? null;
+  });
 
 // ── Recently Viewed ──────────────────────────────────────────────────────────
 const RV_KEY = "recently_viewed";
@@ -29,6 +42,33 @@ function pushRV(item: RVItem) {
 }
 
 export const Route = createFileRoute("/product/$slug")({
+  loader: async ({ params }) => {
+    const meta = await fetchProductMeta({ data: params.slug });
+    return { meta };
+  },
+  head: ({ loaderData }) => {
+    const p = loaderData?.meta;
+    if (!p) return {};
+    const price = p.on_sale && p.sale_price ? p.sale_price : p.price;
+    const title = `${p.name} — NRS ${price}`;
+    const desc = p.description ?? `Shop ${p.name} — NRS ${price}. Cash on delivery across Nepal.`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: desc },
+        { property: "og:title", content: title },
+        { property: "og:description", content: desc },
+        { property: "og:type", content: "product" },
+        ...(p.image_url ? [
+          { property: "og:image", content: p.image_url },
+          { name: "twitter:image", content: p.image_url },
+          { name: "twitter:card", content: "summary_large_image" },
+        ] : []),
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: desc },
+      ],
+    };
+  },
   component: ProductPage,
 });
 
@@ -247,6 +287,7 @@ function ProductPage() {
         </div>
 
         {/* ── Product info ── */}
+        <TooltipProvider delayDuration={300}>
         <div className="pt-2">
           <Link to="/" className="inline-flex items-center gap-1 text-xs tracking-[0.14em] uppercase text-muted-foreground hover:text-accent transition-colors duration-200">
             ← Shop
@@ -292,13 +333,17 @@ function ProductPage() {
                 {colors.map((c) => {
                   const colorOut = c.stock_quantity === 0;
                   return (
-                    <button key={c.id} type="button" onClick={() => !colorOut && setSelected(c.name)}
-                      title={colorOut ? `${c.name} — out of stock` : c.name}
-                      disabled={colorOut}
-                      className={`relative size-11 rounded-full border-2 transition-all duration-200 ${selected === c.name ? "border-accent scale-110 ring-2 ring-accent/25" : "border-border hover:scale-110"} ${colorOut ? "opacity-25 cursor-not-allowed" : ""}`}
-                      style={{ background: c.hex }}>
-                      {colorOut && <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/90">✕</span>}
-                    </button>
+                    <Tooltip key={c.id}>
+                      <TooltipTrigger asChild>
+                        <button type="button" onClick={() => !colorOut && setSelected(c.name)}
+                          disabled={colorOut}
+                          className={`relative size-11 rounded-full border-2 transition-all duration-200 ${selected === c.name ? "border-accent scale-110 ring-2 ring-accent/25" : "border-border hover:scale-110"} ${colorOut ? "opacity-25 cursor-not-allowed" : ""}`}
+                          style={{ background: c.hex }}>
+                          {colorOut && <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/90">✕</span>}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{colorOut ? `${c.name} — out of stock` : c.name}</TooltipContent>
+                    </Tooltip>
                   );
                 })}
               </div>
@@ -317,40 +362,76 @@ function ProductPage() {
                       <Ruler className="size-3" /> Size guide
                     </button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="font-display font-light text-2xl">Size Guide</DialogTitle>
                     </DialogHeader>
-                    <div className="mt-3 text-sm text-muted-foreground">
-                      <p className="mb-4 text-xs leading-relaxed">Measure yourself and compare with the chart below. All measurements are in cm.</p>
-                      <table className="w-full text-center border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b">
-                            {["Size","Chest","Waist","Hip","Length"].map((h) => (
-                              <th key={h} className={`py-2 px-2 font-medium text-foreground text-[10px] tracking-wider uppercase ${h === "Size" ? "text-left" : ""}`}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
+                    <div className="mt-2 space-y-5 text-sm">
+                      {/* How to measure */}
+                      <div className="rounded-xl bg-muted/50 border border-border/50 p-4 space-y-3">
+                        <p className="text-xs font-medium tracking-[0.12em] uppercase text-muted-foreground">How to measure</p>
+                        <div className="grid grid-cols-1 gap-2.5">
                           {[
-                            { size: "XS", chest: "82–86", waist: "62–66", hip: "88–92", length: "64" },
-                            { size: "S",  chest: "86–90", waist: "66–70", hip: "92–96", length: "65" },
-                            { size: "M",  chest: "90–94", waist: "70–74", hip: "96–100", length: "66" },
-                            { size: "L",  chest: "94–98", waist: "74–78", hip: "100–104", length: "68" },
-                            { size: "XL", chest: "98–104", waist: "78–84", hip: "104–110", length: "70" },
-                            { size: "XXL",chest: "104–110",waist: "84–90", hip: "110–116", length: "72" },
-                          ].map((r) => (
-                            <tr key={r.size} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
-                              <td className="py-2 px-2 text-left font-medium text-foreground">{r.size}</td>
-                              <td className="py-2 px-2">{r.chest}</td>
-                              <td className="py-2 px-2">{r.waist}</td>
-                              <td className="py-2 px-2">{r.hip}</td>
-                              <td className="py-2 px-2">{r.length}</td>
-                            </tr>
+                            { label: "Chest", desc: "Measure around the fullest part of your chest, keeping the tape horizontal." },
+                            { label: "Waist", desc: "Measure around your natural waistline — the narrowest part of your torso." },
+                            { label: "Hip", desc: "Measure around the fullest part of your hips, about 20 cm below your waist." },
+                            { label: "Length", desc: "Measured from the highest point of the shoulder to the hem." },
+                          ].map(({ label, desc }) => (
+                            <div key={label} className="flex gap-3">
+                              <span className="shrink-0 mt-0.5 size-5 rounded-full bg-accent/10 text-accent text-[10px] font-bold grid place-items-center">{label[0]}</span>
+                              <div>
+                                <p className="text-xs font-medium text-foreground">{label}</p>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">{desc}</p>
+                              </div>
+                            </div>
                           ))}
-                        </tbody>
-                      </table>
-                      <p className="mt-4 text-xs text-muted-foreground/70">If you're between sizes, we recommend sizing up.</p>
+                        </div>
+                      </div>
+
+                      {/* Size chart */}
+                      <div>
+                        <p className="text-xs font-medium tracking-[0.12em] uppercase text-muted-foreground mb-3">Measurements (cm)</p>
+                        <div className="rounded-xl border border-border overflow-hidden">
+                          <table className="w-full text-center border-collapse text-xs">
+                            <thead>
+                              <tr className="bg-muted/60 border-b border-border">
+                                {["Size","Chest","Waist","Hip","Length"].map((h) => (
+                                  <th key={h} className={`py-2.5 px-2 font-medium text-foreground text-[10px] tracking-wider uppercase ${h === "Size" ? "text-left pl-3" : ""}`}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[
+                                { size: "XS", chest: "82–86", waist: "62–66", hip: "88–92",   length: "64" },
+                                { size: "S",  chest: "86–90", waist: "66–70", hip: "92–96",   length: "65" },
+                                { size: "M",  chest: "90–94", waist: "70–74", hip: "96–100",  length: "66" },
+                                { size: "L",  chest: "94–98", waist: "74–78", hip: "100–104", length: "68" },
+                                { size: "XL", chest: "98–104",waist: "78–84", hip: "104–110", length: "70" },
+                                { size: "XXL",chest: "104–110",waist:"84–90", hip: "110–116", length: "72" },
+                              ].map((r) => {
+                                const isSelected = r.size === selectedSize;
+                                return (
+                                  <tr key={r.size} className={`border-b last:border-0 transition-colors ${isSelected ? "bg-accent/8 text-accent font-medium" : "hover:bg-muted/30"}`}>
+                                    <td className={`py-2.5 px-2 pl-3 text-left font-semibold ${isSelected ? "text-accent" : "text-foreground"}`}>
+                                      {r.size}{isSelected && <span className="ml-1.5 text-[9px] bg-accent text-accent-foreground px-1.5 py-0.5 rounded-full">Selected</span>}
+                                    </td>
+                                    <td className="py-2.5 px-2">{r.chest}</td>
+                                    <td className="py-2.5 px-2">{r.waist}</td>
+                                    <td className="py-2.5 px-2">{r.hip}</td>
+                                    <td className="py-2.5 px-2">{r.length}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Tips */}
+                      <div className="flex flex-col gap-2 text-[11px] text-muted-foreground border-t border-border/50 pt-4">
+                        <p>📏 <strong className="text-foreground">Between sizes?</strong> Size up for a more comfortable fit.</p>
+                        <p>🤔 <strong className="text-foreground">Not sure?</strong> Message us on WhatsApp and we'll help you pick.</p>
+                      </div>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -359,13 +440,18 @@ function ProductPage() {
                 {sizes.map((s) => {
                   const sizeOut = s.stock_quantity === 0;
                   return (
-                    <button key={s.id} type="button" onClick={() => !sizeOut && setSelectedSize(s.name)}
-                      disabled={sizeOut}
-                      className={`min-w-11 h-11 px-3 rounded-full border text-xs tracking-wider uppercase font-medium transition-all duration-200
-                        ${selectedSize === s.name ? "border-accent bg-accent text-accent-foreground shadow-sm" : "border-border text-muted-foreground"}
-                        ${sizeOut ? "opacity-25 cursor-not-allowed line-through" : "hover:border-accent/60 hover:text-foreground"}`}>
-                      {s.name}
-                    </button>
+                    <Tooltip key={s.id}>
+                      <TooltipTrigger asChild>
+                        <button type="button" onClick={() => !sizeOut && setSelectedSize(s.name)}
+                          disabled={sizeOut}
+                          className={`min-w-11 h-11 px-3 rounded-full border text-xs tracking-wider uppercase font-medium transition-all duration-200
+                            ${selectedSize === s.name ? "border-accent bg-accent text-accent-foreground shadow-sm" : "border-border text-muted-foreground"}
+                            ${sizeOut ? "opacity-25 cursor-not-allowed line-through" : "hover:border-accent/60 hover:text-foreground"}`}>
+                          {s.name}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{sizeOut ? `${s.name} — out of stock` : `Select ${s.name}`}</TooltipContent>
+                    </Tooltip>
                   );
                 })}
               </div>
@@ -373,7 +459,6 @@ function ProductPage() {
           )}
 
           {/* CTA buttons */}
-          <TooltipProvider delayDuration={400}>
             <div className="mt-8 flex flex-col gap-3">
               <Button size="lg" className="w-full rounded-full text-sm tracking-wide transition-all duration-300 hover:shadow-[0_8px_25px_oklch(0.62_0.14_358/0.35)] hover:scale-[1.01] btn-press" disabled={outOfStock}
                 onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
@@ -424,18 +509,23 @@ function ProductPage() {
             {/* Trust strip */}
             <div className="mt-8 grid grid-cols-2 gap-3">
               {[
-                { icon: Truck, label: "Nationwide delivery", sub: "Pathao courier" },
-                { icon: Package, label: "Cash on delivery", sub: "No card needed" },
-                { icon: RotateCcw, label: "Easy returns", sub: "Hassle-free" },
-                { icon: ShieldCheck, label: "Authentic product", sub: "Quality guaranteed" },
-              ].map(({ icon: Icon, label, sub }) => (
-                <div key={label} className="flex items-center gap-2.5 py-2.5 px-3 rounded-xl bg-muted/40 border border-border/40">
-                  <Icon className="size-4 text-accent shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium leading-none">{label}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
-                  </div>
-                </div>
+                { icon: Truck, label: "Nationwide delivery", sub: "Pathao courier", tip: "We deliver across Nepal via Pathao courier. Estimated 2–4 days." },
+                { icon: Package, label: "Cash on delivery", sub: "No card needed", tip: "Pay in cash when your order arrives — no online payment required." },
+                { icon: RotateCcw, label: "Easy returns", sub: "Hassle-free", tip: "Not satisfied? Contact us within 7 days for a return or exchange." },
+                { icon: ShieldCheck, label: "Authentic product", sub: "Quality guaranteed", tip: "Every item is quality-checked before dispatch." },
+              ].map(({ icon: Icon, label, sub, tip }) => (
+                <Tooltip key={label}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2.5 py-2.5 px-3 rounded-xl bg-muted/40 border border-border/40 cursor-default">
+                      <Icon className="size-4 text-accent shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium leading-none">{label}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-50 text-center text-xs">{tip}</TooltipContent>
+                </Tooltip>
               ))}
             </div>
 
