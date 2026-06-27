@@ -195,7 +195,7 @@ function ProductPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col pb-24 sm:pb-0 page-enter">
+    <div className="min-h-screen flex flex-col page-enter">
       <SiteNav />
 
       <div className="container mx-auto px-6 py-12 grid md:grid-cols-2 gap-12 lg:gap-20 flex-1 items-start">
@@ -372,9 +372,9 @@ function ProductPage() {
             </div>
           )}
 
-          {/* CTA buttons — hidden on mobile (sticky bar handles it) */}
+          {/* CTA buttons */}
           <TooltipProvider delayDuration={400}>
-            <div className="mt-8 hidden sm:flex flex-col gap-3">
+            <div className="mt-8 flex flex-col gap-3">
               <Button size="lg" className="w-full rounded-full text-sm tracking-wide transition-all duration-300 hover:shadow-[0_8px_25px_oklch(0.62_0.14_358/0.35)] hover:scale-[1.01] btn-press" disabled={outOfStock}
                 onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
                 {outOfStock ? "Sold out" : "Buy now — Cash on delivery"}
@@ -422,7 +422,7 @@ function ProductPage() {
             </div>
 
             {/* Trust strip */}
-            <div className="mt-8 hidden sm:grid grid-cols-2 gap-3">
+            <div className="mt-8 grid grid-cols-2 gap-3">
               {[
                 { icon: Truck, label: "Nationwide delivery", sub: "Pathao courier" },
                 { icon: Package, label: "Cash on delivery", sub: "No card needed" },
@@ -458,25 +458,7 @@ function ProductPage() {
         </div>
       </div>
 
-      {/* ── Sticky mobile CTA ── */}
-      <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border/60 p-3 flex gap-2">
-        <Button size="lg" className="flex-1 rounded-full text-sm" disabled={outOfStock}
-          onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
-          {outOfStock ? "Sold out" : "Buy now"}
-        </Button>
-        <Button size="lg" variant="outline" className="rounded-full px-4" disabled={outOfStock}
-          onClick={() => {
-            addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
-            toast.success("Added to cart");
-          }}>
-          + Cart
-        </Button>
-        {waLink && (
-          <Button asChild size="lg" variant="outline" className="rounded-full px-4">
-            <a href={waLink} target="_blank" rel="noreferrer" aria-label="Order via WhatsApp"><MessageCircle className="size-4" /></a>
-          </Button>
-        )}
-      </div>
+
 
       {/* Recently viewed */}
       {recentlyViewed.length > 0 && (

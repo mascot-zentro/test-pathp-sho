@@ -340,7 +340,7 @@ function CartPage() {
           </form>
         </div>
 
-        <aside className="border rounded-lg p-5 h-fit bg-card order-first md:order-last">
+        <aside className="border rounded-lg p-5 h-fit bg-card md:order-last">
           <h3 className="font-medium mb-3">Order summary</h3>
 
           <div>

@@ -272,7 +272,7 @@ function Checkout() {
           </p>
         </form>
 
-        <aside className="border rounded-lg p-5 h-fit bg-card order-first md:order-last">
+        <aside className="border rounded-lg p-5 h-fit bg-card md:order-last">
           <h3 className="font-medium">{product.name}</h3>
           {color && <p className="text-sm text-muted-foreground">Color: {color}</p>}
           {size && <p className="text-sm text-muted-foreground">Size: {size}</p>}
