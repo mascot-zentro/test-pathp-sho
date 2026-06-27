@@ -1,4 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { getLenis } from "@/lib/lenis";
 import { slugify } from "@/lib/slugify";
 import { useEffect, useRef, useState } from "react";
 import { Menu, Search, ShoppingBag, ShoppingCart, User as UserIcon, X, Heart } from "lucide-react";
@@ -189,6 +190,13 @@ export function SiteNav() {
   }, [user]);
 
   useEffect(() => {
+    const lenis = getLenis();
+    if (lenis) {
+      const handler = ({ scroll }: { scroll: number }) => setScrollProgress(Math.min(1, scroll / 60));
+      lenis.on("scroll", handler);
+      return () => lenis.off("scroll", handler);
+    }
+    // Fallback for pages where Lenis hasn't mounted yet
     const onScroll = () => setScrollProgress(Math.min(1, window.scrollY / 60));
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -200,7 +208,7 @@ export function SiteNav() {
       <img src={logoUrl} alt={storeName} decoding="async" className={className} />
     ) : (
       <>
-        <ShoppingBag className="size-5 text-accent transition-transform duration-300 group-hover:rotate-[-6deg] group-hover:scale-110" />
+        <ShoppingBag className="size-5 text-accent transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110" />
         <span className="tracking-tight">{storeName}</span>
       </>
     )
@@ -230,7 +238,7 @@ export function SiteNav() {
           boxShadow: scrollProgress > 0.1 ? `0 1px ${20 * scrollProgress}px oklch(0 0 0 / ${0.05 * scrollProgress})` : "none",
         }}
       >
-        <div className="container mx-auto px-6 h-[60px] flex items-center justify-between">
+        <div className="container mx-auto px-6 h-15 flex items-center justify-between">
           <Link to="/" className="group flex items-center gap-2 font-display text-2xl font-light tracking-tight">
             {renderLogo("h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105")}
           </Link>
@@ -290,7 +298,7 @@ export function SiteNav() {
               </Link>
             ) : (
               <Link to="/auth">
-                <Button variant="outline" size="sm" className="ml-2 text-xs tracking-[0.1em] rounded-full transition-all duration-200 hover:bg-accent hover:text-accent-foreground hover:border-accent hover:scale-[1.03]">
+                <Button variant="outline" size="sm" className="ml-2 text-xs tracking-widest rounded-full transition-all duration-200 hover:bg-accent hover:text-accent-foreground hover:border-accent hover:scale-[1.03]">
                   Sign in
                 </Button>
               </Link>

@@ -6,6 +6,10 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Reveal } from "@/components/reveal";
 import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight } from "lucide-react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,20 +51,24 @@ function Index() {
   const [about, setAbout] = useState({ title: "", body: "", image: "" });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const heroImgRef = useRef<HTMLImageElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!hero.image) return;
+    if (!hero.image || !heroImgRef.current) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let raf = 0;
-    const onScroll = () => {
-      raf = requestAnimationFrame(() => {
-        if (heroImgRef.current) {
-          heroImgRef.current.style.transform = `translateY(${window.scrollY * 0.35}px)`;
-        }
+    const ctx = gsap.context(() => {
+      gsap.to(heroImgRef.current, {
+        yPercent: 30,
+        ease: "none",
+        scrollTrigger: {
+          trigger: heroImgRef.current!.closest("section"),
+          start: "top top",
+          end: "bottom top",
+          scrub: true,
+        },
       });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+    });
+    return () => ctx.revert();
   }, [hero.image]);
 
   useEffect(() => {
@@ -106,6 +114,17 @@ function Index() {
         setAbout({ title: obj.about_title || "", body: obj.about_body || "", image: obj.about_image_url || "" });
       });
   }, []);
+
+  // Stagger product cards in with GSAP when they load or category changes
+  useEffect(() => {
+    if (!gridRef.current || visibleProducts.length === 0) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cards = gridRef.current.querySelectorAll<HTMLElement>(":scope > *");
+    gsap.fromTo(cards,
+      { opacity: 0, y: 24 },
+      { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", stagger: 0.07, clearProps: "opacity,transform" },
+    );
+  }, [visibleProducts]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -301,7 +320,7 @@ function Index() {
               {products.length === 0 ? "No products yet — check back soon." : "No products in this category yet."}
             </p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-14">
+            <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-14">
               {visibleProducts.map((p, i) => {
                 const outOfStock = p.stock_quantity === 0;
                 const displayPrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
