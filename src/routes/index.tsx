@@ -6,10 +6,6 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Reveal } from "@/components/reveal";
 import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight } from "lucide-react";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -54,21 +50,26 @@ function Index() {
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!hero.image || !heroImgRef.current) return;
+    const node = heroImgRef.current;
+    if (!hero.image || !node) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const ctx = gsap.context(() => {
-      gsap.to(heroImgRef.current, {
-        yPercent: 30,
-        ease: "none",
-        scrollTrigger: {
-          trigger: heroImgRef.current!.closest("section"),
-          start: "top top",
-          end: "bottom top",
-          scrub: true,
-        },
+    let ctx: { revert: () => void } | undefined;
+    Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(([{ gsap }, { ScrollTrigger }]) => {
+      gsap.registerPlugin(ScrollTrigger);
+      ctx = gsap.context(() => {
+        gsap.to(node, {
+          yPercent: 30,
+          ease: "none",
+          scrollTrigger: {
+            trigger: node.closest("section"),
+            start: "top top",
+            end: "bottom top",
+            scrub: true,
+          },
+        });
       });
     });
-    return () => ctx.revert();
+    return () => ctx?.revert();
   }, [hero.image]);
 
   useEffect(() => {
@@ -117,13 +118,16 @@ function Index() {
 
   // Stagger product cards in with GSAP when they load or category changes
   useEffect(() => {
-    if (!gridRef.current || visibleProducts.length === 0) return;
+    const grid = gridRef.current;
+    if (!grid || visibleProducts.length === 0) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const cards = gridRef.current.querySelectorAll<HTMLElement>(":scope > *");
-    gsap.fromTo(cards,
-      { opacity: 0, y: 24 },
-      { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", stagger: 0.07, clearProps: "opacity,transform" },
-    );
+    const cards = grid.querySelectorAll<HTMLElement>(":scope > *");
+    import("gsap").then(({ gsap }) => {
+      gsap.fromTo(cards,
+        { opacity: 0, y: 24 },
+        { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", stagger: 0.07, clearProps: "opacity,transform" },
+      );
+    });
   }, [visibleProducts]);
 
   const categories = useMemo(() => {

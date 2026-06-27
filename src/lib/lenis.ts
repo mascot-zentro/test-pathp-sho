@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 let lenisInstance: Lenis | null = null;
 
@@ -22,8 +21,10 @@ export function useLenis() {
 
     lenisInstance = lenis;
 
-    // Keep GSAP ScrollTrigger in sync with Lenis scroll position
-    lenis.on("scroll", ScrollTrigger.update);
+    // Lazy-load ScrollTrigger and keep it in sync with Lenis
+    import("gsap/ScrollTrigger").then(({ ScrollTrigger }) => {
+      lenis.on("scroll", ScrollTrigger.update);
+    });
 
     let raf: number;
     function tick(time: number) {
