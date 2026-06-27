@@ -46,8 +46,14 @@ function SalePage() {
               <div className="mt-3">
                 <h3 className="text-sm font-medium leading-snug line-clamp-2">{p.name}</h3>
                 <div className="text-sm tabular-nums mt-1 flex items-center gap-1.5 flex-wrap">
-                  <span className="text-muted-foreground line-through text-xs">NRS {p.price}</span>
-                  <span className="text-accent font-medium">NRS {p.sale_price}</span>
+                  {p.sale_price ? (
+                    <>
+                      <span className="text-muted-foreground line-through text-xs">NRS {p.price}</span>
+                      <span className="text-accent font-medium">NRS {p.sale_price}</span>
+                    </>
+                  ) : (
+                    <span className="font-medium">NRS {p.price}</span>
+                  )}
                 </div>
               </div>
             </Link>
