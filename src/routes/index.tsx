@@ -35,10 +35,14 @@ const MARQUEE_ITEMS = [
   "Nationwide shipping", "Curated styles", "Fresh drops",
 ];
 
+const PAGE_SIZE = 12;
+
 function Index() {
   const [products, setProducts] = useState<Product[]>([]);
   const [hoverImages, setHoverImages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
   const [hero, setHero] = useState({
     title: "Dress the story\nyou want to tell.",
     subtitle: "A curated edit for the woman who knows herself. Cash on delivery, nationwide.",
@@ -48,6 +52,31 @@ function Index() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const heroImgRef = useRef<HTMLImageElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+
+  const fetchPage = async (from: number, append = false) => {
+    const { data, count } = await supabase
+      .from("products")
+      .select("id,name,price,sale_price,on_sale,image_url,stock_quantity,category", { count: "exact" })
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    const list = (data as Product[]) ?? [];
+    setProducts((prev) => append ? [...prev, ...list] : list);
+    if (count !== null) setTotal(count);
+    // Fetch hover images for new batch
+    if (list.length > 0) {
+      supabase
+        .from("product_images")
+        .select("product_id,image_url")
+        .in("product_id", list.map((p) => p.id))
+        .eq("position", 1)
+        .then(({ data: imgs }) => {
+          const map: Record<string, string> = {};
+          (imgs ?? []).forEach((r: { product_id: string; image_url: string }) => { map[r.product_id] = r.image_url; });
+          setHoverImages((prev) => ({ ...prev, ...map }));
+        });
+    }
+  };
 
   useEffect(() => {
     const node = heroImgRef.current;
@@ -73,30 +102,8 @@ function Index() {
   }, [hero.image]);
 
   useEffect(() => {
-    supabase
-      .from("products")
-      .select("id,name,price,sale_price,on_sale,image_url,stock_quantity,category")
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        const list = (data as Product[]) ?? [];
-        setProducts(list);
-        setLoading(false);
-        // Fetch the second gallery image for every product in one query.
-        // position=1 is the second image (position=0 is the primary).
-        if (list.length > 0) {
-          supabase
-            .from("product_images")
-            .select("product_id,image_url")
-            .in("product_id", list.map((p) => p.id))
-            .eq("position", 1)
-            .then(({ data: imgs }) => {
-              const map: Record<string, string> = {};
-              (imgs ?? []).forEach((r: { product_id: string; image_url: string }) => { map[r.product_id] = r.image_url; });
-              setHoverImages(map);
-            });
-        }
-      });
+    setLoading(true);
+    fetchPage(0).finally(() => setLoading(false)); // eslint-disable-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -116,6 +123,12 @@ function Index() {
       });
   }, []);
 
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await fetchPage(products.length, true);
+    setLoadingMore(false);
+  };
+
   const categories = useMemo(() => {
     const set = new Set<string>();
     products.forEach((p) => { if (p.category) set.add(p.category); });
@@ -123,6 +136,7 @@ function Index() {
   }, [products]);
 
   const visibleProducts = activeCategory ? products.filter((p) => p.category === activeCategory) : products;
+  const hasMore = !activeCategory && products.length < total;
 
   // Stagger product cards in with GSAP when they load or category changes
   useEffect(() => {
@@ -399,6 +413,32 @@ function Index() {
                 );
               })}
             </div>
+          )}
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center mt-12">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-8 py-3 rounded-full border border-foreground/20 text-sm font-medium tracking-wide transition-all duration-200 hover:border-accent hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingMore ? (
+                  <>
+                    <span className="size-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  <>Load more · {total - products.length} remaining</>
+                )}
+              </button>
+            </div>
+          )}
+          {!hasMore && !loading && products.length > PAGE_SIZE && (
+            <p className="text-center text-xs text-muted-foreground mt-10 tracking-wide">
+              You've seen everything — {total} piece{total === 1 ? "" : "s"} in the collection.
+            </p>
           )}
         </section>
 
