@@ -224,22 +224,3 @@
   font-weight: 300;
 }
 
-/* ── Custom cursor ────────────────────────────────────────────────────────── */
-@media (pointer: fine) {
-  html, * { cursor: none !important; }
-}
-
-.cursor-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 9999px;
-  background-color: var(--color-accent);
-  transition: width 0.2s ease, height 0.2s ease, background-color 0.2s ease, opacity 0.3s ease;
-}
-
-.cursor-dot.cursor-grow {
-  width: 32px;
-  height: 32px;
-  background-color: oklch(from var(--color-accent) l c h / 0.18);
-  outline: 1.5px solid var(--color-accent);
-}
