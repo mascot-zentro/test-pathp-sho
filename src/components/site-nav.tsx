@@ -106,7 +106,7 @@ const NAV_LINKS = [
   { to: "/", label: "Shop" },
   { to: "/sale", label: "Sale" },
   { to: "/faq", label: "FAQ" },
-  { to: "/track", label: "Track order" },
+  { to: "/track", label: "Track" },
 ] as const;
 
 function NavLink({ to, label }: { to: string; label: string }) {
@@ -116,7 +116,7 @@ function NavLink({ to, label }: { to: string; label: string }) {
     <Link
       to={to}
       className={cn(
-        "relative px-3 py-2 text-xs tracking-[0.14em] uppercase transition-colors duration-200",
+        "relative px-3 py-2 text-xs tracking-[0.14em] uppercase transition-colors duration-200 whitespace-nowrap",
         isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

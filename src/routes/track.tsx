@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Package, Truck, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { TopSelling } from "@/components/top-selling";
 
 export const Route = createFileRoute("/track")({
   component: TrackPage,
@@ -280,6 +281,10 @@ function TrackPage() {
           </>
         )}
       </main>
+
+      <div className="container mx-auto px-6 max-w-xl pb-16">
+        <TopSelling />
+      </div>
 
       <SiteFooter />
     </div>

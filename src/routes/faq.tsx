@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { TopSelling } from "@/components/top-selling";
 
 export const Route = createFileRoute("/faq")({
   head: () => ({
@@ -50,6 +51,7 @@ function FaqPage() {
             </Accordion>
           )}
         </div>
+        <TopSelling />
       </section>
       <SiteFooter />
     </div>
