@@ -544,8 +544,8 @@ function ProductPage() {
                 </Tooltip>
               ))}
             </div>
-          </TooltipProvider>
         </div>
+        </TooltipProvider>
       </div>
 
 
