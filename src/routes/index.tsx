@@ -116,6 +116,14 @@ function Index() {
       });
   }, []);
 
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => { if (p.category) set.add(p.category); });
+    return [...set];
+  }, [products]);
+
+  const visibleProducts = activeCategory ? products.filter((p) => p.category === activeCategory) : products;
+
   // Stagger product cards in with GSAP when they load or category changes
   useEffect(() => {
     const grid = gridRef.current;
@@ -129,14 +137,6 @@ function Index() {
       );
     });
   }, [visibleProducts]);
-
-  const categories = useMemo(() => {
-    const set = new Set<string>();
-    products.forEach((p) => { if (p.category) set.add(p.category); });
-    return [...set];
-  }, [products]);
-
-  const visibleProducts = activeCategory ? products.filter((p) => p.category === activeCategory) : products;
 
   return (
     <div className="min-h-screen flex flex-col bg-background page-enter">
