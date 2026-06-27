@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { Pagination } from "@/components/admin/pagination";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -245,20 +247,22 @@ function OrdersPage() {
     });
   }, [groups, search, status, sourceFilter]);
 
+  const { paged: pagedGroups, page, setPage, totalPages, total: filteredTotal, start, end } = usePagination(filteredGroups, 20);
+
   const allFilteredSelected =
-    filteredGroups.length > 0 && filteredGroups.every((g) => selectedGroupIds.has(g.groupId));
+    pagedGroups.length > 0 && pagedGroups.every((g) => selectedGroupIds.has(g.groupId));
 
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
       setSelectedGroupIds((prev) => {
         const next = new Set(prev);
-        filteredGroups.forEach((g) => next.delete(g.groupId));
+        pagedGroups.forEach((g) => next.delete(g.groupId));
         return next;
       });
     } else {
       setSelectedGroupIds((prev) => {
         const next = new Set(prev);
-        filteredGroups.forEach((g) => next.add(g.groupId));
+        pagedGroups.forEach((g) => next.add(g.groupId));
         return next;
       });
     }
@@ -323,7 +327,7 @@ function OrdersPage() {
             <div>
               <CardTitle className="text-base font-display">All orders</CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                {filteredGroups.length} of {groups.length} shown
+                {filteredTotal} of {groups.length} shown
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -382,7 +386,7 @@ function OrdersPage() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Select-all header — only visible when there are rows */}
-          {filteredGroups.length > 0 && (
+          {pagedGroups.length > 0 && (
             <div className="flex items-center gap-3 px-4 sm:px-5 py-2.5 border-t border-b bg-muted/30">
               <input
                 type="checkbox"
@@ -393,7 +397,7 @@ function OrdersPage() {
               />
               <span className="text-xs text-muted-foreground">
                 {allFilteredSelected
-                  ? `All ${filteredGroups.length} selected`
+                  ? `All ${pagedGroups.length} selected`
                   : selectedCount > 0
                     ? `${selectedCount} selected`
                     : "Select all"}
@@ -402,7 +406,7 @@ function OrdersPage() {
           )}
 
           <div className="divide-y">
-            {filteredGroups.map((g) => {
+            {pagedGroups.map((g) => {
               const isSelected = selectedGroupIds.has(g.groupId);
               return (
                 <div
@@ -535,11 +539,14 @@ function OrdersPage() {
                 </div>
               );
             })}
-            {filteredGroups.length === 0 && (
+            {filteredTotal === 0 && (
               <div className="p-10 text-center text-sm text-muted-foreground">
                 {groups.length === 0 ? "No orders yet." : "No orders match your search."}
               </div>
             )}
+          </div>
+          <div className="px-5 pb-4">
+            <Pagination page={page} totalPages={totalPages} total={filteredTotal} start={start} end={end} onPage={setPage} label="orders" />
           </div>
         </CardContent>
       </Card>

@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { Pagination } from "@/components/admin/pagination";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -211,6 +213,8 @@ function ProductsPage() {
     return rows;
   }, [enriched, search, categoryFilter, statusFilter, sortKey, sortDir]);
 
+  const { paged: pagedFiltered, page, setPage, totalPages, total: filteredTotal, start, end } = usePagination(filtered, 25);
+
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir(key === "created" ? "desc" : "asc"); }
@@ -365,7 +369,7 @@ function ProductsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative flex-1 min-w-50 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             value={search}
@@ -416,7 +420,7 @@ function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r) => {
+              {pagedFiltered.map((r) => {
                 const p = r.product;
                 const daysAgo = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86_400_000);
                 const addedLabel = daysAgo <= 0 ? "today" : daysAgo === 1 ? "1 day ago" : daysAgo < 30 ? `${daysAgo} days ago` : new Date(p.created_at).toLocaleDateString();
@@ -429,7 +433,7 @@ function ProductsPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-medium max-w-[220px]">
+                  <TableCell className="font-medium max-w-55">
                     <div className="truncate">{p.name}</div>
                     <div className="text-[11px] text-muted-foreground font-normal">Added {addedLabel}</div>
                   </TableCell>
@@ -536,13 +540,16 @@ function ProductsPage() {
               })}
             </TableBody>
           </Table>
-          {filtered.length === 0 && (
+          {filteredTotal === 0 && (
             <div className="p-10 text-center text-sm text-muted-foreground">
               {products.length === 0
                 ? "No products yet. Add your first one above →"
                 : "No products match your filters."}
             </div>
           )}
+          <div className="px-4 pb-4">
+            <Pagination page={page} totalPages={totalPages} total={filteredTotal} start={start} end={end} onPage={setPage} label="products" />
+          </div>
         </CardContent>
       </Card>
     </div>

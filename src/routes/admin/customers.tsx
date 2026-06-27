@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { usePagination } from "@/hooks/use-pagination";
+import { Pagination } from "@/components/admin/pagination";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Stat } from "@/components/admin/stat-card";
@@ -234,6 +236,8 @@ function CustomersPage() {
     );
   }, [customers, search]);
 
+  const { paged: pagedCustomers, page, setPage, totalPages, total: filteredTotal, start, end } = usePagination(filtered, 20);
+
   const totalRevenue = customers.reduce((s, c) => s + c.totalSpent, 0);
   const returning = customers.filter((c) => c.orderCount > 1).length;
   const returningPct = customers.length ? Math.round((returning / customers.length) * 100) : 0;
@@ -277,7 +281,7 @@ function CustomersPage() {
       <div className="space-y-3">
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : filtered.length === 0 ? (
+        ) : filteredTotal === 0 ? (
           <div className="py-16 text-center">
             <Users className="size-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-muted-foreground text-sm">
@@ -285,9 +289,10 @@ function CustomersPage() {
             </p>
           </div>
         ) : (
-          filtered.map((c) => <CustomerCard key={c.phone} c={c} />)
+          pagedCustomers.map((c) => <CustomerCard key={c.phone} c={c} />)
         )}
       </div>
+      <Pagination page={page} totalPages={totalPages} total={filteredTotal} start={start} end={end} onPage={setPage} label="customers" />
     </div>
   );
 }
