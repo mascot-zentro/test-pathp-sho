@@ -10,8 +10,8 @@ import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight } from "lucide-reac
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Modern Store — Shop the collection" },
-      { name: "description", content: "Curated essentials, delivered nationwide. Cash on delivery available." },
+      { title: "The Aavira — Premium Women's Fashion Nepal" },
+      { name: "description", content: "Curated premium women's fashion. Cash on delivery across Nepal." },
     ],
   }),
   component: Index,
@@ -29,10 +29,10 @@ type Product = {
 };
 
 const MARQUEE_ITEMS = [
-  "New arrivals", "Free returns", "Cash on delivery",
-  "Nationwide shipping", "Curated styles", "Fresh drops",
-  "New arrivals", "Free returns", "Cash on delivery",
-  "Nationwide shipping", "Curated styles", "Fresh drops",
+  "New arrivals", "Cash on delivery", "Nationwide shipping",
+  "Curated styles", "Premium quality", "Fresh drops",
+  "New arrivals", "Cash on delivery", "Nationwide shipping",
+  "Curated styles", "Premium quality", "Fresh drops",
 ];
 
 const PAGE_SIZE = 12;
@@ -63,7 +63,6 @@ function Index() {
     const list = (data as Product[]) ?? [];
     setProducts((prev) => append ? [...prev, ...list] : list);
     if (count !== null) setTotal(count);
-    // Fetch hover images for new batch
     if (list.length > 0) {
       supabase
         .from("product_images")
@@ -87,14 +86,9 @@ function Index() {
       gsap.registerPlugin(ScrollTrigger);
       ctx = gsap.context(() => {
         gsap.to(node, {
-          yPercent: 30,
+          yPercent: 28,
           ease: "none",
-          scrollTrigger: {
-            trigger: node.closest("section"),
-            start: "top top",
-            end: "bottom top",
-            scrub: true,
-          },
+          scrollTrigger: { trigger: node.closest("section"), start: "top top", end: "bottom top", scrub: true },
         });
       });
     });
@@ -108,17 +102,12 @@ function Index() {
 
   useEffect(() => {
     supabase
-      .from("app_settings")
-      .select("key,value")
+      .from("app_settings").select("key,value")
       .in("key", ["hero_title", "hero_subtitle", "hero_image_url", "about_title", "about_body", "about_image_url"])
       .then(({ data }) => {
         const obj: Record<string, string> = {};
         (data ?? []).forEach((r) => { if (r.value) obj[r.key] = r.value; });
-        setHero((h) => ({
-          title: obj.hero_title || h.title,
-          subtitle: obj.hero_subtitle || h.subtitle,
-          image: obj.hero_image_url || "",
-        }));
+        setHero((h) => ({ title: obj.hero_title || h.title, subtitle: obj.hero_subtitle || h.subtitle, image: obj.hero_image_url || "" }));
         setAbout({ title: obj.about_title || "", body: obj.about_body || "", image: obj.about_image_url || "" });
       });
   }, []);
@@ -138,7 +127,6 @@ function Index() {
   const visibleProducts = activeCategory ? products.filter((p) => p.category === activeCategory) : products;
   const hasMore = !activeCategory && products.length < total;
 
-  // Stagger product cards in with GSAP when they load or category changes
   useEffect(() => {
     const grid = gridRef.current;
     if (!grid || visibleProducts.length === 0) return;
@@ -146,8 +134,8 @@ function Index() {
     const cards = grid.querySelectorAll<HTMLElement>(":scope > *");
     import("gsap").then(({ gsap }) => {
       gsap.fromTo(cards,
-        { opacity: 0, y: 24 },
-        { opacity: 1, y: 0, duration: 0.55, ease: "power2.out", stagger: 0.07, clearProps: "opacity,transform" },
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, ease: "power2.out", stagger: 0.06, clearProps: "opacity,transform" },
       );
     });
   }, [visibleProducts]);
@@ -157,85 +145,79 @@ function Index() {
       <SiteNav />
       <main className="flex-1">
 
-        {/* ── Cinematic Hero ─────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden grain min-h-[88vh] flex items-center">
-          {/* Background image with dramatic overlay */}
+        {/* ── HERO ─────────────────────────────────────────────────────────── */}
+        <section className="relative overflow-hidden min-h-[90vh] flex items-center grain">
           {hero.image ? (
             <>
-              <div className="absolute inset-0 -z-10 overflow-hidden">
-                <img ref={heroImgRef} src={hero.image} alt="" fetchPriority="high" decoding="async" className="w-full h-[115%] object-cover will-change-transform" style={{ top: 0 }} />
+              <div className="absolute inset-0 overflow-hidden -z-10">
+                <img ref={heroImgRef} src={hero.image} alt="" fetchPriority="high" decoding="async"
+                  className="w-full h-[120%] object-cover will-change-transform" />
               </div>
-              <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/20 via-background/50 to-background/90" />
+              <div className="absolute inset-0 -z-10 bg-linear-to-r from-background/95 via-background/60 to-background/20" />
+              <div className="absolute inset-0 -z-10 bg-linear-to-t from-background/80 via-transparent to-transparent" />
             </>
           ) : (
-            /* Decorative gradient when no hero image is set */
             <div className="absolute inset-0 -z-10">
-              <div className="absolute inset-0 bg-gradient-to-br from-[oklch(0.94_0.03_358)] via-background to-[oklch(0.96_0.018_72)]" />
-              {/* Soft orbs */}
-              <div className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full bg-[oklch(0.88_0.06_358/0.35)] blur-[120px]" />
-              <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-[oklch(0.90_0.04_45/0.25)] blur-[100px]" />
+              <div className="absolute inset-0 bg-linear-to-br from-[oklch(0.96_0.018_358)] via-background to-[oklch(0.97_0.012_60)]" />
+              <div className="absolute top-0 left-0 w-175 h-175 rounded-full bg-[oklch(0.88_0.05_358/0.25)] blur-[140px] -translate-x-1/3 -translate-y-1/3" />
+              <div className="absolute bottom-0 right-0 w-125 h-125 rounded-full bg-[oklch(0.90_0.04_45/0.2)] blur-[120px] translate-x-1/4 translate-y-1/4" />
             </div>
           )}
 
-          <div className="container mx-auto px-6 py-16 md:py-40 grid md:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div>
+          <div className="container mx-auto px-6 py-24 md:py-32 grid md:grid-cols-[1fr_auto] gap-12 items-center w-full">
+            <div className="max-w-2xl">
               <Reveal>
-                <span className="inline-flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase text-accent mb-6">
-                  <Sparkles className="size-3.5 animate-soft-pulse" /> New season
-                </span>
+                <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-accent/10 border border-accent/20">
+                  <Sparkles className="size-3.5 text-accent animate-soft-pulse" />
+                  <span className="text-xs font-medium tracking-[0.18em] uppercase text-accent">New season · 2025</span>
+                </div>
               </Reveal>
-              <Reveal delay={80}>
-                <h1 className="text-4xl sm:text-5xl md:text-7xl font-display font-light leading-[1.05] tracking-tight whitespace-pre-line">
+
+              <Reveal delay={70}>
+                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-light leading-none tracking-tight whitespace-pre-line">
                   {hero.title}
                 </h1>
               </Reveal>
-              <Reveal delay={180}>
-                <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-sm leading-relaxed font-light">
+
+              <Reveal delay={160}>
+                <p className="mt-7 text-base md:text-lg text-muted-foreground max-w-md leading-relaxed font-light">
                   {hero.subtitle}
                 </p>
               </Reveal>
-              <Reveal delay={280}>
+
+              <Reveal delay={240}>
                 <div className="mt-10 flex flex-wrap gap-3">
-                  <a
-                    href="#shop"
-                    className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-foreground text-background text-sm font-medium tracking-wide transition-all duration-300 hover:bg-accent hover:shadow-[0_8px_30px_oklch(0.62_0.14_358/0.4)] hover:scale-[1.03]"
-                  >
+                  <a href="#shop"
+                    className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-foreground text-background text-sm font-medium tracking-wide transition-all duration-300 hover:bg-accent hover:shadow-[0_8px_40px_oklch(0.62_0.14_358/0.4)] hover:scale-[1.02] active:scale-[0.98]">
                     Shop collection
-                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" />
                   </a>
-                  <Link
-                    to="/sale"
-                    className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full border border-foreground/20 text-sm font-medium tracking-wide transition-all duration-300 hover:border-accent hover:text-accent hover:scale-[1.02]"
-                  >
+                  <Link to="/sale"
+                    className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-foreground/20 text-sm font-medium tracking-wide transition-all duration-200 hover:border-accent hover:text-accent hover:bg-accent/5">
                     View sale
                   </Link>
                 </div>
               </Reveal>
             </div>
 
-            {/* Featured product card teaser — first product image */}
+            {/* Hero product card — desktop only */}
             {!loading && products[0]?.image_url && (
-              <Reveal delay={120} direction="none">
-                <Link to="/product/$slug" params={{ slug: slugify(products[0].name) }} className="group block relative">
-                  <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-foreground/5">
-                    <img
-                      src={products[0].image_url}
-                      alt={products[0].name}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <div className="absolute bottom-0 left-0 right-0 p-6 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-400">
-                      <p className="text-background font-display text-xl">{products[0].name}</p>
-                      <p className="text-background/80 text-sm mt-1">
+              <Reveal delay={100} direction="none">
+                <Link to="/product/$slug" params={{ slug: slugify(products[0].name) }}
+                  className="group hidden lg:block w-64 xl:w-72 shrink-0">
+                  <div className="relative aspect-3/4 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-foreground/8">
+                    <img src={products[0].image_url} alt={products[0].name} loading="eager" decoding="async"
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/10 to-transparent" />
+                    <div className="absolute bottom-0 inset-x-0 p-5">
+                      <p className="text-background font-display text-lg leading-snug">{products[0].name}</p>
+                      <p className="text-background/70 text-sm mt-0.5">
                         NRS {products[0].on_sale && products[0].sale_price ? products[0].sale_price : products[0].price}
                       </p>
                     </div>
-                  </div>
-                  {/* Floating badge */}
-                  <div className="absolute -top-3 -right-3 bg-accent text-accent-foreground text-xs font-medium px-3 py-1.5 rounded-full shadow-lg animate-float">
-                    Just in ✦
+                    <div className="absolute top-3 right-3 bg-accent text-accent-foreground text-[10px] font-medium px-3 py-1.5 rounded-full animate-float shadow-lg">
+                      Just in ✦
+                    </div>
                   </div>
                 </Link>
               </Reveal>
@@ -243,46 +225,47 @@ function Index() {
           </div>
         </section>
 
-        {/* ── Marquee strip ──────────────────────────────────────────────── */}
-        <div className="overflow-hidden border-y border-border/60 bg-[oklch(0.96_0.018_60)] py-3.5">
+        {/* ── MARQUEE ───────────────────────────────────────────────────────── */}
+        <div className="overflow-hidden border-y border-border/60 bg-foreground py-4">
           <div className="flex whitespace-nowrap animate-marquee">
             {MARQUEE_ITEMS.map((item, i) => (
-              <span key={i} className="inline-flex items-center gap-3 px-6 text-xs font-medium tracking-[0.15em] uppercase text-muted-foreground">
-                {item}
-                <span className="text-accent">✦</span>
+              <span key={i} className="inline-flex items-center gap-5 px-8 text-[11px] font-medium tracking-[0.22em] uppercase text-background/60">
+                {item} <span className="text-background/25">✦</span>
               </span>
             ))}
           </div>
         </div>
 
-        {/* ── Trust badges ───────────────────────────────────────────────── */}
+        {/* ── TRUST BADGES ──────────────────────────────────────────────────── */}
         <Reveal as="div" direction="none">
-          <div className="container mx-auto px-6 py-10 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { icon: Truck, label: "Nationwide delivery", sub: "Across Nepal" },
-              { icon: ShieldCheck, label: "Cash on delivery", sub: "No card needed" },
-              { icon: RotateCcw, label: "Easy returns", sub: "Hassle-free" },
-            ].map(({ icon: Icon, label, sub }) => (
-              <div key={label} className="flex flex-col items-center text-center gap-2 p-4 rounded-xl border border-border/50 bg-card/60 backdrop-blur">
-                <div className="size-10 rounded-full bg-accent/10 grid place-items-center">
-                  <Icon className="size-4 text-accent" />
+          <div className="container mx-auto px-6 py-14">
+            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/50 border border-border/50 rounded-2xl overflow-hidden bg-card/60">
+              {[
+                { icon: Truck, label: "Nationwide delivery", sub: "Delivered across all of Nepal" },
+                { icon: ShieldCheck, label: "Cash on delivery", sub: "Pay when you receive — no card needed" },
+                { icon: RotateCcw, label: "Easy returns", sub: "Hassle-free return process" },
+              ].map(({ icon: Icon, label, sub }) => (
+                <div key={label} className="flex items-center gap-4 p-7">
+                  <div className="size-10 rounded-full bg-accent/10 grid place-items-center shrink-0">
+                    <Icon className="size-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{sub}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium">{label}</p>
-                  <p className="text-xs text-muted-foreground">{sub}</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </Reveal>
 
-        {/* ── Product grid ───────────────────────────────────────────────── */}
-        <section id="shop" className="container mx-auto px-6 py-12 md:py-20">
+        {/* ── PRODUCT GRID ──────────────────────────────────────────────────── */}
+        <section id="shop" className="container mx-auto px-6 pb-28">
           <Reveal>
-            <div className="flex items-end justify-between mb-10">
+            <div className="flex items-end justify-between mb-12">
               <div>
-                <p className="text-xs tracking-[0.2em] uppercase text-accent mb-2">Collection</p>
-                <h2 className="text-3xl md:text-4xl font-display font-light">The edit</h2>
+                <p className="text-[11px] tracking-[0.25em] uppercase text-accent mb-3">Collection</p>
+                <h2 className="text-3xl md:text-5xl font-display font-light">The edit</h2>
               </div>
               <Link to="/sale" className="group flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent transition-colors">
                 Sale <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -290,33 +273,17 @@ function Index() {
             </div>
           </Reveal>
 
-          {/* Category filters */}
           {categories.length > 0 && (
             <Reveal delay={60}>
               <div className="flex flex-wrap gap-2 mb-10">
-                <button
-                  type="button"
-                  onClick={() => setActiveCategory(null)}
-                  className={`text-xs px-4 py-2.5 min-h-11 rounded-full tracking-wide transition-all duration-200 border ${
-                    activeCategory === null
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-                  }`}
-                >
-                  All
-                </button>
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setActiveCategory(c)}
-                    className={`text-xs px-4 py-2.5 min-h-11 rounded-full tracking-wide transition-all duration-200 border ${
+                {[null, ...categories].map((c) => (
+                  <button key={c ?? "__all"} type="button" onClick={() => setActiveCategory(c)}
+                    className={`text-xs px-5 py-2.5 rounded-full tracking-wide transition-all duration-200 border ${
                       activeCategory === c
-                        ? "border-accent bg-accent text-accent-foreground"
-                        : "border-border text-muted-foreground hover:border-accent/50 hover:text-foreground"
-                    }`}
-                  >
-                    {c}
+                        ? c === null ? "border-foreground bg-foreground text-background" : "border-accent bg-accent text-accent-foreground"
+                        : "border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                    }`}>
+                    {c ?? "All"}
                   </button>
                 ))}
               </div>
@@ -324,80 +291,70 @@ function Index() {
           )}
 
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-12">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i}>
-                  <div className="aspect-[3/4] rounded-xl skeleton" />
-                  <div className="mt-4 h-3 skeleton rounded w-3/4" />
-                  <div className="mt-2 h-3 skeleton rounded w-1/3" />
+                  <div className="aspect-3/4 rounded-2xl skeleton" />
+                  <div className="mt-4 h-3 skeleton rounded-full w-3/4" />
+                  <div className="mt-2 h-3 skeleton rounded-full w-1/3" />
                 </div>
               ))}
             </div>
           ) : visibleProducts.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-20 text-center">
-              {products.length === 0 ? "No products yet — check back soon." : "No products in this category yet."}
+            <p className="text-muted-foreground text-sm py-24 text-center">
+              {products.length === 0 ? "No products yet — check back soon." : "No products in this category."}
             </p>
           ) : (
-            <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-14">
+            <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12 md:gap-x-6 md:gap-y-16">
               {visibleProducts.map((p, i) => {
                 const outOfStock = p.stock_quantity === 0;
                 const displayPrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
                 return (
-                  <Reveal key={p.id} delay={(i % 8) * 55}>
+                  <Reveal key={p.id} delay={(i % 8) * 50}>
                     <Link to="/product/$slug" params={{ slug: slugify(p.name) }} className="group block">
-                      {/* Image */}
-                      <div className="relative aspect-[3/4] bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-xl">
+                      <div className="relative aspect-3/4 bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-2xl">
                         {p.image_url ? (
                           <>
-                            <img
-                              src={p.image_url}
-                              alt={p.name}
-                              loading="lazy"
-                              decoding="async"
-                              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`}
-                            />
+                            <img src={p.image_url} alt={p.name} loading="lazy" decoding="async"
+                              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`} />
                             {hoverImages[p.id] && (
-                              <img
-                                src={hoverImages[p.id]}
-                                alt=""
-                                loading="lazy"
-                                decoding="async"
-                                className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.04] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.06]"
-                              />
+                              <img src={hoverImages[p.id]} alt="" loading="lazy" decoding="async"
+                                className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.04] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.06]" />
                             )}
                           </>
                         ) : (
-                          <div className="w-full h-full grid place-items-center text-muted-foreground/40 text-xs tracking-widest uppercase">No image</div>
+                          <div className="w-full h-full grid place-items-center text-muted-foreground/30 text-xs tracking-widest uppercase">No image</div>
                         )}
-                        {/* Hover overlay */}
+
                         {!outOfStock && (
-                          <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/8 transition-colors duration-500 rounded-xl" />
+                          <div className="absolute inset-0 bg-linear-to-t from-foreground/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                         )}
-                        {/* Badges */}
+
                         {outOfStock && (
-                          <span className="absolute top-3 left-3 bg-background/90 backdrop-blur text-muted-foreground text-[10px] font-medium px-2.5 py-1 rounded-full tracking-wide">
+                          <span className="absolute top-3 left-3 bg-background/95 backdrop-blur-sm text-muted-foreground text-[10px] font-medium px-3 py-1.5 rounded-full">
                             Sold out
                           </span>
                         )}
                         {p.on_sale && p.sale_price && !outOfStock && (
-                          <span className="absolute top-3 left-3 bg-accent text-accent-foreground text-[10px] font-medium px-2.5 py-1 rounded-full tracking-wide">
+                          <span className="absolute top-3 left-3 bg-accent text-accent-foreground text-[10px] font-semibold px-3 py-1.5 rounded-full">
                             −{Math.round((1 - p.sale_price / p.price) * 100)}%
                           </span>
                         )}
-                        {/* Quick-view hint */}
+
                         {!outOfStock && (
-                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur text-[10px] font-medium px-3 py-1.5 rounded-full tracking-widest uppercase opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 whitespace-nowrap">
-                            View piece
+                          <div className="absolute bottom-3 inset-x-0 flex justify-center">
+                            <span className="bg-background/95 backdrop-blur-sm text-[10px] font-medium px-4 py-2 rounded-full tracking-widest uppercase shadow-md opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 whitespace-nowrap">
+                              View piece
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="mt-4 px-0.5">
-                        <h3 className="text-sm font-light leading-snug transition-colors duration-200 group-hover:text-accent">
+                        <h3 className="text-sm font-light leading-snug group-hover:text-accent transition-colors duration-200 line-clamp-2">
                           {p.name}
                         </h3>
-                        <div className="mt-1 text-sm tabular-nums">
+                        <div className="mt-1.5 text-sm tabular-nums">
                           {p.on_sale && p.sale_price ? (
                             <span className="flex items-center gap-2">
                               <span className="text-muted-foreground line-through text-xs">NRS {p.price}</span>
@@ -415,345 +372,108 @@ function Index() {
             </div>
           )}
 
-          {/* Load more */}
           {hasMore && (
-            <div className="flex justify-center mt-12">
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                className="inline-flex items-center gap-2 px-8 py-3 rounded-full border border-foreground/20 text-sm font-medium tracking-wide transition-all duration-200 hover:border-accent hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingMore ? (
-                  <>
-                    <span className="size-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                    Loading…
-                  </>
-                ) : (
-                  <>Load more · {total - products.length} remaining</>
-                )}
+            <div className="flex justify-center mt-16">
+              <button type="button" onClick={handleLoadMore} disabled={loadingMore}
+                className="group inline-flex items-center gap-2.5 px-10 py-4 rounded-full border border-foreground/20 text-sm font-medium tracking-wide transition-all duration-300 hover:border-accent hover:text-accent hover:bg-accent/5 disabled:opacity-40">
+                {loadingMore
+                  ? <><span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />Loading…</>
+                  : <><span>Load more</span><span className="text-muted-foreground/60">· {total - products.length} remaining</span></>
+                }
               </button>
             </div>
           )}
           {!hasMore && !loading && products.length > PAGE_SIZE && (
-            <p className="text-center text-xs text-muted-foreground mt-10 tracking-wide">
-              You've seen everything — {total} piece{total === 1 ? "" : "s"} in the collection.
+            <p className="text-center text-[11px] text-muted-foreground/50 mt-12 tracking-widest uppercase">
+              ✦ All {total} pieces shown ✦
             </p>
           )}
         </section>
 
-        {/* ── About / Brand story ────────────────────────────────────────── */}
+        {/* ── ABOUT / BRAND STORY ───────────────────────────────────────────── */}
         {about.title && (
-          <section className="border-t border-border/50 mt-8">
-            <div className="container mx-auto px-6 py-24 grid md:grid-cols-2 gap-16 items-center">
-              {/* 3D Book */}
-              <Reveal direction="none" className="flex items-center justify-center order-first md:order-0">
-                <div className="aav-scene">
-                  <div className="aav-book">
-                    {/* Front cover */}
-                    <div className="aav-face aav-front">
-                      {about.image ? (
-                        <img src={about.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="aav-cover-inner">
-                          <div className="aav-cover-border">
-                            <span className="aav-cover-title">THE<br/>AAVIRA</span>
-                            <div className="aav-cover-rule"><span/><span className="aav-diamond"/><span/></div>
-                            <span className="aav-cover-sub">Women's Fashion · Nepal</span>
-                          </div>
-                          <div className="aav-cover-shine"/>
-                        </div>
-                      )}
-                      <div className="aav-front-shade"/>
-                    </div>
-                    {/* Back cover */}
-                    <div className="aav-face aav-back">
-                      <div className="aav-back-inner">
-                        <span className="aav-back-quote">"Style is a way to say who you are without having to speak."</span>
-                        <span className="aav-back-brand">— The Aavira</span>
-                      </div>
-                    </div>
-                    {/* Spine */}
-                    <div className="aav-face aav-spine">
-                      <span className="aav-spine-text">THE AAVIRA</span>
-                      <span className="aav-spine-year">2025</span>
-                    </div>
-                    {/* Pages edge */}
-                    <div className="aav-face aav-pages"/>
-                    {/* Top edge */}
-                    <div className="aav-face aav-top"/>
-                    {/* Bottom edge */}
-                    <div className="aav-face aav-bottom"/>
-                    {/* Flipping pages */}
-                    {[0,1,2].map((i) => (
-                      <div key={i} className="aav-page" style={{ animationDelay: `${i * 1.4 + 0.8}s` }}>
-                        <div className="aav-page-f">
-                          <div className="aav-page-content">
-                            {i === 0 && <><p className="aav-page-h">Our Promise</p><p className="aav-page-p">Premium quality tops crafted for every woman in Nepal.</p></>}
-                            {i === 1 && <><p className="aav-page-h">Fast Delivery</p><p className="aav-page-p">Nationwide delivery across Nepal — at your doorstep.</p></>}
-                            {i === 2 && <><p className="aav-page-h">Our Style</p><p className="aav-page-p">Timeless silhouettes, modern details, everyday confidence.</p></>}
-                          </div>
-                          <div className="aav-page-shadow-f"/>
-                        </div>
-                        <div className="aav-page-b">
-                          <div className="aav-page-shadow-b"/>
-                        </div>
-                      </div>
-                    ))}
+          <section className="border-t border-border/40 bg-[oklch(0.14_0.012_40)]">
+            <div className="container mx-auto px-6 py-20 md:py-28 grid md:grid-cols-2 gap-12 md:gap-20 items-center">
+
+              {/* Image side */}
+              <Reveal direction="none" className="order-first md:order-0">
+                {about.image ? (
+                  <div className="relative aspect-3/4 rounded-2xl overflow-hidden shadow-2xl">
+                    <img src={about.image} alt={about.title} loading="lazy" decoding="async"
+                      className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
                   </div>
-                </div>
-                <style>{`
-                  /* ── Scene & Book ── */
-                  .aav-scene {
-                    perspective: 1400px;
-                    perspective-origin: 60% 50%;
-                    width: 300px;
-                    height: 420px;
-                  }
-                  .aav-book {
-                    width: 100%;
-                    height: 100%;
-                    position: relative;
-                    transform-style: preserve-3d;
-                    transform: rotateX(12deg) rotateY(-28deg);
-                    animation: aav-float 7s ease-in-out infinite;
-                  }
-                  @keyframes aav-float {
-                    0%,100% { transform: rotateX(12deg) rotateY(-28deg) translateY(0px); }
-                    50%     { transform: rotateX(10deg) rotateY(-22deg) translateY(-14px); }
-                  }
-
-                  /* ── Faces ── */
-                  .aav-face {
-                    position: absolute;
-                    backface-visibility: hidden;
-                  }
-
-                  /* FRONT */
-                  .aav-front {
-                    width: 100%; height: 100%;
-                    transform: translateZ(20px);
-                    border-radius: 0 5px 5px 0;
-                    overflow: hidden;
-                    box-shadow: inset -4px 0 12px rgba(0,0,0,0.15);
-                  }
-                  .aav-cover-inner {
-                    width: 100%; height: 100%;
-                    background: linear-gradient(135deg, #1a1209 0%, #2d1f0e 40%, #1a1209 100%);
-                    display: flex; align-items: center; justify-content: center;
-                    position: relative; overflow: hidden;
-                  }
-                  .aav-cover-border {
-                    border: 1px solid rgba(196,152,60,0.45);
-                    margin: 20px;
-                    flex: 1; height: calc(100% - 40px);
-                    display: flex; flex-direction: column;
-                    align-items: center; justify-content: center; gap: 16px;
-                    position: relative; z-index: 1;
-                  }
-                  .aav-cover-title {
-                    font-family: var(--font-display);
-                    font-size: 2.4rem;
-                    font-weight: 300;
-                    letter-spacing: 0.35em;
-                    color: rgba(240,220,180,0.92);
-                    text-align: center;
-                    line-height: 1.15;
-                  }
-                  .aav-cover-rule {
-                    display: flex; align-items: center; gap: 8px; width: 70%;
-                  }
-                  .aav-cover-rule span:first-child,
-                  .aav-cover-rule span:last-child {
-                    flex: 1; height: 1px;
-                    background: linear-gradient(to right, transparent, rgba(196,152,60,0.7), transparent);
-                  }
-                  .aav-diamond {
-                    width: 6px; height: 6px;
-                    background: rgba(196,152,60,0.8);
-                    transform: rotate(45deg);
-                    flex: none !important; height: 6px !important;
-                  }
-                  .aav-cover-sub {
-                    font-size: 0.6rem;
-                    letter-spacing: 0.28em;
-                    text-transform: uppercase;
-                    color: rgba(196,152,60,0.65);
-                  }
-                  .aav-cover-shine {
-                    position: absolute; inset: 0;
-                    background: linear-gradient(115deg, rgba(255,255,255,0.06) 0%, transparent 50%, rgba(0,0,0,0.1) 100%);
-                    pointer-events: none;
-                  }
-                  .aav-front-shade {
-                    position: absolute; inset: 0;
-                    background: linear-gradient(to right, rgba(0,0,0,0.18) 0%, transparent 18%);
-                    pointer-events: none;
-                  }
-
-                  /* BACK */
-                  .aav-back {
-                    width: 100%; height: 100%;
-                    transform: rotateY(180deg) translateZ(20px);
-                    border-radius: 0 5px 5px 0;
-                    overflow: hidden;
-                    background: linear-gradient(135deg, #1a1209, #2d1f0e);
-                  }
-                  .aav-back-inner {
-                    width: 100%; height: 100%;
-                    display: flex; flex-direction: column;
-                    align-items: center; justify-content: center;
-                    gap: 16px; padding: 40px;
-                    border: 1px solid rgba(196,152,60,0.25);
-                    margin: 20px; width: calc(100% - 40px); height: calc(100% - 40px);
-                    box-sizing: border-box;
-                  }
-                  .aav-back-quote {
-                    font-family: var(--font-display);
-                    font-size: 1.05rem;
-                    font-style: italic;
-                    font-weight: 300;
-                    color: rgba(240,220,180,0.75);
-                    text-align: center;
-                    line-height: 1.7;
-                  }
-                  .aav-back-brand {
-                    font-size: 0.65rem;
-                    letter-spacing: 0.2em;
-                    text-transform: uppercase;
-                    color: rgba(196,152,60,0.6);
-                  }
-
-                  /* SPINE */
-                  .aav-spine {
-                    width: 40px;
-                    height: 100%;
-                    left: -20px;
-                    transform: rotateY(-90deg) translateZ(0);
-                    background: linear-gradient(to right, #0f0b06, #1e1508, #0f0b06);
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 20px;
-                    border-radius: 3px 0 0 3px;
-                    box-shadow: inset -3px 0 8px rgba(0,0,0,0.4), inset 2px 0 4px rgba(255,255,255,0.03);
-                  }
-                  .aav-spine-text {
-                    font-family: var(--font-display);
-                    font-size: 0.62rem;
-                    letter-spacing: 0.22em;
-                    color: rgba(196,152,60,0.75);
-                    writing-mode: vertical-rl;
-                    transform: rotate(180deg);
-                  }
-                  .aav-spine-year {
-                    font-size: 0.55rem;
-                    letter-spacing: 0.15em;
-                    color: rgba(196,152,60,0.35);
-                    writing-mode: vertical-rl;
-                    transform: rotate(180deg);
-                  }
-
-                  /* PAGES */
-                  .aav-pages {
-                    width: 36px;
-                    height: 100%;
-                    right: -16px;
-                    transform: rotateY(90deg) translateZ(0);
-                    background: repeating-linear-gradient(
-                      to bottom,
-                      #f5f0e8 0px, #f5f0e8 1.5px,
-                      #e8e2d6 1.5px, #e8e2d6 3px
-                    );
-                    box-shadow: inset 0 0 12px rgba(0,0,0,0.08);
-                  }
-
-                  /* TOP / BOTTOM */
-                  .aav-top {
-                    width: 100%; height: 40px;
-                    top: -20px;
-                    transform: rotateX(90deg) translateZ(0);
-                    background: linear-gradient(to bottom, #e8e2d6, #f0ebe0);
-                  }
-                  .aav-bottom {
-                    width: 100%; height: 40px;
-                    bottom: -20px;
-                    transform: rotateX(-90deg) translateZ(0);
-                    background: linear-gradient(to top, #e0dace, #ebe5d8);
-                  }
-
-                  /* ── Pages ── */
-                  .aav-page {
-                    position: absolute;
-                    width: 100%; height: 100%;
-                    transform-style: preserve-3d;
-                    transform-origin: left center;
-                    animation: aav-flip 4.2s cubic-bezier(0.645,0.045,0.355,1.000) infinite;
-                  }
-                  @keyframes aav-flip {
-                    0%, 20%   { transform: rotateY(0deg); }
-                    45%, 75%  { transform: rotateY(-175deg); }
-                    95%, 100% { transform: rotateY(0deg); }
-                  }
-                  .aav-page-f, .aav-page-b {
-                    position: absolute;
-                    width: 100%; height: 100%;
-                    backface-visibility: hidden;
-                    overflow: hidden;
-                  }
-                  .aav-page-f {
-                    background: #faf7f2;
-                    border-right: 1px solid rgba(0,0,0,0.06);
-                  }
-                  .aav-page-b {
-                    transform: rotateY(180deg);
-                    background: #f5f1ea;
-                  }
-                  .aav-page-content {
-                    padding: 40px 32px;
-                    display: flex; flex-direction: column; gap: 12px;
-                    justify-content: center; height: 100%;
-                  }
-                  .aav-page-h {
-                    font-family: var(--font-display);
-                    font-size: 1.4rem;
-                    font-weight: 400;
-                    color: #1a1209;
-                    letter-spacing: -0.01em;
-                  }
-                  .aav-page-p {
-                    font-size: 0.82rem;
-                    line-height: 1.75;
-                    color: #5a4e3a;
-                    font-weight: 300;
-                  }
-                  .aav-page-shadow-f {
-                    position: absolute; inset: 0;
-                    background: linear-gradient(to right, rgba(0,0,0,0.12) 0%, transparent 30%);
-                    pointer-events: none;
-                  }
-                  .aav-page-shadow-b {
-                    position: absolute; inset: 0;
-                    background: linear-gradient(to left, rgba(0,0,0,0.10) 0%, transparent 30%);
-                    pointer-events: none;
-                  }
-                `}</style>
+                ) : (
+                  /* Elegant brand card when no image */
+                  <div className="aspect-3/4 rounded-2xl overflow-hidden bg-linear-to-br from-[oklch(0.20_0.015_40)] to-[oklch(0.12_0.010_40)] border border-white/6 flex flex-col items-center justify-center gap-8 p-10 relative">
+                    <div className="absolute inset-6 border border-[rgba(196,152,60,0.2)] rounded-xl pointer-events-none" />
+                    <div className="text-center space-y-4 relative z-10">
+                      <p className="font-display text-5xl font-light tracking-[0.3em] text-[rgba(240,220,180,0.9)]">
+                        THE<br />AAVIRA
+                      </p>
+                      <div className="flex items-center gap-3 justify-center">
+                        <div className="h-px w-12 bg-[rgba(196,152,60,0.5)]" />
+                        <div className="size-1.5 rotate-45 bg-[rgba(196,152,60,0.7)]" />
+                        <div className="h-px w-12 bg-[rgba(196,152,60,0.5)]" />
+                      </div>
+                      <p className="text-[10px] tracking-[0.3em] uppercase text-[rgba(196,152,60,0.55)]">
+                        Women's Fashion · Nepal
+                      </p>
+                    </div>
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4 w-full relative z-10 border-t border-white/8 pt-8">
+                      {[{ n: "500+", l: "Customers" }, { n: "77", l: "Districts" }, { n: "100%", l: "Authentic" }].map(({ n, l }) => (
+                        <div key={l} className="text-center">
+                          <p className="font-display text-2xl font-light text-[rgba(240,220,180,0.85)]">{n}</p>
+                          <p className="text-[10px] tracking-wide uppercase text-[rgba(196,152,60,0.5)] mt-1">{l}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Reveal>
 
+              {/* Text side */}
               <Reveal delay={100}>
-                <p className="text-xs tracking-[0.2em] uppercase text-accent mb-4">Our story</p>
-                <h2 className="text-4xl md:text-5xl font-display font-light leading-snug">{about.title}</h2>
+                <p className="text-[11px] tracking-[0.25em] uppercase text-accent/70 mb-5">Our story</p>
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-display font-light leading-tight text-[oklch(0.94_0.006_60)]">
+                  {about.title}
+                </h2>
                 {about.body && (
-                  <p className="mt-6 text-muted-foreground leading-relaxed font-light whitespace-pre-line">{about.body}</p>
+                  <p className="mt-6 text-[oklch(0.60_0.008_60)] leading-relaxed font-light text-base md:text-lg whitespace-pre-line">
+                    {about.body}
+                  </p>
                 )}
-                <a href="#shop" className="inline-flex items-center gap-2 mt-8 text-sm font-medium border-b border-foreground/30 pb-0.5 hover:border-accent hover:text-accent transition-colors">
-                  Shop the collection <ArrowRight className="size-3.5" />
+
+                {/* Feature points */}
+                <div className="mt-10 space-y-4">
+                  {[
+                    { icon: Sparkles, t: "Curated with care", s: "Every piece hand-picked for quality and style." },
+                    { icon: Truck, t: "Delivered nationwide", s: "Reach every district across Nepal." },
+                    { icon: ShieldCheck, t: "Cash on delivery", s: "Pay when it arrives — zero risk." },
+                  ].map(({ icon: Icon, t, s }) => (
+                    <div key={t} className="flex items-start gap-4">
+                      <div className="size-9 rounded-full bg-accent/15 grid place-items-center shrink-0 mt-0.5">
+                        <Icon className="size-3.5 text-accent" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[oklch(0.88_0.006_60)]">{t}</p>
+                        <p className="text-xs text-[oklch(0.52_0.008_60)] mt-0.5">{s}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <a href="#shop"
+                  className="group inline-flex items-center gap-2 mt-10 px-8 py-4 rounded-full bg-accent text-accent-foreground text-sm font-medium tracking-wide transition-all duration-300 hover:shadow-[0_8px_30px_oklch(0.62_0.14_358/0.4)] hover:scale-[1.02]">
+                  Shop the collection
+                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </a>
               </Reveal>
             </div>
           </section>
         )}
+
       </main>
       <SiteFooter />
     </div>
