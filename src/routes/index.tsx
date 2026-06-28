@@ -446,15 +446,157 @@ function Index() {
         {about.title && (
           <section className="border-t border-border/50 mt-8">
             <div className="container mx-auto px-6 py-24 grid md:grid-cols-2 gap-16 items-center">
-              {about.image && (
-                <Reveal direction="none" className="relative order-first md:order-none">
-                  <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-xl">
-                    <img src={about.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+              {/* 3D Book flip animation */}
+              <Reveal direction="none" className="flex items-center justify-center order-first md:order-0">
+                <div className="book-scene">
+                  <div className="book">
+                    {/* Front cover */}
+                    <div className="book-face book-front">
+                      {about.image ? (
+                        <img src={about.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-r-md" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[oklch(0.96_0.012_72)] rounded-r-md p-8">
+                          <span className="font-display text-5xl font-light tracking-widest text-foreground/80">AAVIRA</span>
+                          <div className="flex items-center gap-3 w-full">
+                            <div className="h-px flex-1 bg-accent/50" />
+                            <div className="size-2 rotate-45 bg-accent/70" />
+                            <div className="h-px flex-1 bg-accent/50" />
+                          </div>
+                          <span className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Est. Nepal</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Back cover */}
+                    <div className="book-face book-back">
+                      <div className="w-full h-full bg-[oklch(0.20_0.015_40)] rounded-r-md flex items-center justify-center p-8">
+                        <span className="font-display text-2xl font-light text-white/60 italic text-center leading-relaxed">
+                          "Style is a way to say who you are without speaking."
+                        </span>
+                      </div>
+                    </div>
+                    {/* Spine */}
+                    <div className="book-face book-spine">
+                      <span className="font-display text-sm tracking-[0.25em] uppercase text-white/80 rotate-180" style={{ writingMode: "vertical-rl" }}>The Aavira</span>
+                    </div>
+                    {/* Pages edge */}
+                    <div className="book-face book-pages" />
+                    {/* Top */}
+                    <div className="book-face book-top" />
+                    {/* Bottom */}
+                    <div className="book-face book-bottom" />
+                    {/* Flipping page */}
+                    <div className="book-page-flip">
+                      <div className="book-page-front">
+                        <div className="w-full h-full bg-[oklch(0.97_0.008_60)] flex items-center justify-center p-8">
+                          <p className="font-display text-lg font-light text-foreground/70 italic text-center leading-relaxed">Premium women's fashion, delivered across Nepal.</p>
+                        </div>
+                      </div>
+                      <div className="book-page-back">
+                        <div className="w-full h-full bg-[oklch(0.96_0.012_72)] flex items-center justify-center p-8">
+                          <p className="font-display text-lg font-light text-foreground/70 italic text-center leading-relaxed">Curated with intention. Worn with confidence.</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  {/* Decorative frame */}
-                  <div className="absolute -bottom-4 -right-4 -z-10 w-full h-full border border-accent/30 rounded-2xl" />
-                </Reveal>
-              )}
+                </div>
+                <style>{`
+                  .book-scene {
+                    perspective: 1200px;
+                    width: 280px;
+                    height: 380px;
+                  }
+                  .book {
+                    width: 100%;
+                    height: 100%;
+                    position: relative;
+                    transform-style: preserve-3d;
+                    transform: rotateY(-25deg) rotateX(8deg);
+                    animation: book-float 6s ease-in-out infinite;
+                    filter: drop-shadow(0 40px 60px oklch(0 0 0 / 0.22));
+                  }
+                  @keyframes book-float {
+                    0%, 100% { transform: rotateY(-25deg) rotateX(8deg) translateY(0); }
+                    50%       { transform: rotateY(-25deg) rotateX(8deg) translateY(-12px); }
+                  }
+                  .book-face {
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                  }
+                  .book-front {
+                    transform: translateZ(18px);
+                    overflow: hidden;
+                    border-radius: 0 6px 6px 0;
+                    border: 1px solid oklch(0 0 0 / 0.08);
+                  }
+                  .book-back {
+                    transform: rotateY(180deg) translateZ(18px);
+                    overflow: hidden;
+                  }
+                  .book-spine {
+                    width: 36px;
+                    left: -18px;
+                    transform: rotateY(-90deg) translateZ(0px);
+                    background: oklch(0.18 0.015 40);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px 0 0 4px;
+                  }
+                  .book-pages {
+                    width: 32px;
+                    right: -16px;
+                    transform: rotateY(90deg) translateZ(0px);
+                    background: repeating-linear-gradient(
+                      to bottom,
+                      oklch(0.97 0.006 60),
+                      oklch(0.97 0.006 60) 2px,
+                      oklch(0.92 0.008 60) 2px,
+                      oklch(0.92 0.008 60) 3px
+                    );
+                  }
+                  .book-top {
+                    height: 36px;
+                    top: -18px;
+                    transform: rotateX(90deg) translateZ(0px);
+                    background: oklch(0.94 0.010 60);
+                  }
+                  .book-bottom {
+                    height: 36px;
+                    bottom: -18px;
+                    transform: rotateX(-90deg) translateZ(0px);
+                    background: oklch(0.92 0.010 60);
+                  }
+                  /* Flipping page */
+                  .book-page-flip {
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    transform-style: preserve-3d;
+                    transform-origin: left center;
+                    animation: page-flip 4s ease-in-out infinite;
+                    animation-delay: 1s;
+                  }
+                  @keyframes page-flip {
+                    0%, 30%  { transform: rotateY(0deg); }
+                    50%, 80% { transform: rotateY(-160deg); }
+                    100%     { transform: rotateY(0deg); }
+                  }
+                  .book-page-front,
+                  .book-page-back {
+                    position: absolute;
+                    width: 100%;
+                    height: 100%;
+                    backface-visibility: hidden;
+                    overflow: hidden;
+                    border: 1px solid oklch(0 0 0 / 0.06);
+                  }
+                  .book-page-back {
+                    transform: rotateY(180deg);
+                  }
+                `}</style>
+              </Reveal>
+
               <Reveal delay={100}>
                 <p className="text-xs tracking-[0.2em] uppercase text-accent mb-4">Our story</p>
                 <h2 className="text-4xl md:text-5xl font-display font-light leading-snug">{about.title}</h2>
