@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useLenis } from "@/lib/lenis";
 
@@ -11,6 +11,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logPageVisit } from "@/lib/visits.functions";
+import { ComingSoon } from "@/components/coming-soon";
 
 function NotFoundComponent() {
   return (
@@ -83,6 +84,11 @@ function RootComponent() {
   const logVisit = useServerFn(logPageVisit);
   useLenis();
 
+  const [siteLocked, setSiteLocked] = useState<boolean | null>(null);
+  const [launchDate, setLaunchDate] = useState<string | null>(null);
+  const [storeName, setStoreName] = useState("The Aavira");
+  const settingsLoaded = useRef(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -95,13 +101,16 @@ function RootComponent() {
   }, [router, queryClient]);
 
   useEffect(() => {
-    supabase.from("app_settings").select("key,value").in("key", ["theme_accent", "store_name", "site_description"]).then(({ data }) => {
+    if (settingsLoaded.current) return;
+    settingsLoaded.current = true;
+    supabase.from("app_settings").select("key,value").in("key", ["theme_accent", "store_name", "site_description", "site_locked", "launch_date"]).then(({ data }) => {
       const obj: Record<string, string> = {};
       (data ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) obj[r.key] = r.value; });
       if (obj.theme_accent) document.documentElement.style.setProperty("--accent", obj.theme_accent);
       if (obj.store_name) {
         const name = obj.store_name;
         const desc = obj.site_description ?? "";
+        setStoreName(name);
         document.title = name;
         const set = (sel: string, attr: string, val: string) => {
           const el = document.querySelector<HTMLMetaElement>(sel);
@@ -115,6 +124,8 @@ function RootComponent() {
           set('meta[name="twitter:description"]', "content", desc);
         }
       }
+      setSiteLocked(obj.site_locked === "true");
+      setLaunchDate(obj.launch_date || null);
     });
   }, []);
 
@@ -126,9 +137,19 @@ function RootComponent() {
     logVisit({ data: { path } }).catch(() => {});
   }, [router.state.location.pathname, logVisit]);
 
+  const isAdminPath = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+  const showComingSoon = siteLocked === true && !isAdminPath;
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      {showComingSoon ? (
+        <ComingSoon storeName={storeName} launchDate={launchDate} />
+      ) : siteLocked === null && !isAdminPath ? (
+        // brief blank while settings load — avoids flash of store before lock kicks in
+        <div className="min-h-screen bg-background" />
+      ) : (
+        <Outlet />
+      )}
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
   );

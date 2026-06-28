@@ -249,6 +249,51 @@ function SettingsPage() {
         description="Store branding, homepage hero and shipping configuration."
       />
       <div className="max-w-xl space-y-6">
+        {/* Launch lock */}
+        <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+          <div>
+            <h3 className="font-medium">Launch lock</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              When enabled, all storefront pages show a "Coming Soon" countdown instead of the real site.
+              Admins can still access <code className="text-xs">/admin</code> as normal.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={vals.site_locked === "true"}
+              onClick={() => {
+                const next = vals.site_locked === "true" ? "false" : "true";
+                setVals((p) => ({ ...p, site_locked: next }));
+                saveValue("site_locked", next);
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                vals.site_locked === "true" ? "bg-accent" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  vals.site_locked === "true" ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-sm">{vals.site_locked === "true" ? "Site is locked (Coming Soon)" : "Site is live"}</span>
+          </div>
+          <div className="space-y-1">
+            <Label>Launch date &amp; time</Label>
+            <div className="flex gap-2">
+              <Input
+                type="datetime-local"
+                value={vals.launch_date ?? ""}
+                onChange={(e) => setVals({ ...vals, launch_date: e.target.value })}
+              />
+              <Button onClick={() => save("launch_date")}>Save</Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Shown as a countdown on the Coming Soon page. Leave blank to hide the timer.</p>
+          </div>
+        </div>
+
         {field("store_name", "Store name", "Shown in the browser tab, OG share cards, and search results.")}
         {field("site_url", "Site URL", "Your full domain e.g. https://mystore.com — used in sitemap and share links. No trailing slash.")}
         {field("site_description", "Store description", "One sentence shown in Google search results and link previews.")}
