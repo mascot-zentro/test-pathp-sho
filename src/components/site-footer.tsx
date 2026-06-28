@@ -39,10 +39,10 @@ export function SiteFooter() {
   }, []);
 
   const storeName = vals.store_name || "Modern Store";
-  const instagram = vals.social_instagram || "https://www.instagram.com/the_aavira/";
-  const facebook = vals.social_facebook || "https://www.facebook.com/profile.php?id=61583443176427";
-  const tiktok = vals.social_tiktok || "https://www.tiktok.com/@the_aavira";
-  const hasSocial = true;
+  const instagram = vals.social_instagram;
+  const facebook = vals.social_facebook;
+  const tiktok = vals.social_tiktok;
+  const hasSocial = !!(instagram || facebook || tiktok);
 
   return (
     <footer className="relative border-t border-border/50 bg-[oklch(0.14_0.012_40)] text-[oklch(0.75_0.008_60)] pb-24 sm:pb-0">
@@ -62,15 +62,9 @@ export function SiteFooter() {
           </p>
           {hasSocial && (
             <div className="mt-6 flex items-center gap-2.5">
-              <SocialLink href={instagram} label="Instagram">
-                <Instagram className="size-4" />
-              </SocialLink>
-              <SocialLink href={facebook} label="Facebook">
-                <Facebook className="size-4" />
-              </SocialLink>
-              <SocialLink href={tiktok} label="TikTok">
-                <TikTokIcon className="size-4" />
-              </SocialLink>
+              {instagram && <SocialLink href={instagram} label="Instagram"><Instagram className="size-4" /></SocialLink>}
+              {facebook && <SocialLink href={facebook} label="Facebook"><Facebook className="size-4" /></SocialLink>}
+              {tiktok && <SocialLink href={tiktok} label="TikTok"><TikTokIcon className="size-4" /></SocialLink>}
             </div>
           )}
         </div>
