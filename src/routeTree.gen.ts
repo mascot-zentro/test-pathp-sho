@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WishlistRouteImport } from './routes/wishlist'
+import { Route as TrackRouteImport } from './routes/track'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SaleRouteImport } from './routes/sale'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
@@ -20,9 +22,6 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
-import { Route as WishlistRouteImport } from './routes/wishlist'
-import { Route as TrackRouteImport } from './routes/track'
-import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
 import { Route as CheckoutProductIdRouteImport } from './routes/checkout.$productId'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminSalesReportRouteImport } from './routes/admin/sales-report'
@@ -32,11 +31,22 @@ import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminFaqsRouteImport } from './routes/admin/faqs'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
+import { Route as AdminCustomersRouteImport } from './routes/admin/customers'
 import { Route as AdminContentRouteImport } from './routes/admin/content'
 import { Route as AdminAdSpendingRouteImport } from './routes/admin/ad-spending'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin/products.index'
 import { Route as AdminProductsSlugRouteImport } from './routes/admin/products.$slug'
 
+const WishlistRoute = WishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackRoute = TrackRouteImport.update({
+  id: '/track',
+  path: '/track',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -92,21 +102,6 @@ const ProductSlugRoute = ProductSlugRouteImport.update({
   path: '/product/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WishlistRoute = WishlistRouteImport.update({
-  id: '/wishlist',
-  path: '/wishlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TrackRoute = TrackRouteImport.update({
-  id: '/track',
-  path: '/track',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminCustomersRoute = AdminCustomersRouteImport.update({
-  id: '/customers',
-  path: '/customers',
-  getParentRoute: () => AdminRoute,
-} as any)
 const CheckoutProductIdRoute = CheckoutProductIdRouteImport.update({
   id: '/checkout/$productId',
   path: '/checkout/$productId',
@@ -152,6 +147,11 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCustomersRoute = AdminCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminContentRoute = AdminContentRouteImport.update({
   id: '/content',
   path: '/content',
@@ -183,10 +183,11 @@ export interface FileRoutesByFullPath {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
-  '/wishlist': typeof WishlistRoute
   '/track': typeof TrackRoute
+  '/wishlist': typeof WishlistRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/customers': typeof AdminCustomersRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -197,7 +198,6 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
   '/product/$slug': typeof ProductSlugRoute
-  '/admin/customers': typeof AdminCustomersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/$slug': typeof AdminProductsSlugRoute
   '/admin/products/': typeof AdminProductsIndexRoute
@@ -211,10 +211,11 @@ export interface FileRoutesByTo {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
-  '/wishlist': typeof WishlistRoute
   '/track': typeof TrackRoute
+  '/wishlist': typeof WishlistRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/customers': typeof AdminCustomersRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -224,7 +225,6 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
   '/product/$slug': typeof ProductSlugRoute
-  '/admin/customers': typeof AdminCustomersRoute
   '/admin': typeof AdminIndexRoute
   '/admin/products/$slug': typeof AdminProductsSlugRoute
   '/admin/products': typeof AdminProductsIndexRoute
@@ -240,10 +240,11 @@ export interface FileRoutesById {
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
-  '/wishlist': typeof WishlistRoute
   '/track': typeof TrackRoute
+  '/wishlist': typeof WishlistRoute
   '/admin/ad-spending': typeof AdminAdSpendingRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/customers': typeof AdminCustomersRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -254,7 +255,6 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/checkout/$productId': typeof CheckoutProductIdRoute
   '/product/$slug': typeof ProductSlugRoute
-  '/admin/customers': typeof AdminCustomersRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/$slug': typeof AdminProductsSlugRoute
   '/admin/products/': typeof AdminProductsIndexRoute
@@ -271,10 +271,11 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/sale'
     | '/terms'
-    | '/wishlist'
     | '/track'
+    | '/wishlist'
     | '/admin/ad-spending'
     | '/admin/content'
+    | '/admin/customers'
     | '/admin/dashboard'
     | '/admin/faqs'
     | '/admin/inventory'
@@ -285,7 +286,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/$productId'
     | '/product/$slug'
-    | '/admin/customers'
     | '/admin/'
     | '/admin/products/$slug'
     | '/admin/products/'
@@ -299,10 +299,11 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/sale'
     | '/terms'
-    | '/wishlist'
     | '/track'
+    | '/wishlist'
     | '/admin/ad-spending'
     | '/admin/content'
+    | '/admin/customers'
     | '/admin/dashboard'
     | '/admin/faqs'
     | '/admin/inventory'
@@ -312,7 +313,6 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/checkout/$productId'
     | '/product/$slug'
-    | '/admin/customers'
     | '/admin'
     | '/admin/products/$slug'
     | '/admin/products'
@@ -327,8 +327,8 @@ export interface FileRouteTypes {
     | '/order-confirmed'
     | '/sale'
     | '/terms'
-    | '/wishlist'
     | '/track'
+    | '/wishlist'
     | '/admin/ad-spending'
     | '/admin/content'
     | '/admin/customers'
@@ -357,14 +357,28 @@ export interface RootRouteChildren {
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   SaleRoute: typeof SaleRoute
   TermsRoute: typeof TermsRoute
-  WishlistRoute: typeof WishlistRoute
   TrackRoute: typeof TrackRoute
+  WishlistRoute: typeof WishlistRoute
   CheckoutProductIdRoute: typeof CheckoutProductIdRoute
   ProductSlugRoute: typeof ProductSlugRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/track': {
+      id: '/track'
+      path: '/track'
+      fullPath: '/track'
+      preLoaderRoute: typeof TrackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -435,10 +449,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/product/$id': {
-      id: '/product/$id'
-      path: '/product/$id'
-      fullPath: '/product/$id'
+    '/product/$slug': {
+      id: '/product/$slug'
+      path: '/product/$slug'
+      fullPath: '/product/$slug'
       preLoaderRoute: typeof ProductSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -505,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDashboardRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/customers': {
+      id: '/admin/customers'
+      path: '/customers'
+      fullPath: '/admin/customers'
+      preLoaderRoute: typeof AdminCustomersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/content': {
       id: '/admin/content'
       path: '/content'
@@ -532,34 +553,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/products/$slug'
       preLoaderRoute: typeof AdminProductsSlugRouteImport
       parentRoute: typeof AdminProductsRoute
-    }
-    '/product/$slug': {
-      id: '/product/$slug'
-      path: '/product/$slug'
-      fullPath: '/product/$slug'
-      preLoaderRoute: typeof ProductSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/customers': {
-      id: '/admin/customers'
-      path: '/customers'
-      fullPath: '/admin/customers'
-      preLoaderRoute: typeof AdminCustomersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/wishlist': {
-      id: '/wishlist'
-      path: '/wishlist'
-      fullPath: '/wishlist'
-      preLoaderRoute: typeof WishlistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/track': {
-      id: '/track'
-      path: '/track'
-      fullPath: '/track'
-      preLoaderRoute: typeof TrackRouteImport
-      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -620,8 +613,8 @@ const rootRouteChildren: RootRouteChildren = {
   OrderConfirmedRoute: OrderConfirmedRoute,
   SaleRoute: SaleRoute,
   TermsRoute: TermsRoute,
-  WishlistRoute: WishlistRoute,
   TrackRoute: TrackRoute,
+  WishlistRoute: WishlistRoute,
   CheckoutProductIdRoute: CheckoutProductIdRoute,
   ProductSlugRoute: ProductSlugRoute,
 }

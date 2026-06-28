@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ArrowUp, Facebook, Instagram, Mail, Phone, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-const SETTINGS_KEYS = ["store_name", "footer_text", "contact_email", "contact_phone", "social_instagram", "social_facebook", "social_tiktok"] as const;
+const SETTINGS_KEYS = ["store_name", "footer_text", "contact_email", "contact_phone", "social_instagram", "social_facebook", "social_tiktok"];
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -20,7 +20,7 @@ function SocialLink({ href, label, children }: { href: string; label: string; ch
       target="_blank"
       rel="noreferrer"
       aria-label={label}
-      className="grid size-9 place-items-center rounded-full border border-foreground/15 text-foreground/50 transition-all duration-300 hover:border-accent hover:text-accent hover:bg-accent/8 hover:-translate-y-0.5"
+      className="grid size-9 place-items-center rounded-full border border-white/20 text-white/60 transition-all duration-300 hover:border-white hover:text-white hover:-translate-y-0.5"
     >
       {children}
     </a>
@@ -39,10 +39,10 @@ export function SiteFooter() {
   }, []);
 
   const storeName = vals.store_name || "Modern Store";
-  const instagram = vals.social_instagram;
-  const facebook = vals.social_facebook;
-  const tiktok = vals.social_tiktok;
-  const hasSocial = !!(instagram || facebook || tiktok);
+  const instagram = vals.social_instagram || "https://www.instagram.com/the_aavira/";
+  const facebook = vals.social_facebook || "https://www.facebook.com/profile.php?id=61583443176427";
+  const tiktok = vals.social_tiktok || "https://www.tiktok.com/@the_aavira";
+  const hasSocial = true;
 
   return (
     <footer className="relative border-t border-border/50 bg-[oklch(0.14_0.012_40)] text-[oklch(0.75_0.008_60)] pb-24 sm:pb-0">
