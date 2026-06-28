@@ -268,6 +268,12 @@ function SettingsPage() {
             "Optional. Shown behind the hero text on the homepage.",
           )}
         </div>
+        <div className="border-t pt-6 space-y-4">
+          <h3 className="font-medium">Social media</h3>
+          {field("social_instagram", "Instagram URL", "Full URL e.g. https://www.instagram.com/yourhandle")}
+          {field("social_facebook", "Facebook URL", "Full URL to your Facebook page")}
+          {field("social_tiktok", "TikTok URL", "Full URL e.g. https://www.tiktok.com/@yourhandle")}
+        </div>
         {field(
           "whatsapp_number",
           "Default WhatsApp number",
