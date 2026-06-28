@@ -39,12 +39,15 @@ export function SiteFooter() {
   }, []);
 
   const storeName = vals.store_name || "Modern Store";
-  const hasSocial = vals.social_instagram || vals.social_facebook || vals.social_tiktok;
+  const instagram = vals.social_instagram || "https://www.instagram.com/the_aavira/";
+  const facebook = vals.social_facebook || "https://www.facebook.com/profile.php?id=61583443176427";
+  const tiktok = vals.social_tiktok || "https://www.tiktok.com/@the_aavira";
+  const hasSocial = true;
 
   return (
     <footer className="relative border-t border-border/50 bg-[oklch(0.14_0.012_40)] text-[oklch(0.75_0.008_60)] pb-24 sm:pb-0">
       {/* Accent gradient line */}
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
+      <div className="h-px w-full bg-linear-to-r from-transparent via-accent/60 to-transparent" />
 
       <div className="container mx-auto px-6 pt-16 pb-10 grid gap-12 md:grid-cols-[1.6fr_1fr_1fr]">
 
@@ -59,21 +62,15 @@ export function SiteFooter() {
           </p>
           {hasSocial && (
             <div className="mt-6 flex items-center gap-2.5">
-              {vals.social_instagram && (
-                <SocialLink href={vals.social_instagram} label="Instagram">
-                  <Instagram className="size-4" />
-                </SocialLink>
-              )}
-              {vals.social_facebook && (
-                <SocialLink href={vals.social_facebook} label="Facebook">
-                  <Facebook className="size-4" />
-                </SocialLink>
-              )}
-              {vals.social_tiktok && (
-                <SocialLink href={vals.social_tiktok} label="TikTok">
-                  <TikTokIcon className="size-4" />
-                </SocialLink>
-              )}
+              <SocialLink href={instagram} label="Instagram">
+                <Instagram className="size-4" />
+              </SocialLink>
+              <SocialLink href={facebook} label="Facebook">
+                <Facebook className="size-4" />
+              </SocialLink>
+              <SocialLink href={tiktok} label="TikTok">
+                <TikTokIcon className="size-4" />
+              </SocialLink>
             </div>
           )}
         </div>
