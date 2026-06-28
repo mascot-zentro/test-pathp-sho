@@ -446,153 +446,297 @@ function Index() {
         {about.title && (
           <section className="border-t border-border/50 mt-8">
             <div className="container mx-auto px-6 py-24 grid md:grid-cols-2 gap-16 items-center">
-              {/* 3D Book flip animation */}
+              {/* 3D Book */}
               <Reveal direction="none" className="flex items-center justify-center order-first md:order-0">
-                <div className="book-scene">
-                  <div className="book">
+                <div className="aav-scene">
+                  <div className="aav-book">
                     {/* Front cover */}
-                    <div className="book-face book-front">
+                    <div className="aav-face aav-front">
                       {about.image ? (
-                        <img src={about.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover rounded-r-md" />
+                        <img src={about.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-[oklch(0.96_0.012_72)] rounded-r-md p-8">
-                          <span className="font-display text-5xl font-light tracking-widest text-foreground/80">AAVIRA</span>
-                          <div className="flex items-center gap-3 w-full">
-                            <div className="h-px flex-1 bg-accent/50" />
-                            <div className="size-2 rotate-45 bg-accent/70" />
-                            <div className="h-px flex-1 bg-accent/50" />
+                        <div className="aav-cover-inner">
+                          <div className="aav-cover-border">
+                            <span className="aav-cover-title">THE<br/>AAVIRA</span>
+                            <div className="aav-cover-rule"><span/><span className="aav-diamond"/><span/></div>
+                            <span className="aav-cover-sub">Women's Fashion · Nepal</span>
                           </div>
-                          <span className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Est. Nepal</span>
+                          <div className="aav-cover-shine"/>
                         </div>
                       )}
+                      <div className="aav-front-shade"/>
                     </div>
                     {/* Back cover */}
-                    <div className="book-face book-back">
-                      <div className="w-full h-full bg-[oklch(0.20_0.015_40)] rounded-r-md flex items-center justify-center p-8">
-                        <span className="font-display text-2xl font-light text-white/60 italic text-center leading-relaxed">
-                          "Style is a way to say who you are without speaking."
-                        </span>
+                    <div className="aav-face aav-back">
+                      <div className="aav-back-inner">
+                        <span className="aav-back-quote">"Style is a way to say who you are without having to speak."</span>
+                        <span className="aav-back-brand">— The Aavira</span>
                       </div>
                     </div>
                     {/* Spine */}
-                    <div className="book-face book-spine">
-                      <span className="font-display text-sm tracking-[0.25em] uppercase text-white/80 rotate-180" style={{ writingMode: "vertical-rl" }}>The Aavira</span>
+                    <div className="aav-face aav-spine">
+                      <span className="aav-spine-text">THE AAVIRA</span>
+                      <span className="aav-spine-year">2025</span>
                     </div>
                     {/* Pages edge */}
-                    <div className="book-face book-pages" />
-                    {/* Top */}
-                    <div className="book-face book-top" />
-                    {/* Bottom */}
-                    <div className="book-face book-bottom" />
-                    {/* Flipping page */}
-                    <div className="book-page-flip">
-                      <div className="book-page-front">
-                        <div className="w-full h-full bg-[oklch(0.97_0.008_60)] flex items-center justify-center p-8">
-                          <p className="font-display text-lg font-light text-foreground/70 italic text-center leading-relaxed">Premium women's fashion, delivered across Nepal.</p>
+                    <div className="aav-face aav-pages"/>
+                    {/* Top edge */}
+                    <div className="aav-face aav-top"/>
+                    {/* Bottom edge */}
+                    <div className="aav-face aav-bottom"/>
+                    {/* Flipping pages */}
+                    {[0,1,2].map((i) => (
+                      <div key={i} className="aav-page" style={{ animationDelay: `${i * 1.4 + 0.8}s` }}>
+                        <div className="aav-page-f">
+                          <div className="aav-page-content">
+                            {i === 0 && <><p className="aav-page-h">Our Promise</p><p className="aav-page-p">Premium quality tops crafted for every woman in Nepal.</p></>}
+                            {i === 1 && <><p className="aav-page-h">Fast Delivery</p><p className="aav-page-p">Nationwide delivery across Nepal — at your doorstep.</p></>}
+                            {i === 2 && <><p className="aav-page-h">Our Style</p><p className="aav-page-p">Timeless silhouettes, modern details, everyday confidence.</p></>}
+                          </div>
+                          <div className="aav-page-shadow-f"/>
+                        </div>
+                        <div className="aav-page-b">
+                          <div className="aav-page-shadow-b"/>
                         </div>
                       </div>
-                      <div className="book-page-back">
-                        <div className="w-full h-full bg-[oklch(0.96_0.012_72)] flex items-center justify-center p-8">
-                          <p className="font-display text-lg font-light text-foreground/70 italic text-center leading-relaxed">Curated with intention. Worn with confidence.</p>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
                 <style>{`
-                  .book-scene {
-                    perspective: 1200px;
-                    width: 280px;
-                    height: 380px;
+                  /* ── Scene & Book ── */
+                  .aav-scene {
+                    perspective: 1400px;
+                    perspective-origin: 60% 50%;
+                    width: 300px;
+                    height: 420px;
                   }
-                  .book {
+                  .aav-book {
                     width: 100%;
                     height: 100%;
                     position: relative;
                     transform-style: preserve-3d;
-                    transform: rotateY(-25deg) rotateX(8deg);
-                    animation: book-float 6s ease-in-out infinite;
-                    filter: drop-shadow(0 40px 60px oklch(0 0 0 / 0.22));
+                    transform: rotateX(12deg) rotateY(-28deg);
+                    animation: aav-float 7s ease-in-out infinite;
                   }
-                  @keyframes book-float {
-                    0%, 100% { transform: rotateY(-25deg) rotateX(8deg) translateY(0); }
-                    50%       { transform: rotateY(-25deg) rotateX(8deg) translateY(-12px); }
+                  @keyframes aav-float {
+                    0%,100% { transform: rotateX(12deg) rotateY(-28deg) translateY(0px); }
+                    50%     { transform: rotateX(10deg) rotateY(-22deg) translateY(-14px); }
                   }
-                  .book-face {
+
+                  /* ── Faces ── */
+                  .aav-face {
                     position: absolute;
-                    width: 100%;
+                    backface-visibility: hidden;
+                  }
+
+                  /* FRONT */
+                  .aav-front {
+                    width: 100%; height: 100%;
+                    transform: translateZ(20px);
+                    border-radius: 0 5px 5px 0;
+                    overflow: hidden;
+                    box-shadow: inset -4px 0 12px rgba(0,0,0,0.15);
+                  }
+                  .aav-cover-inner {
+                    width: 100%; height: 100%;
+                    background: linear-gradient(135deg, #1a1209 0%, #2d1f0e 40%, #1a1209 100%);
+                    display: flex; align-items: center; justify-content: center;
+                    position: relative; overflow: hidden;
+                  }
+                  .aav-cover-border {
+                    border: 1px solid rgba(196,152,60,0.45);
+                    margin: 20px;
+                    flex: 1; height: calc(100% - 40px);
+                    display: flex; flex-direction: column;
+                    align-items: center; justify-content: center; gap: 16px;
+                    position: relative; z-index: 1;
+                  }
+                  .aav-cover-title {
+                    font-family: var(--font-display);
+                    font-size: 2.4rem;
+                    font-weight: 300;
+                    letter-spacing: 0.35em;
+                    color: rgba(240,220,180,0.92);
+                    text-align: center;
+                    line-height: 1.15;
+                  }
+                  .aav-cover-rule {
+                    display: flex; align-items: center; gap: 8px; width: 70%;
+                  }
+                  .aav-cover-rule span:first-child,
+                  .aav-cover-rule span:last-child {
+                    flex: 1; height: 1px;
+                    background: linear-gradient(to right, transparent, rgba(196,152,60,0.7), transparent);
+                  }
+                  .aav-diamond {
+                    width: 6px; height: 6px;
+                    background: rgba(196,152,60,0.8);
+                    transform: rotate(45deg);
+                    flex: none !important; height: 6px !important;
+                  }
+                  .aav-cover-sub {
+                    font-size: 0.6rem;
+                    letter-spacing: 0.28em;
+                    text-transform: uppercase;
+                    color: rgba(196,152,60,0.65);
+                  }
+                  .aav-cover-shine {
+                    position: absolute; inset: 0;
+                    background: linear-gradient(115deg, rgba(255,255,255,0.06) 0%, transparent 50%, rgba(0,0,0,0.1) 100%);
+                    pointer-events: none;
+                  }
+                  .aav-front-shade {
+                    position: absolute; inset: 0;
+                    background: linear-gradient(to right, rgba(0,0,0,0.18) 0%, transparent 18%);
+                    pointer-events: none;
+                  }
+
+                  /* BACK */
+                  .aav-back {
+                    width: 100%; height: 100%;
+                    transform: rotateY(180deg) translateZ(20px);
+                    border-radius: 0 5px 5px 0;
+                    overflow: hidden;
+                    background: linear-gradient(135deg, #1a1209, #2d1f0e);
+                  }
+                  .aav-back-inner {
+                    width: 100%; height: 100%;
+                    display: flex; flex-direction: column;
+                    align-items: center; justify-content: center;
+                    gap: 16px; padding: 40px;
+                    border: 1px solid rgba(196,152,60,0.25);
+                    margin: 20px; width: calc(100% - 40px); height: calc(100% - 40px);
+                    box-sizing: border-box;
+                  }
+                  .aav-back-quote {
+                    font-family: var(--font-display);
+                    font-size: 1.05rem;
+                    font-style: italic;
+                    font-weight: 300;
+                    color: rgba(240,220,180,0.75);
+                    text-align: center;
+                    line-height: 1.7;
+                  }
+                  .aav-back-brand {
+                    font-size: 0.65rem;
+                    letter-spacing: 0.2em;
+                    text-transform: uppercase;
+                    color: rgba(196,152,60,0.6);
+                  }
+
+                  /* SPINE */
+                  .aav-spine {
+                    width: 40px;
                     height: 100%;
-                  }
-                  .book-front {
-                    transform: translateZ(18px);
-                    overflow: hidden;
-                    border-radius: 0 6px 6px 0;
-                    border: 1px solid oklch(0 0 0 / 0.08);
-                  }
-                  .book-back {
-                    transform: rotateY(180deg) translateZ(18px);
-                    overflow: hidden;
-                  }
-                  .book-spine {
-                    width: 36px;
-                    left: -18px;
-                    transform: rotateY(-90deg) translateZ(0px);
-                    background: oklch(0.18 0.015 40);
+                    left: -20px;
+                    transform: rotateY(-90deg) translateZ(0);
+                    background: linear-gradient(to right, #0f0b06, #1e1508, #0f0b06);
                     display: flex;
+                    flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    border-radius: 4px 0 0 4px;
+                    gap: 20px;
+                    border-radius: 3px 0 0 3px;
+                    box-shadow: inset -3px 0 8px rgba(0,0,0,0.4), inset 2px 0 4px rgba(255,255,255,0.03);
                   }
-                  .book-pages {
-                    width: 32px;
+                  .aav-spine-text {
+                    font-family: var(--font-display);
+                    font-size: 0.62rem;
+                    letter-spacing: 0.22em;
+                    color: rgba(196,152,60,0.75);
+                    writing-mode: vertical-rl;
+                    transform: rotate(180deg);
+                  }
+                  .aav-spine-year {
+                    font-size: 0.55rem;
+                    letter-spacing: 0.15em;
+                    color: rgba(196,152,60,0.35);
+                    writing-mode: vertical-rl;
+                    transform: rotate(180deg);
+                  }
+
+                  /* PAGES */
+                  .aav-pages {
+                    width: 36px;
+                    height: 100%;
                     right: -16px;
-                    transform: rotateY(90deg) translateZ(0px);
+                    transform: rotateY(90deg) translateZ(0);
                     background: repeating-linear-gradient(
                       to bottom,
-                      oklch(0.97 0.006 60),
-                      oklch(0.97 0.006 60) 2px,
-                      oklch(0.92 0.008 60) 2px,
-                      oklch(0.92 0.008 60) 3px
+                      #f5f0e8 0px, #f5f0e8 1.5px,
+                      #e8e2d6 1.5px, #e8e2d6 3px
                     );
+                    box-shadow: inset 0 0 12px rgba(0,0,0,0.08);
                   }
-                  .book-top {
-                    height: 36px;
-                    top: -18px;
-                    transform: rotateX(90deg) translateZ(0px);
-                    background: oklch(0.94 0.010 60);
+
+                  /* TOP / BOTTOM */
+                  .aav-top {
+                    width: 100%; height: 40px;
+                    top: -20px;
+                    transform: rotateX(90deg) translateZ(0);
+                    background: linear-gradient(to bottom, #e8e2d6, #f0ebe0);
                   }
-                  .book-bottom {
-                    height: 36px;
-                    bottom: -18px;
-                    transform: rotateX(-90deg) translateZ(0px);
-                    background: oklch(0.92 0.010 60);
+                  .aav-bottom {
+                    width: 100%; height: 40px;
+                    bottom: -20px;
+                    transform: rotateX(-90deg) translateZ(0);
+                    background: linear-gradient(to top, #e0dace, #ebe5d8);
                   }
-                  /* Flipping page */
-                  .book-page-flip {
+
+                  /* ── Pages ── */
+                  .aav-page {
                     position: absolute;
-                    width: 100%;
-                    height: 100%;
+                    width: 100%; height: 100%;
                     transform-style: preserve-3d;
                     transform-origin: left center;
-                    animation: page-flip 4s ease-in-out infinite;
-                    animation-delay: 1s;
+                    animation: aav-flip 4.2s cubic-bezier(0.645,0.045,0.355,1.000) infinite;
                   }
-                  @keyframes page-flip {
-                    0%, 30%  { transform: rotateY(0deg); }
-                    50%, 80% { transform: rotateY(-160deg); }
-                    100%     { transform: rotateY(0deg); }
+                  @keyframes aav-flip {
+                    0%, 20%   { transform: rotateY(0deg); }
+                    45%, 75%  { transform: rotateY(-175deg); }
+                    95%, 100% { transform: rotateY(0deg); }
                   }
-                  .book-page-front,
-                  .book-page-back {
+                  .aav-page-f, .aav-page-b {
                     position: absolute;
-                    width: 100%;
-                    height: 100%;
+                    width: 100%; height: 100%;
                     backface-visibility: hidden;
                     overflow: hidden;
-                    border: 1px solid oklch(0 0 0 / 0.06);
                   }
-                  .book-page-back {
+                  .aav-page-f {
+                    background: #faf7f2;
+                    border-right: 1px solid rgba(0,0,0,0.06);
+                  }
+                  .aav-page-b {
                     transform: rotateY(180deg);
+                    background: #f5f1ea;
+                  }
+                  .aav-page-content {
+                    padding: 40px 32px;
+                    display: flex; flex-direction: column; gap: 12px;
+                    justify-content: center; height: 100%;
+                  }
+                  .aav-page-h {
+                    font-family: var(--font-display);
+                    font-size: 1.4rem;
+                    font-weight: 400;
+                    color: #1a1209;
+                    letter-spacing: -0.01em;
+                  }
+                  .aav-page-p {
+                    font-size: 0.82rem;
+                    line-height: 1.75;
+                    color: #5a4e3a;
+                    font-weight: 300;
+                  }
+                  .aav-page-shadow-f {
+                    position: absolute; inset: 0;
+                    background: linear-gradient(to right, rgba(0,0,0,0.12) 0%, transparent 30%);
+                    pointer-events: none;
+                  }
+                  .aav-page-shadow-b {
+                    position: absolute; inset: 0;
+                    background: linear-gradient(to left, rgba(0,0,0,0.10) 0%, transparent 30%);
+                    pointer-events: none;
                   }
                 `}</style>
               </Reveal>
