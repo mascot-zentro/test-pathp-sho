@@ -116,17 +116,16 @@ function NavLink({ to, label }: { to: string; label: string }) {
     <Link
       to={to}
       className={cn(
-        "relative px-3 py-2 text-xs tracking-[0.14em] uppercase transition-colors duration-200 whitespace-nowrap",
-        isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+        "relative px-4 py-1.5 text-[11px] tracking-[0.18em] uppercase font-medium transition-colors duration-200 whitespace-nowrap rounded-full",
+        isActive
+          ? "text-foreground bg-foreground/6"
+          : "text-muted-foreground hover:text-foreground hover:bg-foreground/4",
       )}
     >
       {label}
-      <span
-        className={cn(
-          "pointer-events-none absolute inset-x-3 -bottom-px h-px origin-left scale-x-0 bg-accent transition-transform duration-300 ease-out",
-          isActive ? "scale-x-100" : "group-hover:scale-x-100",
-        )}
-      />
+      {isActive && (
+        <span className="pointer-events-none absolute inset-x-4 -bottom-0.5 h-px bg-accent rounded-full" />
+      )}
     </Link>
   );
 }
@@ -203,15 +202,15 @@ export function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const renderLogo = (className: string) => (
-    logoUrl ? (
-      <img src={logoUrl} alt={storeName} decoding="async" className={className} />
-    ) : (
-      <>
+  const renderLogo = (imgClassName: string) => (
+    <>
+      {logoUrl ? (
+        <img src={logoUrl} alt={storeName} decoding="async" className={imgClassName} />
+      ) : (
         <ShoppingBag className="size-5 text-accent transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110" />
-        <span className="tracking-tight">{storeName}</span>
-      </>
-    )
+      )}
+      <span className="tracking-tight">{storeName}</span>
+    </>
   );
 
   return (
@@ -231,79 +230,81 @@ export function SiteNav() {
         )
       )}
       <header
-        className="sticky top-0 z-40 backdrop-blur-md transition-shadow duration-300"
+        className="sticky top-0 z-40 backdrop-blur-xl transition-all duration-300"
         style={{
-          backgroundColor: `oklch(0.98 0.008 60 / ${0.7 + scrollProgress * 0.28})`,
-          borderBottom: `1px solid oklch(0.90 0.012 60 / ${scrollProgress * 0.7})`,
-          boxShadow: scrollProgress > 0.1 ? `0 1px ${20 * scrollProgress}px oklch(0 0 0 / ${0.05 * scrollProgress})` : "none",
+          backgroundColor: `oklch(1 0 0 / ${0.75 + scrollProgress * 0.22})`,
+          borderBottom: `1px solid oklch(0 0 0 / ${0.06 + scrollProgress * 0.06})`,
+          boxShadow: scrollProgress > 0.15 ? `0 2px 24px oklch(0 0 0 / ${0.06 * scrollProgress})` : "none",
         }}
       >
-        <div className="container mx-auto px-6 h-15 flex items-center justify-between">
-          <Link to="/" className="group flex items-center gap-2 font-display text-2xl font-light tracking-tight">
-            {renderLogo("h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-105")}
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between gap-6">
+          <Link to="/" className="group flex items-center gap-2.5 font-display text-xl font-medium tracking-tight shrink-0">
+            {renderLogo("h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105")}
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 text-sm">
+          <nav className="hidden md:flex items-center gap-0.5">
             {!searchOpen && NAV_LINKS.map((l) => (
-              <span key={l.to} className="group">
-                <NavLink to={l.to} label={l.label} />
-              </span>
+              <NavLink key={l.to} to={l.to} label={l.label} />
             ))}
             {!searchOpen && isAdmin && (
-              <Link to="/admin" className="px-3 py-2 text-muted-foreground transition-colors hover:text-foreground">
+              <Link to="/admin" className="px-4 py-1.5 text-[11px] tracking-[0.18em] uppercase font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/4 rounded-full transition-colors duration-200">
                 Admin
               </Link>
             )}
+          </nav>
 
+          {/* Desktop actions */}
+          <div className="hidden md:flex items-center gap-1">
             {/* Search */}
             {searchOpen ? (
-              <div className="w-72">
+              <div className="w-64">
                 <SearchBar onClose={() => setSearchOpen(false)} />
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                className="size-9 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/6 transition-colors"
                 aria-label="Search"
               >
                 <Search className="size-4" />
               </button>
             )}
-
             <Link
               to="/wishlist"
-              className="px-3 py-2 text-muted-foreground transition-colors hover:text-accent"
+              className="size-9 grid place-items-center rounded-full text-muted-foreground hover:text-accent hover:bg-accent/8 transition-colors"
               aria-label="Wishlist"
-              title="Wishlist"
             >
-              <Heart className="size-4.5" />
+              <Heart className="size-4" />
             </Link>
             <Link
               to="/cart"
-              className="relative px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+              className="relative size-9 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/6 transition-colors"
               aria-label="Cart"
             >
-              <ShoppingCart className="size-5" />
+              <ShoppingCart className="size-4.5" />
               {count > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 animate-in zoom-in-50 duration-200 bg-accent text-accent-foreground text-[10px] leading-none rounded-full size-4 grid place-items-center">
+                <span className="absolute top-0.5 right-0.5 animate-in zoom-in-50 duration-200 bg-accent text-accent-foreground text-[9px] leading-none rounded-full size-4 grid place-items-center font-medium">
                   {count}
                 </span>
               )}
             </Link>
             {user ? (
-              <Link to="/account" className="px-3 py-2 flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground text-xs tracking-[0.14em] uppercase">
+              <Link
+                to="/account"
+                className="ml-1 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-foreground/15 text-xs tracking-wide text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all duration-200"
+              >
                 <UserIcon className="size-3.5" /> Account
               </Link>
             ) : (
-              <Link to="/auth">
-                <Button variant="outline" size="sm" className="ml-2 text-xs tracking-widest rounded-full transition-all duration-200 hover:bg-accent hover:text-accent-foreground hover:border-accent hover:scale-[1.03]">
+              <Link to="/auth" className="ml-1">
+                <Button size="sm" className="rounded-full text-xs tracking-wide px-4 hover:scale-[1.03] transition-transform duration-200">
                   Sign in
                 </Button>
               </Link>
             )}
-          </nav>
+          </div>
 
           {/* Mobile controls */}
           <div className="flex items-center gap-1 md:hidden">
