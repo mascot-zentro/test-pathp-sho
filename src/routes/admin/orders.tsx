@@ -20,7 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2, Printer } from "lucide-react";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2, Printer, Send } from "lucide-react";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
@@ -149,6 +149,20 @@ function OrdersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [storeName, setStoreName] = useState("Store");
+  const [sendingReport, setSendingReport] = useState(false);
+
+  const sendDailyReport = async () => {
+    setSendingReport(true);
+    try {
+      const res = await fetch("/api/cron/daily-summary");
+      if (res.ok) toast.success("Daily summary sent to Discord!");
+      else toast.error("Failed to send summary.");
+    } catch {
+      toast.error("Failed to send summary.");
+    } finally {
+      setSendingReport(false);
+    }
+  };
 
   const runSync = useServerFn(syncOrderStatus);
   const runSetStatus = useServerFn(setOrderStatusAdmin);
@@ -300,7 +314,15 @@ function OrdersPage() {
       <AdminPageHeader
         title="Orders"
         description="Manage order statuses and track Pathao shipments."
-        actions={<AddOrderDialog onCreated={load} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={sendDailyReport} disabled={sendingReport}>
+              <Send className="size-3.5 mr-1.5" />
+              {sendingReport ? "Sending…" : "Send daily report"}
+            </Button>
+            <AddOrderDialog onCreated={load} />
+          </div>
+        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

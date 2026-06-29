@@ -7,7 +7,7 @@ import { getVisitsByLocation } from "@/lib/visits.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Package, ShoppingCart, TrendingUp, MapPin } from "lucide-react";
+import { DollarSign, Package, ShoppingCart, TrendingUp, MapPin, Send } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -53,7 +53,21 @@ function DashboardPage() {
   const [visitLocations, setVisitLocations] = useState<{ name: string; count: number }[]>([]);
   const [visitsTotal, setVisitsTotal] = useState(0);
   const [visitsLoading, setVisitsLoading] = useState(true);
+  const [sendingWeekly, setSendingWeekly] = useState(false);
   const fetchVisits = useServerFn(getVisitsByLocation);
+
+  const sendWeeklyDigest = async () => {
+    setSendingWeekly(true);
+    try {
+      const res = await fetch("/api/cron/weekly-digest");
+      if (res.ok) toast.success("Weekly digest sent to Discord!");
+      else toast.error("Failed to send digest.");
+    } catch {
+      toast.error("Failed to send digest.");
+    } finally {
+      setSendingWeekly(false);
+    }
+  };
 
   useEffect(() => {
     supabase
@@ -99,7 +113,15 @@ function DashboardPage() {
         <AdminPageHeader
           title="Dashboard"
           description="Live snapshot of orders and revenue."
-          actions={rangePicker}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={sendWeeklyDigest} disabled={sendingWeekly}>
+                <Send className="size-3.5 mr-1.5" />
+                {sendingWeekly ? "Sending…" : "Send weekly digest"}
+              </Button>
+              {rangePicker}
+            </div>
+          }
         />
         <p className="text-muted-foreground text-sm">Loading…</p>
       </div>
@@ -186,7 +208,15 @@ function DashboardPage() {
       <AdminPageHeader
         title="Dashboard"
         description="Click a chart segment to drill into orders below."
-        actions={rangePicker}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={sendWeeklyDigest} disabled={sendingWeekly}>
+              <Send className="size-3.5 mr-1.5" />
+              {sendingWeekly ? "Sending…" : "Send weekly digest"}
+            </Button>
+            {rangePicker}
+          </div>
+        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
