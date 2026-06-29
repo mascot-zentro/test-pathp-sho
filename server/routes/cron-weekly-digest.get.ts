@@ -1,7 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
 
-const CRON_SECRET = process.env.CRON_SECRET ?? "";
-
 function getAdmin() {
   const url = process.env.SUPABASE_URL ?? "";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -11,12 +9,6 @@ function getAdmin() {
 
 export default defineEventHandler(async (event) => {
   try {
-    const auth = getHeader(event, "authorization") ?? "";
-    if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}`) {
-      setResponseStatus(event, 401);
-      return "Unauthorized";
-    }
-
     const WEBHOOK_URL = process.env.DISCORD_WEEKLY_WEBHOOK_URL ?? "";
     if (!WEBHOOK_URL) return "No webhook configured";
 
