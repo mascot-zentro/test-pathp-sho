@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Package, MessageCircle, MapPin } from "lucide-react";
-import { proxyUrl } from "@/lib/img-proxy";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { getOrderConfirmation } from "@/lib/orders.functions";
@@ -145,7 +144,7 @@ function OrderConfirmed() {
           >
             <div className="px-6 py-5 border-b border-border/40 flex items-center gap-3">
               {imageUrl ? (
-                <img src={proxyUrl(imageUrl)} alt={order.product_name} className="w-12 h-12 rounded-md object-cover shrink-0" />
+                <img src={imageUrl ?? ""} alt={order.product_name} className="w-12 h-12 rounded-md object-cover shrink-0" />
               ) : (
                 <Package className="size-4 text-accent shrink-0" />
               )}

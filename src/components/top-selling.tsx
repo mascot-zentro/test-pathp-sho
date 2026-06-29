@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { proxyUrl } from "@/lib/img-proxy";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { slugify } from "@/lib/slugify";
@@ -58,7 +57,7 @@ export function TopSelling() {
               <div className="aspect-3/4 rounded-xl overflow-hidden bg-muted mb-3 relative">
                 {p.image_url ? (
                   <img
-                    src={proxyUrl(p.image_url)}
+                    src={p.image_url ?? ""}
                     alt={p.name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />

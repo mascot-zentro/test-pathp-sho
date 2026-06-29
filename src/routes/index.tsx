@@ -1,5 +1,4 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { proxyUrl } from "@/lib/img-proxy";
 import { slugify } from "@/lib/slugify";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -208,7 +207,7 @@ function Index() {
                 <Link to="/product/$slug" params={{ slug: slugify(products[0].name) }}
                   className="group hidden lg:block w-64 xl:w-72 shrink-0">
                   <div className="relative aspect-3/4 rounded-2xl overflow-hidden shadow-2xl ring-1 ring-foreground/8">
-                    <img src={proxyUrl(products[0].image_url)} alt={products[0].name} loading="eager" decoding="async"
+                    <img src={products[0].image_url ?? ""} alt={products[0].name} loading="eager" decoding="async"
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-linear-to-t from-foreground/70 via-foreground/10 to-transparent" />
                     <div className="absolute bottom-0 inset-x-0 p-5">
@@ -321,7 +320,7 @@ function Index() {
                               fetchPriority={i < 4 ? "high" : "auto"}
                               className={`object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`} />
                             {hoverImages[p.id] && (
-                              <img src={proxyUrl(hoverImages[p.id])} alt="" loading="lazy" decoding="async"
+                              <img src={hoverImages[p.id] ?? ""} alt="" loading="lazy" decoding="async"
                                 className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.04] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.06]" />
                             )}
                           </>
@@ -402,7 +401,7 @@ function Index() {
               <Reveal direction="none" className="order-first md:order-0">
                 {about.image ? (
                   <div className="relative aspect-3/4 rounded-2xl overflow-hidden shadow-2xl">
-                    <img src={proxyUrl(about.image)} alt={about.title} loading="lazy" decoding="async"
+                    <img src={about.image} alt={about.title} loading="lazy" decoding="async"
                       className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
                   </div>

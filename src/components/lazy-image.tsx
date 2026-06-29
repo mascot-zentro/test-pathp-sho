@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { proxyUrl } from "@/lib/img-proxy";
 
 interface LazyImageProps {
   src: string;
@@ -63,7 +62,7 @@ export function LazyImage({ src, alt, className = "" }: LazyImageProps) {
         setLoaded(true);
       }
     };
-    img.src = proxyUrl(src);
+    img.src = src;
   }, [inView, src]);
 
   useEffect(() => {
@@ -115,7 +114,7 @@ export function LazyImageFill({ src, alt, className = "", fetchPriority = "auto"
         setLoaded(true);
       }
     };
-    img.src = proxyUrl(src);
+    img.src = src;
   }, [inView, src]);
 
   useEffect(() => {
