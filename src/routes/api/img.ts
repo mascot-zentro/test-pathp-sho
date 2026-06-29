@@ -1,8 +1,13 @@
 import { createServerFileRoute } from "@tanstack/react-start/server";
 
-const ALLOWED_HOST = (
-  process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ""
-).replace(/^https?:\/\//, "").split("/")[0];
+function getAllowedHost(): string {
+  const raw =
+    process.env.SUPABASE_URL ??
+    process.env.VITE_SUPABASE_URL ??
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??
+    "";
+  return raw.replace(/^https?:\/\//, "").split("/")[0];
+}
 
 export const ServerRoute = createServerFileRoute("/api/img").methods({
   GET: async ({ request }) => {
@@ -20,10 +25,12 @@ export const ServerRoute = createServerFileRoute("/api/img").methods({
       return new Response("Invalid url", { status: 400 });
     }
 
+    const allowedHost = getAllowedHost();
+
     // Only proxy images from our own Supabase storage — blocks SSRF
     if (
-      !ALLOWED_HOST ||
-      parsed.host !== ALLOWED_HOST ||
+      !allowedHost ||
+      parsed.host !== allowedHost ||
       !parsed.pathname.startsWith("/storage/v1/object/public/")
     ) {
       return new Response("Forbidden", { status: 403 });
@@ -43,12 +50,12 @@ export const ServerRoute = createServerFileRoute("/api/img").methods({
     return new Response(body, {
       headers: {
         "Content-Type": contentType,
+        // Required so the browser allows canvas drawImage() with crossOrigin="anonymous"
+        "Access-Control-Allow-Origin": "*",
         // Cache aggressively at CDN — images are immutable once uploaded
         "Cache-Control": "public, max-age=31536000, immutable",
         // Prevent browsers from sniffing the MIME type
         "X-Content-Type-Options": "nosniff",
-        // Block the image from being embedded on other sites
-        "X-Frame-Options": "DENY",
         // Prevent search engines from indexing the raw proxied URL
         "X-Robots-Tag": "noindex",
       },
