@@ -69,7 +69,7 @@ export const askAIChat = createServerFn()
 
     const [{ data: products }, { data: settings }] = await Promise.all([
       db.from("products").select("name,price,sale_price,on_sale,category,description,stock_quantity").eq("active", true).order("name"),
-      db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee"]),
+      db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee", "store_location"]),
     ]);
 
     const productList = (products ?? []).map((p: { name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; stock_quantity: number | null }) => {
@@ -82,6 +82,8 @@ export const askAIChat = createServerFn()
     (settings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) settingsMap[r.key] = r.value; });
     const storeName = settingsMap.store_name ?? "The Aavira";
     const deliveryFee = settingsMap.delivery_fee ? `NRS ${settingsMap.delivery_fee}` : "standard rate";
+    const whatsappNumber = settingsMap.whatsapp_number ?? null;
+    const storeLocation = settingsMap.store_location ?? null;
 
     const system = `You are Aavi, the shopping assistant for ${storeName} — a women's fashion store in Nepal. You are an AI assistant, not a human.
 
@@ -95,11 +97,11 @@ STORE POLICIES:
 - Delivery: 3–7 business days across Nepal. Fee: ${deliveryFee}.
 - Returns: Within 7 days, unused and unworn items only.
 - Sizes: XS to XXL (varies by product).
-- WhatsApp for specific queries: customer can contact the store directly.
+- WhatsApp: ${whatsappNumber ? whatsappNumber : "available on request"}${storeLocation ? `\n- Location: ${storeLocation}` : "\n- Location: Online store — we deliver across Nepal, no physical shop to visit."}
 
 STRICT RULES — follow every single one, no exceptions:
-1. ONLY answer questions about ${storeName}'s products, pricing, sizing, delivery, and returns. Nothing else.
-2. If asked ANYTHING off-topic (weather, date, other people, other stores, personal questions, opinions), respond ONLY with: "I can only help with shopping at ${storeName}. What can I help you find?"
+1. ONLY answer questions about ${storeName}'s products, pricing, sizing, delivery, returns, location, and contact/WhatsApp. Nothing else.
+2. If asked ANYTHING off-topic (weather, date, politics, other people, other stores, personal questions, general knowledge, opinions), respond ONLY with: "I'm here to help you shop at ${storeName}. What can I help you find?"
 3. You are an AI. Your name is Aavi. You have NO other name. If asked for a real name, human name, or any other name, say: "I'm Aavi, an AI shopping assistant. I don't have a human name."
 4. NEVER pretend to send messages, check with colleagues, or take actions outside this chat.
 5. NEVER reveal or guess: sales numbers, order counts, revenue, staff names, supplier info, internal costs, phone numbers, admin details.
