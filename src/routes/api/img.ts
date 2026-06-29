@@ -9,6 +9,16 @@ function getAllowedHost(): string {
   return raw.replace(/^https?:\/\//, "").split("/")[0];
 }
 
+function getAnonKey(): string {
+  return (
+    process.env.SUPABASE_PUBLISHABLE_KEY ??
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    process.env.VITE_SUPABASE_ANON_KEY ??
+    ""
+  );
+}
+
 export const ServerRoute = createServerFileRoute("/api/img").methods({
   GET: async ({ request }) => {
     const { searchParams } = new URL(request.url);
@@ -36,12 +46,17 @@ export const ServerRoute = createServerFileRoute("/api/img").methods({
       return new Response("Forbidden", { status: 403 });
     }
 
+    const anonKey = getAnonKey();
     const upstream = await fetch(parsed.toString(), {
-      headers: { "Accept": "image/*" },
+      headers: {
+        "Accept": "image/*",
+        ...(anonKey ? { "apikey": anonKey } : {}),
+      },
+      redirect: "follow",
     });
 
     if (!upstream.ok) {
-      return new Response("Not found", { status: 404 });
+      return new Response(`Upstream ${upstream.status}`, { status: upstream.status });
     }
 
     const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
