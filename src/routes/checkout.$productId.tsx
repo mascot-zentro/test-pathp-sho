@@ -19,7 +19,7 @@ export const Route = createFileRoute("/checkout/$productId")({
   component: Checkout,
 });
 
-type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number };
+type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number; images: string[] | null };
 
 function Checkout() {
   const { productId } = Route.useParams();
@@ -54,7 +54,7 @@ function Checkout() {
   const fetchDeliveryEstimate = useServerFn(getDeliveryEstimate);
 
   useEffect(() => {
-    supabase.from("products").select("id,name,price,sale_price,on_sale,weight").eq("id", productId).maybeSingle()
+    supabase.from("products").select("id,name,price,sale_price,on_sale,weight,images").eq("id", productId).maybeSingle()
       .then(({ data }) => setProduct(data as Product | null));
     fetchCities().then((res: unknown) => {
       const r = res as { data?: { data?: { city_id: number; city_name: string }[] } };
@@ -272,7 +272,17 @@ function Checkout() {
           </p>
         </form>
 
-        <aside className="border rounded-lg p-5 h-fit bg-card md:order-last">
+        <aside className="border rounded-lg overflow-hidden h-fit bg-card md:order-last">
+          {product.images?.[0] && (
+            <div className="aspect-3/4 w-full overflow-hidden bg-muted">
+              <img
+                src={product.images[0]}
+                alt={product.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          <div className="p-5">
           <h3 className="font-medium">{product.name}</h3>
           {color && <p className="text-sm text-muted-foreground">Color: {color}</p>}
           {size && <p className="text-sm text-muted-foreground">Size: {size}</p>}
@@ -326,6 +336,7 @@ function Checkout() {
             {grandTotal !== null
               ? `Cash on delivery — you pay NRS ${grandTotal} when your order arrives.`
               : "Select your city and zone to see the delivery fee and total."}
+          </div>
           </div>
         </aside>
       </div>
