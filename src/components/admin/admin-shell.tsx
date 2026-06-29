@@ -16,6 +16,8 @@ import {
   Tag,
   Users,
   ChevronRight,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import {
   Sidebar,
@@ -76,6 +78,7 @@ export function AdminShell({ children, email }: { children: ReactNode; email?: s
   const { pathname } = useLocation();
   const current = ALL_NAV_ITEMS.find((item) => pathname.startsWith(item.to));
   const [lowStockCount, setLowStockCount] = useState(0);
+  const [alertDismissed, setAlertDismissed] = useState(false);
 
   const refreshAlertCount = () => {
     supabase
@@ -184,6 +187,24 @@ export function AdminShell({ children, email }: { children: ReactNode; email?: s
             )}
           </div>
         </header>
+        {lowStockCount > 0 && !alertDismissed && (
+          <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-amber-800 text-sm">
+            <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+            <span className="flex-1">
+              <strong>{lowStockCount} {lowStockCount === 1 ? "product" : "products"}</strong> running low on stock (≤ 5 units).{" "}
+              <Link to="/admin/inventory" className="underline underline-offset-2 font-medium hover:text-amber-900">
+                View inventory →
+              </Link>
+            </span>
+            <button
+              onClick={() => setAlertDismissed(true)}
+              aria-label="Dismiss"
+              className="shrink-0 rounded p-0.5 hover:bg-amber-100 transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        )}
         <main className="flex-1 p-4 md:p-8 bg-muted/20 min-h-[calc(100svh-3.5rem)]">
           <div className="mx-auto max-w-6xl">{children}</div>
         </main>

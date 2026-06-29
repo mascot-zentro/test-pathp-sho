@@ -13,6 +13,7 @@ export const Route = createFileRoute("/order-confirmed")({
 
 type OrderData = {
   product_name: string;
+  product_id: string;
   customer_name: string;
   total: number;
   delivery_fee: number;
@@ -45,6 +46,7 @@ function OrderConfirmed() {
   const { id } = Route.useSearch();
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [waNumber, setWaNumber] = useState("");
   const [show, setShow] = useState(false);
   const [countdown, setCountdown] = useState(REDIRECT_SECS);
@@ -68,10 +70,15 @@ function OrderConfirmed() {
     if (!id) return;
     supabase
       .from("orders")
-      .select("product_name,customer_name,total,delivery_fee,created_at,color,size,quantity")
+      .select("product_name,product_id,customer_name,total,delivery_fee,created_at,color,size,quantity")
       .eq("id", id)
       .maybeSingle()
-      .then(({ data }) => { if (data) setOrder(data as OrderData); });
+      .then(({ data }) => {
+        if (!data) return;
+        setOrder(data as OrderData);
+        supabase.from("products").select("image_url").eq("id", (data as OrderData).product_id).maybeSingle()
+          .then(({ data: p }) => { if (p && (p as { image_url: string | null }).image_url) setImageUrl((p as { image_url: string }).image_url); });
+      });
   }, [id]);
 
   useEffect(() => {
@@ -139,7 +146,11 @@ function OrderConfirmed() {
             }}
           >
             <div className="px-6 py-5 border-b border-border/40 flex items-center gap-3">
-              <Package className="size-4 text-accent shrink-0" />
+              {imageUrl ? (
+                <img src={imageUrl} alt={order.product_name} className="w-12 h-12 rounded-md object-cover shrink-0" />
+              ) : (
+                <Package className="size-4 text-accent shrink-0" />
+              )}
               <span className="font-medium text-sm">{order.product_name}</span>
             </div>
             <div className="px-6 py-4 space-y-2.5 text-sm">
