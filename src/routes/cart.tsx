@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ function CartPage() {
   const [areaName, setAreaName] = useState<string | null>(null);
   const [savedAddress, setSavedAddress] = useState<SavedAddress | null>(null);
   const [savedApplied, setSavedApplied] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingZones, setLoadingZones] = useState(false);
+  const [loadingAreas, setLoadingAreas] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pathaoUp, setPathaoUp] = useState(true);
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
@@ -58,6 +61,7 @@ function CartPage() {
   }, []);
 
   useEffect(() => {
+    setLoadingCities(true);
     fetchCities().then((res: unknown) => {
       const r = res as { data?: { data?: { city_id: number; city_name: string }[] } };
       const list = r?.data?.data;
@@ -72,12 +76,14 @@ function CartPage() {
           setSavedApplied(true);
         }
       } else setPathaoUp(false);
-    }).catch(() => setPathaoUp(false));
+    }).catch(() => setPathaoUp(false))
+      .finally(() => setLoadingCities(false));
   }, [fetchCities]);
 
   useEffect(() => {
     if (!cityId) return;
     setZones([]); setAreas([]); setZoneId(null); setAreaId(null); setZoneName(""); setAreaName(null);
+    setLoadingZones(true);
     fetchZones({ data: { cityId } }).then((res: unknown) => {
       const r = res as { data?: { data?: { zone_id: number; zone_name: string }[] } };
       const list = r?.data?.data;
@@ -89,12 +95,13 @@ function CartPage() {
           setZoneName(saved.zoneName);
         }
       }
-    });
+    }).finally(() => setLoadingZones(false));
   }, [cityId, fetchZones]);
 
   useEffect(() => {
     if (!zoneId) return;
     setAreas([]); setAreaId(null); setAreaName(null);
+    setLoadingAreas(true);
     fetchAreas({ data: { zoneId } }).then((res: unknown) => {
       const r = res as { data?: { data?: { area_id: number; area_name: string }[] } };
       const list = r?.data?.data;
@@ -106,7 +113,7 @@ function CartPage() {
           setAreaName(saved.areaName);
         }
       }
-    });
+    }).finally(() => setLoadingAreas(false));
   }, [zoneId, fetchAreas]);
 
   useEffect(() => {
@@ -288,8 +295,12 @@ function CartPage() {
                   const id = Number(v);
                   setCityId(id);
                   setCityName(cities.find((c) => c.city_id === id)?.city_name ?? "");
-                }}>
-                  <SelectTrigger><SelectValue placeholder="Select city" /></SelectTrigger>
+                }} disabled={loadingCities}>
+                  <SelectTrigger>
+                    {loadingCities
+                      ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Loading…</span>
+                      : <SelectValue placeholder="Select city" />}
+                  </SelectTrigger>
                   <SelectContent>{cities.map((c) => <SelectItem key={c.city_id} value={c.city_id.toString()}>{c.city_name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -299,8 +310,12 @@ function CartPage() {
                   const id = Number(v);
                   setZoneId(id);
                   setZoneName(zones.find((z) => z.zone_id === id)?.zone_name ?? "");
-                }} disabled={!cityId}>
-                  <SelectTrigger><SelectValue placeholder="Select zone" /></SelectTrigger>
+                }} disabled={!cityId || loadingZones}>
+                  <SelectTrigger>
+                    {loadingZones
+                      ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Loading…</span>
+                      : <SelectValue placeholder="Select zone" />}
+                  </SelectTrigger>
                   <SelectContent>{zones.map((z) => <SelectItem key={z.zone_id} value={z.zone_id.toString()}>{z.zone_name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
@@ -310,8 +325,12 @@ function CartPage() {
                   const id = Number(v);
                   setAreaId(id);
                   setAreaName(areas.find((a) => a.area_id === id)?.area_name ?? null);
-                }} disabled={!zoneId}>
-                  <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
+                }} disabled={!zoneId || loadingAreas}>
+                  <SelectTrigger>
+                    {loadingAreas
+                      ? <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Loading…</span>
+                      : <SelectValue placeholder="Select area" />}
+                  </SelectTrigger>
                   <SelectContent>{areas.map((a) => <SelectItem key={a.area_id} value={a.area_id.toString()}>{a.area_name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
