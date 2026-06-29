@@ -55,7 +55,6 @@ export function LazyImage({ src, alt, className = "" }: LazyImageProps) {
   useEffect(() => {
     if (!inView) return;
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
       if (canvasRef.current) {
         drawWatermark(canvasRef.current, img);
@@ -88,12 +87,14 @@ export function LazyImage({ src, alt, className = "" }: LazyImageProps) {
 }
 
 export function LazyImageFill({ src, alt, className = "", fetchPriority = "auto" }: LazyImageProps) {
-  const [inView, setInView] = useState(false);
+  const eager = fetchPriority === "high";
+  const [inView, setInView] = useState(eager);
   const [loaded, setLoaded] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (eager) return;
     const el = wrapRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -102,12 +103,11 @@ export function LazyImageFill({ src, alt, className = "", fetchPriority = "auto"
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [eager]);
 
   useEffect(() => {
     if (!inView) return;
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
       if (canvasRef.current) {
         drawWatermark(canvasRef.current, img);

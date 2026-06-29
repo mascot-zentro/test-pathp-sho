@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet, Link, createRootRouteWithContext, useRouter, HeadContent, Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useEffect, useState, useRef, lazy, Suspense, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useLenis } from "@/lib/lenis";
 
@@ -11,8 +11,9 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logPageVisit } from "@/lib/visits.functions";
-import { ComingSoon } from "@/components/coming-soon";
 import { WhatsAppFloat } from "@/components/whatsapp-float";
+
+const ComingSoon = lazy(() => import("@/components/coming-soon").then((m) => ({ default: m.ComingSoon })));
 
 function NotFoundComponent() {
   return (
@@ -61,10 +62,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "apple-touch-icon", href: "/Aavira.png" },
-      { rel: "preconnect", href: "https://w.behold.so" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" },
     ],
   }),
   shellComponent: RootShell,
@@ -73,17 +72,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const FONT_URL = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap";
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Non-blocking font load — preload triggers early fetch, stylesheet swap avoids render-block */}
+        <link rel="preload" as="style" href={FONT_URL} />
+        <link rel="stylesheet" href={FONT_URL} media="print" onLoad={(e) => { (e.currentTarget as HTMLLinkElement).media = "all"; }} />
+        <noscript><link rel="stylesheet" href={FONT_URL} /></noscript>
+      </head>
+      <body>
+        {children}
+        <Scripts />
+        {/* Behold widget deferred — loaded after page is interactive, not render-blocking */}
         <script
           type="module"
-          dangerouslySetInnerHTML={{ __html: `import "https://w.behold.so/widget.js";` }}
+          defer
+          dangerouslySetInnerHTML={{ __html: `setTimeout(()=>import("https://w.behold.so/widget.js"),2000)` }}
         />
-      </head>
-      <body>{children}<Scripts /></body>
+      </body>
     </html>
   );
 }
@@ -154,7 +164,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {showComingSoon ? (
-        <ComingSoon storeName={storeName} launchDate={launchDate} />
+        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+          <ComingSoon storeName={storeName} launchDate={launchDate} />
+        </Suspense>
       ) : siteLocked === null && !isAdminPath ? (
         // brief blank while settings load — avoids flash of store before lock kicks in
         <div className="min-h-screen bg-background" />
