@@ -59,7 +59,7 @@ function DashboardPage() {
   const sendWeeklyDigest = async () => {
     setSendingWeekly(true);
     try {
-      const res = await fetch("/api/cron/weekly-digest");
+      const res = await fetch("/cron-weekly-digest");
       if (res.ok) toast.success("Weekly digest sent to Discord!");
       else toast.error("Failed to send digest.");
     } catch {

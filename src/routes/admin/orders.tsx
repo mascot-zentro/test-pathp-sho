@@ -154,7 +154,7 @@ function OrdersPage() {
   const sendDailyReport = async () => {
     setSendingReport(true);
     try {
-      const res = await fetch("/api/cron/daily-summary");
+      const res = await fetch("/cron-daily-summary");
       if (res.ok) toast.success("Daily summary sent to Discord!");
       else toast.error("Failed to send summary.");
     } catch {

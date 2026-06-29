@@ -147,7 +147,8 @@ function RootComponent() {
     logVisit({ data: { path } }).catch(() => {});
   }, [router.state.location.pathname, logVisit]);
 
-  const isAdminPath = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
+  const pathname = router.state.location.pathname;
+  const isAdminPath = pathname.startsWith("/admin");
   const showComingSoon = siteLocked === true && !isAdminPath;
 
   return (

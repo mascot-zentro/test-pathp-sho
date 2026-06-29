@@ -3,7 +3,7 @@ import { createServerFileRoute } from "@tanstack/react-start/server";
 const WEBHOOK_URL = process.env.DISCORD_WEEKLY_WEBHOOK_URL ?? "";
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
-export const ServerRoute = createServerFileRoute("/api/cron/weekly-digest").methods({
+export const ServerRoute = createServerFileRoute("/cron-weekly-digest").methods({
   GET: async ({ request }) => {
     const auth = request.headers.get("authorization") ?? "";
     if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}`) {
