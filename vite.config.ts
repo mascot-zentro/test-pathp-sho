@@ -17,9 +17,9 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   nitro: {
     preset: "vercel",
+    scanDirs: ["server"],
   },
   tanstackStart: {
-    server: { entry: "server" },
     serverFns: { disableCsrfMiddlewareWarning: true },
   },
 });
