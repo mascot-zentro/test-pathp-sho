@@ -318,6 +318,23 @@ async function insertOrderAndSubmitToPathao(
     .single();
   if (orderErr || !order) throw new Error(orderErr?.message ?? "Order insert failed");
 
+  // Fire-and-forget — never awaited so a Discord failure can't affect the order
+  import("./discord-notify.server").then(({ notifyDiscordNewOrder }) =>
+    notifyDiscordNewOrder({
+      orderId: order.id,
+      customerName: args.customerName,
+      customerPhone: args.customerPhone,
+      customerAddress: args.customerAddress,
+      productName: args.productName,
+      color: args.color,
+      size: args.size,
+      quantity: args.quantity,
+      total: args.total,
+      deliveryFee: args.deliveryFee,
+      source: args.source,
+    })
+  ).catch(() => {});
+
   const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
   const storeId = setting?.value ? Number(setting.value) : null;
 
@@ -727,6 +744,28 @@ export const createCartOrder = createServerFn({ method: "POST" })
     const { data: insertedOrders, error: orderErr } = await supabaseAdmin.from("orders").insert(rows).select("id");
     if (orderErr || !insertedOrders) throw new Error(orderErr?.message ?? "Order insert failed");
     const groupOrderIds = insertedOrders.map((o) => o.id);
+
+    // Fire-and-forget Discord notification for cart orders
+    const cartTotal = rows.reduce((s, r) => s + Number(r.total), 0);
+    const cartProductName = data.items
+      .map((i) => `${i.productName}${[i.color, i.size].filter(Boolean).length ? ` (${[i.color, i.size].filter(Boolean).join(", ")})` : ""} ×${i.quantity}`)
+      .join("\n");
+    const cartQty = data.items.reduce((s, i) => s + i.quantity, 0);
+    import("./discord-notify.server").then(({ notifyDiscordNewOrder }) =>
+      notifyDiscordNewOrder({
+        orderId: groupId,
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        customerAddress: data.customerAddress,
+        productName: cartProductName,
+        color: null,
+        size: null,
+        quantity: cartQty,
+        total: Math.round(cartTotal * 100) / 100,
+        deliveryFee: rows.reduce((s, r) => s + Number(r.delivery_fee), 0),
+        source: "cart",
+      })
+    ).catch(() => {});
 
     const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
     const storeId = setting?.value ? Number(setting.value) : null;
