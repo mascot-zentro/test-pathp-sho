@@ -1,4 +1,4 @@
-const WEBHOOK_URL = process.env.DISCORD_ORDER_WEBHOOK_URL ?? "";
+const WEBHOOK_URL = process.env.DISCORD_ORDERS_WEBHOOK_URL ?? "";
 
 type OrderNotifyPayload = {
   orderId: string;
