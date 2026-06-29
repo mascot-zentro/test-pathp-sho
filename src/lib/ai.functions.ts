@@ -67,16 +67,55 @@ export const askAIChat = createServerFn()
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const [{ data: products }, { data: settings }] = await Promise.all([
-      db.from("products").select("name,price,sale_price,on_sale,category,description,stock_quantity").eq("active", true).order("name"),
-      db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee", "store_location"]),
+    const [
+      { data: products },
+      { data: allColors },
+      { data: allSizes },
+      { data: settings },
+      { data: faqs },
+      { data: promos },
+      { data: categories },
+    ] = await Promise.all([
+      db.from("products").select("id,name,price,sale_price,on_sale,category,description,stock_quantity").eq("active", true).order("name"),
+      db.from("product_colors").select("product_id,name,stock_quantity"),
+      db.from("product_sizes").select("product_id,name,stock_quantity").order("position"),
+      db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee", "store_location", "return_policy", "site_description"]),
+      db.from("faqs").select("question,answer").eq("active", true).order("position"),
+      db.from("promo_codes").select("code,discount_percent,expires_at").eq("active", true),
+      db.from("categories").select("name").order("position"),
     ]);
 
-    const productList = (products ?? []).map((p: { name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; stock_quantity: number | null }) => {
-      const price = p.on_sale && p.sale_price ? `NRS ${p.sale_price} (sale, was NRS ${p.price})` : `NRS ${p.price}`;
-      const stock = p.stock_quantity === 0 ? " [OUT OF STOCK]" : "";
-      return `- ${p.name} | ${p.category ?? "fashion"} | ${price}${stock}`;
-    }).join("\n");
+    type PRow = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; description: string | null; stock_quantity: number | null };
+    type ColorRow = { product_id: string; name: string; stock_quantity: number | null };
+    type SizeRow = { product_id: string; name: string; stock_quantity: number | null };
+
+    const colorsByProduct: Record<string, string[]> = {};
+    for (const c of (allColors ?? []) as ColorRow[]) {
+      if (!colorsByProduct[c.product_id]) colorsByProduct[c.product_id] = [];
+      const label = c.stock_quantity === 0 ? `${c.name}(OOS)` : c.name;
+      colorsByProduct[c.product_id].push(label);
+    }
+
+    const sizesByProduct: Record<string, string[]> = {};
+    for (const s of (allSizes ?? []) as SizeRow[]) {
+      if (!sizesByProduct[s.product_id]) sizesByProduct[s.product_id] = [];
+      const label = s.stock_quantity === 0 ? `${s.name}(OOS)` : s.name;
+      sizesByProduct[s.product_id].push(label);
+    }
+
+    const productList = (products ?? []).map((p: PRow) => {
+      const price = p.on_sale && p.sale_price ? `NRS ${p.sale_price} (on sale, was NRS ${p.price})` : `NRS ${p.price}`;
+      const stockStatus = p.stock_quantity === 0 ? "OUT OF STOCK" : "in stock";
+      const colors = colorsByProduct[p.id]?.join(", ") ?? "";
+      const sizes = sizesByProduct[p.id]?.join(", ") ?? "";
+      const desc = p.description ? ` | "${p.description.slice(0, 80)}"` : "";
+      return [
+        `• ${p.name} | ${p.category ?? "fashion"} | ${price} | ${stockStatus}`,
+        colors ? `  Colors: ${colors}` : "",
+        sizes ? `  Sizes: ${sizes}` : "",
+        desc ? `  Desc: ${desc}` : "",
+      ].filter(Boolean).join("\n");
+    }).join("\n\n");
 
     const settingsMap: Record<string, string> = {};
     (settings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) settingsMap[r.key] = r.value; });
@@ -84,32 +123,53 @@ export const askAIChat = createServerFn()
     const deliveryFee = settingsMap.delivery_fee ? `NRS ${settingsMap.delivery_fee}` : "standard rate";
     const whatsappNumber = settingsMap.whatsapp_number ?? null;
     const storeLocation = settingsMap.store_location ?? null;
+    const returnPolicy = settingsMap.return_policy ?? "Within 7 days, unused and unworn items only.";
 
-    const system = `You are Aavi, the shopping assistant for ${storeName} — a women's fashion store in Nepal. You are an AI assistant, not a human.
+    const faqText = (faqs ?? []).map((f: { question: string; answer: string }) =>
+      `Q: ${f.question}\nA: ${f.answer}`
+    ).join("\n\n");
 
-PRODUCTS YOU SELL (ONLY these, nothing else):
+    const promoText = (promos ?? []).map((p: { code: string; discount_percent: number; expires_at: string | null }) => {
+      const expiry = p.expires_at ? ` (expires ${new Date(p.expires_at).toLocaleDateString("en-NP")})` : "";
+      return `${p.code} — ${p.discount_percent}% off${expiry}`;
+    }).join(", ");
+
+    const categoryList = (categories ?? []).map((c: { name: string }) => c.name).join(", ");
+
+    const system = `You are Aavi, the AI shopping assistant for ${storeName} — a women's fashion store in Nepal.
+
+═══ STORE INFO ═══
+Name: ${storeName}
+Type: Online store. We deliver across Nepal — no physical shop to visit.${storeLocation ? `\nLocation: ${storeLocation}` : ""}
+WhatsApp: ${whatsappNumber ?? "available on the website"}
+Categories we carry: ${categoryList || "women's fashion"}
+
+═══ STORE POLICIES ═══
+• Payment: Cash on delivery ONLY. Customer pays when parcel arrives. Zero advance payment.
+• Delivery: 3–7 business days across Nepal. Delivery fee: ${deliveryFee}.
+• Returns: ${returnPolicy}
+• Sizes: XS, S, M, L, XL, XXL (varies per product — check product details below)
+
+═══ OUR PRODUCTS (live inventory) ═══
 ${productList || "No products currently available."}
 
-${data.productName ? `CUSTOMER IS CURRENTLY VIEWING: "${data.productName}"${data.productCategory ? ` (${data.productCategory})` : ""}` : ""}
+${data.productName ? `═══ CUSTOMER IS CURRENTLY VIEWING ═══\n"${data.productName}"${data.productCategory ? ` — ${data.productCategory}` : ""}` : ""}
 
-STORE POLICIES:
-- Payment: Cash on delivery only. No advance payment.
-- Delivery: 3–7 business days across Nepal. Fee: ${deliveryFee}.
-- Returns: Within 7 days, unused and unworn items only.
-- Sizes: XS to XXL (varies by product).
-- WhatsApp: ${whatsappNumber ? whatsappNumber : "available on request"}${storeLocation ? `\n- Location: ${storeLocation}` : "\n- Location: Online store — we deliver across Nepal, no physical shop to visit."}
+${faqText ? `═══ FREQUENTLY ASKED QUESTIONS ═══\n${faqText}` : ""}
 
-STRICT RULES — follow every single one, no exceptions:
-1. ONLY answer questions about ${storeName}'s products, pricing, sizing, delivery, returns, location, and contact/WhatsApp. Nothing else.
-2. If asked ANYTHING off-topic (weather, date, politics, other people, other stores, personal questions, general knowledge, opinions), respond ONLY with: "I'm here to help you shop at ${storeName}. What can I help you find?"
-3. You are an AI. Your name is Aavi. You have NO other name. If asked for a real name, human name, or any other name, say: "I'm Aavi, an AI shopping assistant. I don't have a human name."
-4. NEVER pretend to send messages, check with colleagues, or take actions outside this chat.
-5. NEVER reveal or guess: sales numbers, order counts, revenue, staff names, supplier info, internal costs, phone numbers, admin details.
-6. NEVER make up product names, prices, or stock. Only use what is in the product list above.
-7. If a product is not in the list, say "We don't carry that" and suggest the closest match from the list.
-8. If you don't know something (e.g. exact color availability), say: "WhatsApp us for details on that."
-9. Keep responses SHORT: 1–3 sentences. Be direct and helpful.
-10. Your goal is to help the customer find and order a product. Every response should move them closer to placing an order.`;
+${promoText ? `═══ ACTIVE DISCOUNT CODES ═══\n${promoText}` : ""}
+
+═══ YOUR RULES — follow every single one, no exceptions ═══
+1. You are an AI named Aavi. You have no human name, no real name, no alter ego. If anyone asks your real/human name — say exactly: "I'm Aavi, an AI assistant for ${storeName}. I don't have a human name."
+2. ONLY discuss: the products listed above, store policies, sizing help, delivery, returns, FAQs, promo codes. NOTHING else.
+3. Off-topic questions (date, time, weather, news, other stores, personal chat, general knowledge, opinions) — reply ONLY: "I'm here to help you shop at ${storeName}. What can I help you find?"
+4. NEVER invent product names, prices, colors, sizes, or stock status not listed above. If unsure, say "WhatsApp us for details."
+5. NEVER pretend to send messages, contact staff, check stock in real time, or perform actions outside this chat window.
+6. NEVER reveal: cost prices, revenue, order counts, supplier names, staff names, admin details, or any internal business data.
+7. If asked about a product not in the list — say we don't carry it, then suggest the closest match from the list.
+8. When a customer shows interest in a product, guide them to order: "It's cash on delivery — no upfront payment needed. Ready to order?"
+9. Keep replies SHORT: 1–3 sentences max. Be warm, confident, and focused on helping them buy.
+10. Never comment on a customer's body negatively. Suggest products by occasion or style only.`;
 
     const messages = [
       ...data.conversationHistory.slice(-6),
