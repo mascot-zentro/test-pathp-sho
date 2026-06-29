@@ -272,20 +272,21 @@ function Checkout() {
           </p>
         </form>
 
-        <aside className="border rounded-lg overflow-hidden h-fit bg-card md:order-last">
-          {product.image_url && (
-            <div className="aspect-3/4 w-full overflow-hidden bg-muted">
+        <aside className="border rounded-lg p-5 h-fit bg-card md:order-last">
+          <div className="flex items-start gap-3">
+            {product.image_url && (
               <img
                 src={product.image_url}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-14 h-14 rounded-md object-cover shrink-0"
               />
-            </div>
-          )}
-          <div className="p-5">
-          <h3 className="font-medium">{product.name}</h3>
+            )}
+            <div className="min-w-0">
+          <h3 className="font-medium leading-snug">{product.name}</h3>
           {color && <p className="text-sm text-muted-foreground">Color: {color}</p>}
           {size && <p className="text-sm text-muted-foreground">Size: {size}</p>}
+            </div>
+          </div>
           <div className="mt-4 flex items-center justify-between text-sm">
             <span>Quantity</span>
             <div className="flex items-center gap-2">
@@ -336,7 +337,6 @@ function Checkout() {
             {grandTotal !== null
               ? `Cash on delivery — you pay NRS ${grandTotal} when your order arrives.`
               : "Select your city and zone to see the delivery fee and total."}
-          </div>
           </div>
         </aside>
       </div>
