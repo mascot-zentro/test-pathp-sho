@@ -67,18 +67,10 @@ export const askAIChat = createServerFn()
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const [
-      { data: products },
-      { data: allColors },
-      { data: allSizes },
-      { data: settings },
-      { data: faqs },
-      { data: promos },
-      { data: categories },
-    // Detect order ID in message (e.g. #2848FF0E or order 2848FF0E)
-    const orderIdMatch = data.message.match(/\b([0-9A-F]{6,})\b/i) ??
-      data.message.match(/#([A-Z0-9]+)/i) ??
-      data.conversationHistory.slice(-2).map(m => m.content).join(" ").match(/\b([0-9A-F]{6,})\b/i);
+    // Detect order ID in the message (hex format like 2848FF0E or #2848FF0E)
+    const orderIdMatch = data.message.match(/#([A-Z0-9]{6,})/i)
+      ?? data.message.match(/\border\s+#?([A-Z0-9]{6,})/i)
+      ?? data.conversationHistory.slice(-2).map((m) => m.content).join(" ").match(/#([A-Z0-9]{6,})/i);
     const mentionedOrderId = orderIdMatch?.[1]?.toUpperCase() ?? null;
 
     const [
@@ -103,8 +95,7 @@ export const askAIChat = createServerFn()
         : Promise.resolve({ data: null }),
     ]);
 
-    type OrderRow = { id: string; product_name: string; status: string; pathao_status: string | null; created_at: string; customer_name: string; quantity: number; total: number; size: string | null; color: string | null };
-    const foundOrder = orderResult.data as OrderRow | null;
+    const foundOrder = orderResult.data as { id: string; product_name: string; status: string; pathao_status: string | null; created_at: string; customer_name: string; quantity: number; total: number; size: string | null; color: string | null } | null;
 
     const statusLabels: Record<string, string> = {
       pending: "Pending — not yet dispatched",
@@ -127,25 +118,21 @@ Ordered on: ${new Date(foundOrder.created_at).toLocaleDateString("en-NP", { time
         ? `═══ ORDER LOOKUP ═══\nNo order found with ID containing "${mentionedOrderId}". Tell the customer the ID may be incorrect and suggest they visit /track or WhatsApp us.`
         : "";
 
-    type PRow = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; description: string | null; stock_quantity: number | null };
-    type ColorRow = { product_id: string; name: string; stock_quantity: number | null };
-    type SizeRow = { product_id: string; name: string; stock_quantity: number | null };
-
     const colorsByProduct: Record<string, string[]> = {};
-    for (const c of (allColors ?? []) as ColorRow[]) {
+    for (const c of (allColors ?? []) as { product_id: string; name: string; stock_quantity: number | null }[]) {
       if (!colorsByProduct[c.product_id]) colorsByProduct[c.product_id] = [];
       const label = c.stock_quantity === 0 ? `${c.name}(OOS)` : c.name;
       colorsByProduct[c.product_id].push(label);
     }
 
     const sizesByProduct: Record<string, string[]> = {};
-    for (const s of (allSizes ?? []) as SizeRow[]) {
+    for (const s of (allSizes ?? []) as { product_id: string; name: string; stock_quantity: number | null }[]) {
       if (!sizesByProduct[s.product_id]) sizesByProduct[s.product_id] = [];
       const label = s.stock_quantity === 0 ? `${s.name}(OOS)` : s.name;
       sizesByProduct[s.product_id].push(label);
     }
 
-    const productList = (products ?? []).map((p: PRow) => {
+    const productList = (products ?? []).map((p: { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; description: string | null; stock_quantity: number | null }) => {
       const price = p.on_sale && p.sale_price ? `NRS ${p.sale_price} (on sale, was NRS ${p.price})` : `NRS ${p.price}`;
       const stockStatus = p.stock_quantity === 0 ? "OUT OF STOCK" : "in stock";
       const colors = colorsByProduct[p.id]?.join(", ") ?? "";
