@@ -20,17 +20,38 @@ function drawWatermark(canvas: HTMLCanvasElement, img: HTMLImageElement) {
   canvas.height = img.naturalHeight;
   ctx.drawImage(img, 0, 0);
 
-  const size = Math.max(12, Math.round(img.naturalWidth * 0.038));
-  ctx.font = `${size}px sans-serif`;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const size = Math.max(16, Math.round(w * 0.055));
 
-  // Shadow for legibility on any background
-  ctx.shadowColor = "rgba(0,0,0,0.55)";
-  ctx.shadowBlur = 6;
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.fillText(WATERMARK, img.naturalWidth - 10, img.naturalHeight - 10);
-  ctx.shadowBlur = 0;
+  ctx.save();
+  ctx.font = `bold ${size}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Rotate canvas 45° around centre and tile the watermark
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(-Math.PI / 4);
+
+  const spacing = size * 5;
+  const cols = Math.ceil((w + h) / spacing) + 2;
+  const rows = Math.ceil((w + h) / spacing) + 2;
+  const startX = -cols * spacing;
+  const startY = -rows * spacing;
+
+  for (let row = 0; row < rows * 2; row++) {
+    for (let col = 0; col < cols * 2; col++) {
+      const x = startX + col * spacing;
+      const y = startY + row * spacing;
+
+      ctx.shadowColor = "rgba(0,0,0,0.45)";
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillText(WATERMARK, x, y);
+    }
+  }
+
+  ctx.restore();
 }
 
 // Blocks right-click save and drag on the canvas
