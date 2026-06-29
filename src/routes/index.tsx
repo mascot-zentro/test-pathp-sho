@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Reveal } from "@/components/reveal";
+import { LazyImageFill } from "@/components/lazy-image";
 import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -312,18 +313,19 @@ function Index() {
                 return (
                   <Reveal key={p.id} delay={(i % 8) * 50}>
                     <Link to="/product/$slug" params={{ slug: slugify(p.name) }} className="group block">
-                      <div className="relative aspect-3/4 bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-2xl">
+                      <div className="relative aspect-3/4 overflow-hidden rounded-2xl">
                         {p.image_url ? (
                           <>
-                            <img src={p.image_url} alt={p.name} loading="lazy" decoding="async"
-                              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`} />
+                            <LazyImageFill src={p.image_url} alt={p.name}
+                              fetchPriority={i < 4 ? "high" : "auto"}
+                              className={`object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`} />
                             {hoverImages[p.id] && (
                               <img src={hoverImages[p.id]} alt="" loading="lazy" decoding="async"
                                 className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.04] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.06]" />
                             )}
                           </>
                         ) : (
-                          <div className="w-full h-full grid place-items-center text-muted-foreground/30 text-xs tracking-widest uppercase">No image</div>
+                          <div className="w-full h-full bg-[oklch(0.95_0.010_60)] grid place-items-center text-muted-foreground/30 text-xs tracking-widest uppercase">No image</div>
                         )}
 
                         {!outOfStock && (
@@ -473,6 +475,40 @@ function Index() {
             </div>
           </section>
         )}
+
+        {/* ── INSTAGRAM FEED ────────────────────────────────────────────────── */}
+        <section className="border-t border-border/40 py-20 md:py-28">
+          <div className="container mx-auto px-6">
+            <Reveal className="text-center mb-12">
+              <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-accent mb-3">Follow along</p>
+              <h2 className="font-display text-4xl font-light">
+                <a
+                  href="https://www.instagram.com/the_aavira/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-accent transition-colors duration-200"
+                >
+                  @the_aavira
+                </a>
+              </h2>
+            </Reveal>
+            <Reveal delay={80}>
+              {/* @ts-expect-error — behold-widget is a custom element loaded via CDN */}
+              <behold-widget feed-id="XoQJy9h8oCAT03Pb30kJ" />
+            </Reveal>
+            <div className="mt-10 text-center">
+              <a
+                href="https://www.instagram.com/the_aavira/"
+                target="_blank"
+                rel="noreferrer"
+                className="group inline-flex items-center gap-2 px-8 py-3.5 rounded-full border border-border/60 text-sm font-medium tracking-wide text-muted-foreground transition-all duration-300 hover:border-accent hover:text-accent hover:bg-accent/5"
+              >
+                View all on Instagram
+                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </a>
+            </div>
+          </div>
+        </section>
 
       </main>
       <SiteFooter />

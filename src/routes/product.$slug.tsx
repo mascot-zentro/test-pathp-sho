@@ -9,6 +9,7 @@ import { useCart } from "@/lib/cart";
 import { toggleWishlist, isWishlisted } from "@/lib/wishlist";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
+import { LazyImageFill } from "@/components/lazy-image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -72,7 +73,7 @@ export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
 });
 
-function useProductSEO(product: { name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null } | null) {
+function useProductSEO(product: { name: string; description: string | null; price: number; sale_price: number | null; on_sale: boolean; image_url: string | null; stock_quantity: number | null } | null) {
   useEffect(() => {
     if (!product) return;
     const price = product.on_sale && product.sale_price ? product.sale_price : product.price;
@@ -81,6 +82,7 @@ function useProductSEO(product: { name: string; description: string | null; pric
       ? product.description.slice(0, 155)
       : `Buy ${product.name} for NRS ${price}. Cash on delivery, nationwide.`;
     const image = product.image_url ?? "";
+    const siteUrl = window.location.origin;
 
     document.title = title;
 
@@ -98,6 +100,41 @@ function useProductSEO(product: { name: string; description: string | null; pric
     set('meta[name="twitter:title"]', "content", title);
     set('meta[name="twitter:description"]', "content", desc);
     if (image) set('meta[name="twitter:image"]', "content", image);
+
+    // JSON-LD Product schema — helps Google show price + availability in results
+    const availability = product.stock_quantity === 0
+      ? "https://schema.org/OutOfStock"
+      : "https://schema.org/InStock";
+
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: product.name,
+      description: desc,
+      image: image || undefined,
+      url: window.location.href,
+      brand: { "@type": "Brand", name: "The Aavira" },
+      offers: {
+        "@type": "Offer",
+        url: window.location.href,
+        priceCurrency: "NPR",
+        price: price,
+        availability,
+        seller: { "@type": "Organization", name: "The Aavira", url: siteUrl },
+      },
+    };
+
+    const id = "product-jsonld";
+    let script = document.getElementById(id) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement("script");
+      script.id = id;
+      script.type = "application/ld+json";
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(jsonLd);
+
+    return () => { document.getElementById(id)?.remove(); };
   }, [product]);
 }
 
@@ -559,11 +596,11 @@ function ProductPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
               {recentlyViewed.map((p) => (
                 <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
-                  <div className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-xl">
+                  <div className="aspect-[3/4] overflow-hidden rounded-xl">
                     {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <LazyImageFill src={p.image_url} alt={p.name} className="object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full grid place-items-center text-muted-foreground/40 text-xs">No image</div>
+                      <div className="w-full h-full bg-[oklch(0.95_0.010_60)] grid place-items-center text-muted-foreground/40 text-xs">No image</div>
                     )}
                   </div>
                   <div className="mt-3 px-0.5">
@@ -589,11 +626,11 @@ function ProductPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
               {related.map((p) => (
                 <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
-                  <div className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] overflow-hidden rounded-xl relative">
+                  <div className="aspect-[3/4] overflow-hidden rounded-xl relative">
                     {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-[1.06] transition-transform duration-600" />
+                      <LazyImageFill src={p.image_url} alt={p.name} className="object-cover group-hover:scale-[1.06] transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full grid place-items-center text-muted-foreground/40 text-xs">No image</div>
+                      <div className="w-full h-full bg-[oklch(0.95_0.010_60)] grid place-items-center text-muted-foreground/40 text-xs">No image</div>
                     )}
                     {p.stock_quantity === 0 && (
                       <span className="absolute top-3 left-3 bg-background/90 backdrop-blur text-muted-foreground text-[10px] font-medium px-2.5 py-1 rounded-full">Sold out</span>
