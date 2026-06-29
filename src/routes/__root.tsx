@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logPageVisit } from "@/lib/visits.functions";
 import { ComingSoon } from "@/components/coming-soon";
+import { WhatsAppFloat } from "@/components/whatsapp-float";
 
 function NotFoundComponent() {
   return (
@@ -157,7 +158,10 @@ function RootComponent() {
         // brief blank while settings load — avoids flash of store before lock kicks in
         <div className="min-h-screen bg-background" />
       ) : (
-        <Outlet />
+        <>
+          <Outlet />
+          {!isAdminPath && <WhatsAppFloat />}
+        </>
       )}
       <Toaster richColors position="top-center" />
     </QueryClientProvider>
