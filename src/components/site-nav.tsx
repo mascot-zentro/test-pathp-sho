@@ -2,11 +2,13 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { getLenis } from "@/lib/lenis";
 import { slugify } from "@/lib/slugify";
 import { useEffect, useRef, useState } from "react";
-import { Search, ShoppingBag, ShoppingCart, User as UserIcon, X, Heart, Menu } from "lucide-react";
+import { Search, ShoppingBag, ShoppingCart, User as UserIcon, X, Heart, Menu, Sparkles, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/lib/cart";
 import { Button } from "@/components/ui/button";
+import { useServerFn } from "@tanstack/react-start";
+import { aiSearch } from "@/lib/ai.functions";
 import {
   Sheet,
   SheetClose,
@@ -23,21 +25,69 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
+  const [aiMode, setAiMode] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const runAiSearch = useServerFn(aiSearch);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   useEffect(() => {
-    if (query.trim().length < 2) { setResults([]); setOpen(false); return; }
+    const q = query.trim();
+    if (q.length < 2) { setResults([]); setOpen(false); setAiMode(false); return; }
     const t = setTimeout(() => {
       supabase.from("products")
-        .select("id,name,image_url,price,sale_price,on_sale")
+        .select("id,name,image_url,price,sale_price,on_sale,category,description")
         .eq("active", true)
-        .ilike("name", `%${query.trim()}%`)
-        .limit(6)
-        .then(({ data }) => { setResults((data as SearchResult[]) ?? []); setOpen(true); });
-    }, 250);
+        .ilike("name", `%${q}%`)
+        .limit(8)
+        .then(async ({ data }) => {
+          const keyword = (data as SearchResult[]) ?? [];
+          // If keyword search returns good results, show them immediately
+          if (keyword.length >= 3) {
+            setResults(keyword.slice(0, 6));
+            setOpen(true);
+            setAiMode(false);
+          } else {
+            // Keyword came up short — try AI semantic search
+            setAiLoading(true);
+            try {
+              const { data: allProducts } = await supabase
+                .from("products")
+                .select("id,name,category,description,price")
+                .eq("active", true)
+                .limit(100);
+              const ids = await runAiSearch({
+                data: {
+                  query: q,
+                  products: (allProducts ?? []) as { id: string; name: string; category: string | null; description: string | null; price: number }[],
+                },
+              });
+              if (ids && ids.length > 0) {
+                // Fetch full details for AI-matched IDs
+                const { data: matched } = await supabase
+                  .from("products")
+                  .select("id,name,image_url,price,sale_price,on_sale")
+                  .in("id", ids)
+                  .eq("active", true);
+                const ordered = ids.map((id) => (matched ?? []).find((p: SearchResult) => p.id === id)).filter(Boolean) as SearchResult[];
+                setResults(ordered.slice(0, 6));
+                setAiMode(true);
+              } else {
+                setResults(keyword);
+                setAiMode(false);
+              }
+            } catch {
+              setResults(keyword);
+              setAiMode(false);
+            } finally {
+              setAiLoading(false);
+            }
+            setOpen(true);
+          }
+        });
+    }, 350);
     return () => clearTimeout(t);
   }, [query]);
 
@@ -50,23 +100,29 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
   return (
     <div className="relative w-full">
       <div className="flex items-center gap-2 border-b border-border/60 px-1 bg-transparent">
-        <Search className="size-3.5 text-muted-foreground shrink-0" />
+        {aiLoading ? <Loader2 className="size-3.5 text-accent shrink-0 animate-spin" /> : <Search className="size-3.5 text-muted-foreground shrink-0" />}
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Escape") { setOpen(false); onClose?.(); } }}
-          placeholder="Search…"
+          placeholder="Search or describe what you want…"
           className="flex-1 py-1.5 text-sm bg-transparent outline-none placeholder:text-muted-foreground/60"
         />
         {query && (
-          <button type="button" onClick={() => { setQuery(""); setResults([]); setOpen(false); onClose?.(); }} className="text-muted-foreground hover:text-foreground transition">
+          <button type="button" onClick={() => { setQuery(""); setResults([]); setOpen(false); setAiMode(false); onClose?.(); }} className="text-muted-foreground hover:text-foreground transition">
             <X className="size-3.5" />
           </button>
         )}
       </div>
       {open && results.length > 0 && (
         <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-background border border-border/60 rounded-xl shadow-xl overflow-hidden">
+          {aiMode && (
+            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/40 bg-accent/5">
+              <Sparkles className="size-3 text-accent" />
+              <span className="text-[10px] text-accent font-medium tracking-wide uppercase">AI Results</span>
+            </div>
+          )}
           {results.map((r) => {
             const displayPrice = r.on_sale && r.sale_price ? r.sale_price : r.price;
             return (
@@ -84,7 +140,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
           })}
         </div>
       )}
-      {open && query.trim().length >= 2 && results.length === 0 && (
+      {open && query.trim().length >= 2 && results.length === 0 && !aiLoading && (
         <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-background border border-border/60 rounded-xl shadow-xl px-4 py-3 text-sm text-muted-foreground">
           No results for "{query}"
         </div>

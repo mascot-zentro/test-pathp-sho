@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle, Copy, Facebook, ZoomIn, Ruler, Heart, Truck, RotateCcw, ShieldCheck, Package } from "lucide-react";
+import { MessageCircle, Copy, Facebook, ZoomIn, Ruler, Heart, Truck, RotateCcw, ShieldCheck, Package, Sparkles, Loader2 } from "lucide-react";
 import { slugify } from "@/lib/slugify";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,8 @@ import { LazyImageFill } from "@/components/lazy-image";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AIChat } from "@/components/ai-chat";
+import { getAISizeRecommendation, getAIRecommendations } from "@/lib/ai.functions";
 
 // ── Server fetch for SSR OG tags ────────────────────────────────────────────
 const fetchProductMeta = createServerFn({ method: "GET" })
@@ -171,6 +173,14 @@ function ProductPage() {
   const [wishlisted, setWishlisted] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
 
+  // AI state
+  const getSize = useServerFn(getAISizeRecommendation);
+  const getRecommendations = useServerFn(getAIRecommendations);
+  const [aiMeasurements, setAiMeasurements] = useState({ bust: "", waist: "", hips: "" });
+  const [aiSizeResult, setAiSizeResult] = useState<{ size: string; confidence: string; reason: string } | null>(null);
+  const [aiSizeLoading, setAiSizeLoading] = useState(false);
+  const [aiRecommendedIds, setAiRecommendedIds] = useState<string[]>([]);
+
   useEffect(() => {
     // Fetch product + whatsapp setting in parallel, then batch variant queries
     Promise.all([
@@ -213,14 +223,19 @@ function ProductPage() {
     supabase.from("products")
       .select("id,name,price,sale_price,on_sale,image_url,stock_quantity,category")
       .eq("active", true).neq("id", product.id).limit(20)
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         const list = (data as RelatedProduct[]) ?? [];
-        // Same-category products feel more "you may also like" than a
-        // grab bag, but if there aren't enough, fill the rest from
-        // whatever else is in stock so the section isn't sparse.
-        const sameCategory = list.filter((p) => p.category && p.category === product.category);
-        const rest = list.filter((p) => !(p.category && p.category === product.category));
-        setRelated([...sameCategory, ...rest].slice(0, 4));
+        setRelated(list.slice(0, 4));
+        // Ask AI to reorder for relevance (fire and forget, updates when ready)
+        try {
+          const ids = await getRecommendations({
+            data: {
+              currentProduct: { name: product.name, category: product.category, price: product.price },
+              candidates: list.map((p) => ({ id: p.id, name: p.name, category: p.category, price: p.price })),
+            },
+          });
+          setAiRecommendedIds(ids);
+        } catch { /* keep default order */ }
       });
   }, [product?.id, product?.category]);
 
@@ -251,6 +266,34 @@ function ProductPage() {
   const waLink = !outOfStock && waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}` : null;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const shareText = `Check out ${product.name} — NRS ${price}`;
+
+  // AI-reordered related products (falls back to default order if AI not ready)
+  const sortedRelated = aiRecommendedIds.length > 0
+    ? [...related].sort((a, b) => {
+        const ai = aiRecommendedIds.indexOf(a.id);
+        const bi = aiRecommendedIds.indexOf(b.id);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      })
+    : related;
+
+  const handleAISizeCheck = async () => {
+    const bust = parseFloat(aiMeasurements.bust);
+    const waist = parseFloat(aiMeasurements.waist);
+    const hips = parseFloat(aiMeasurements.hips);
+    if (!bust || !waist || !hips) { toast.error("Please enter all measurements"); return; }
+    setAiSizeLoading(true);
+    setAiSizeResult(null);
+    try {
+      const result = await getSize({
+        data: { bust, waist, hips, availableSizes: sizes.map((s) => s.name) },
+      });
+      setAiSizeResult(result);
+    } catch {
+      toast.error("AI size check failed. Please use the size chart.");
+    } finally {
+      setAiSizeLoading(false);
+    }
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -464,6 +507,62 @@ function ProductPage() {
                         </div>
                       </div>
 
+                      {/* AI Size Finder */}
+                      {sizes.length > 0 && (
+                        <div className="rounded-xl bg-accent/5 border border-accent/20 p-4 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="size-3.5 text-accent" />
+                            <p className="text-xs font-medium tracking-[0.12em] uppercase text-accent">AI Size Finder</p>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">Enter your measurements and AI will recommend your size.</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(["bust", "waist", "hips"] as const).map((field) => (
+                              <div key={field}>
+                                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">{field} (cm)</label>
+                                <input
+                                  type="number"
+                                  min={50} max={150}
+                                  value={aiMeasurements[field]}
+                                  onChange={(e) => setAiMeasurements((prev) => ({ ...prev, [field]: e.target.value }))}
+                                  placeholder="e.g. 88"
+                                  className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent transition-colors"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleAISizeCheck}
+                            disabled={aiSizeLoading}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-accent text-accent-foreground text-xs font-medium py-2.5 hover:opacity-90 transition-opacity disabled:opacity-60"
+                          >
+                            {aiSizeLoading ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                            {aiSizeLoading ? "Analysing…" : "Find my size"}
+                          </button>
+                          {aiSizeResult && (
+                            <div className="rounded-lg bg-background border border-border p-3 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Recommended size</span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${aiSizeResult.confidence === "high" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                                  {aiSizeResult.confidence} confidence
+                                </span>
+                              </div>
+                              <p className="text-2xl font-display font-light text-accent">{aiSizeResult.size}</p>
+                              <p className="text-[11px] text-muted-foreground">{aiSizeResult.reason}</p>
+                              {sizes.find((s) => s.name === aiSizeResult.size) && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setSelectedSize(aiSizeResult.size); toast.success(`Size ${aiSizeResult.size} selected`); }}
+                                  className="text-[11px] text-accent underline underline-offset-2 hover:opacity-80 transition-opacity"
+                                >
+                                  Select this size →
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Tips */}
                       <div className="flex flex-col gap-2 text-[11px] text-muted-foreground border-t border-border/50 pt-4">
                         <p>📏 <strong className="text-foreground">Between sizes?</strong> Size up for a more comfortable fit.</p>
@@ -618,13 +717,20 @@ function ProductPage() {
         </section>
       )}
 
-      {related.length > 0 && (
+      {sortedRelated.length > 0 && (
         <section className="border-t border-border/50">
           <div className="container mx-auto px-6 py-16">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-accent mb-2">You may love</p>
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] tracking-[0.2em] uppercase text-accent">You may love</p>
+              {aiRecommendedIds.length > 0 && (
+                <span className="flex items-center gap-1 text-[9px] text-muted-foreground/60 tracking-wide uppercase">
+                  <Sparkles className="size-2.5" /> AI picked
+                </span>
+              )}
+            </div>
             <h2 className="text-3xl font-display font-light mb-10">Complete the look</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-5 gap-y-10">
-              {related.map((p) => (
+              {sortedRelated.map((p) => (
                 <Link key={p.id} to="/product/$slug" params={{ slug: slugify(p.name) }} className="group">
                   <div className="aspect-[3/4] overflow-hidden rounded-xl relative">
                     {p.image_url ? (
@@ -650,6 +756,7 @@ function ProductPage() {
           </div>
         </section>
       )}
+      <AIChat productName={product.name} productCategory={product.category ?? undefined} />
       <SiteFooter />
     </div>
   );

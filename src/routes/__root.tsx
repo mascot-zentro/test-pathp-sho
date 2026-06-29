@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logPageVisit } from "@/lib/visits.functions";
 import { WhatsAppFloat } from "@/components/whatsapp-float";
+import { AIChat } from "@/components/ai-chat";
 
 const ComingSoon = lazy(() => import("@/components/coming-soon").then((m) => ({ default: m.ComingSoon })));
 
@@ -174,6 +175,7 @@ function RootComponent() {
         <>
           <Outlet />
           {!isAdminPath && <WhatsAppFloat />}
+          {!isAdminPath && !pathname.startsWith("/product/") && <AIChat />}
         </>
       )}
       <Toaster richColors position="top-center" />
