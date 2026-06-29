@@ -58,18 +58,60 @@ export const askAIChat = createServerFn()
     conversationHistory: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() })).max(10),
   }))
   .handler(async ({ data }) => {
-    const system = `You are Aavi, a friendly shopping assistant for The Aavira — a women's fashion store in Nepal.
-Key facts: Cash on delivery only. Delivery 3-7 days across Nepal. Free delivery on orders above NRS 2000. Returns within 7 days for unused items. Sizes XS to XXL available. Products: kurta sets, dresses, tops, ethnic wear.
-${data.productName ? `Customer is viewing: ${data.productName}${data.productCategory ? ` (${data.productCategory})` : ""}.` : ""}
-Be warm, helpful and brief. Answer in 1-3 sentences. If you don't know something specific (like exact stock), suggest they WhatsApp the store. Never make up prices or product details you don't know.`;
+    const key = process.env.GROQ_API_KEY ?? "";
+    if (!key) return "I'm not available right now. Please WhatsApp us for help!";
+
+    // Fetch live products and store settings server-side
+    const { createClient } = await import("@supabase/supabase-js");
+    const db = createClient(process.env.SUPABASE_URL ?? "", process.env.SUPABASE_SERVICE_ROLE_KEY ?? "", {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const [{ data: products }, { data: settings }] = await Promise.all([
+      db.from("products").select("name,price,sale_price,on_sale,category,description,stock_quantity").eq("active", true).order("name"),
+      db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee"]),
+    ]);
+
+    const productList = (products ?? []).map((p: { name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; stock_quantity: number | null }) => {
+      const price = p.on_sale && p.sale_price ? `NRS ${p.sale_price} (sale, was NRS ${p.price})` : `NRS ${p.price}`;
+      const stock = p.stock_quantity === 0 ? " [OUT OF STOCK]" : "";
+      return `- ${p.name} | ${p.category ?? "fashion"} | ${price}${stock}`;
+    }).join("\n");
+
+    const settingsMap: Record<string, string> = {};
+    (settings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) settingsMap[r.key] = r.value; });
+    const storeName = settingsMap.store_name ?? "The Aavira";
+    const deliveryFee = settingsMap.delivery_fee ? `NRS ${settingsMap.delivery_fee}` : "standard rate";
+
+    const system = `You are Aavi, the sales assistant for ${storeName} — a premium women's fashion store in Nepal.
+
+STORE POLICIES (facts only, never guess):
+- Payment: Cash on delivery only
+- Delivery: 3–7 business days across Nepal, ${deliveryFee} delivery fee
+- Returns: Within 7 days, unused items only
+- Sizes: XS to XXL
+
+CURRENT PRODUCTS:
+${productList}
+
+${data.productName ? `CUSTOMER IS VIEWING: "${data.productName}"${data.productCategory ? ` (${data.productCategory})` : ""}` : ""}
+
+YOUR ROLE — be a skilled salesperson:
+- Your ONLY job is to help the customer buy. Drive them toward placing an order.
+- Answer questions concisely (1-3 sentences max). Never ramble.
+- Highlight value: mention sale prices, limited stock, quality.
+- If they show interest in a product, nudge them to order: "Want to place an order? It's cash on delivery — no payment needed upfront."
+- If asked about a product not in the list above, say it's not available and suggest the closest alternative from the list.
+- NEVER reveal: internal costs, supplier names, admin details, order counts, revenue, staff information, or anything from the database beyond what's listed above.
+- NEVER discuss topics unrelated to shopping (politics, other stores, personal topics).
+- NEVER make up prices, stock, or details not in the product list above.
+- If you don't know something specific (exact size availability, color variants), say "WhatsApp us for details" and provide no further speculation.
+- Do not mention you are an AI unless directly asked. If asked, say "I'm Aavi, your shopping assistant."`;
 
     const messages = [
       ...data.conversationHistory.slice(-6),
       { role: "user" as const, content: data.message },
     ];
-
-    const key = process.env.GROQ_API_KEY ?? "";
-    if (!key) return "I'm not available right now. Please WhatsApp us for help!";
 
     const res = await fetch(GROQ_URL, {
       method: "POST",
@@ -77,13 +119,13 @@ Be warm, helpful and brief. Answer in 1-3 sentences. If you don't know something
       body: JSON.stringify({
         model: MODEL,
         messages: [{ role: "system", content: system }, ...messages],
-        max_tokens: 150,
-        temperature: 0.5,
+        max_tokens: 180,
+        temperature: 0.3,
       }),
     });
     if (!res.ok) return "I'm having trouble right now. Please WhatsApp us for help!";
     const json = await res.json() as { choices?: { message?: { content?: string } }[] };
-    return json.choices?.[0]?.message?.content?.trim() ?? "I'm not sure about that — please WhatsApp us!";
+    return json.choices?.[0]?.message?.content?.trim() ?? "Please WhatsApp us for help!";
   });
 
 // AI product recommendations
