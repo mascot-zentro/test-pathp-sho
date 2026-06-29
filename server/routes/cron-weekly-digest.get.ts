@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { defineEventHandler, getHeader, setResponseStatus } from "h3";
 
 function getAdmin() {
   const url = process.env.SUPABASE_URL ?? "";
