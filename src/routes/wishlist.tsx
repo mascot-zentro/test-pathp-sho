@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { proxyUrl } from "@/lib/img-proxy";
 import { useEffect, useState } from "react";
 import { Heart, ShoppingBag, Trash2, ArrowRight } from "lucide-react";
 import { slugify } from "@/lib/slugify";
@@ -80,7 +81,7 @@ function WishlistPage() {
                       <div className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] rounded-xl overflow-hidden relative">
                         {item.image_url ? (
                           <img
-                            src={item.image_url}
+                            src={proxyUrl(item.image_url)}
                             alt={item.name}
                             loading="lazy"
                             decoding="async"

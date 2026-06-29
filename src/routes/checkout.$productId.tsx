@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { proxyUrl } from "@/lib/img-proxy";
 import { slugify } from "@/lib/slugify";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -276,7 +277,7 @@ function Checkout() {
           <div className="flex items-start gap-3">
             {product.image_url && (
               <img
-                src={product.image_url}
+                src={proxyUrl(product.image_url)}
                 alt={product.name}
                 className="w-14 h-14 rounded-md object-cover shrink-0"
               />

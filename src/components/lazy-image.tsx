@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { proxyUrl } from "@/lib/img-proxy";
 
 interface LazyImageProps {
   src: string;
@@ -12,6 +13,7 @@ const PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='6'%3E%3Crect width='4' height='6' fill='%23f5ede6'/%3E%3C/svg%3E";
 
 const WATERMARK = "© The Aavira";
+
 
 function drawWatermark(canvas: HTMLCanvasElement, img: HTMLImageElement) {
   const ctx = canvas.getContext("2d");
@@ -61,7 +63,7 @@ export function LazyImage({ src, alt, className = "" }: LazyImageProps) {
         setLoaded(true);
       }
     };
-    img.src = src;
+    img.src = proxyUrl(src);
   }, [inView, src]);
 
   useEffect(() => {
@@ -113,7 +115,7 @@ export function LazyImageFill({ src, alt, className = "", fetchPriority = "auto"
         setLoaded(true);
       }
     };
-    img.src = src;
+    img.src = proxyUrl(src);
   }, [inView, src]);
 
   useEffect(() => {

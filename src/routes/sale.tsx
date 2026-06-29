@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { proxyUrl } from "@/lib/img-proxy";
 import { slugify } from "@/lib/slugify";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,7 +90,7 @@ function SalePage() {
                   <div className="aspect-4/5 bg-muted overflow-hidden rounded-xl relative">
                     {p.image_url && (
                       <img
-                        src={p.image_url}
+                        src={proxyUrl(p.image_url)}
                         alt={p.name}
                         loading="lazy"
                         decoding="async"

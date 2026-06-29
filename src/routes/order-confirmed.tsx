@@ -1,9 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Package, MessageCircle, MapPin } from "lucide-react";
+import { proxyUrl } from "@/lib/img-proxy";
 import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
+import { getOrderConfirmation } from "@/lib/orders.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/order-confirmed")({
@@ -45,6 +48,7 @@ const REDIRECT_SECS = 15;
 function OrderConfirmed() {
   const { id } = Route.useSearch();
   const navigate = useNavigate();
+  const fetchOrder = useServerFn(getOrderConfirmation);
   const [order, setOrder] = useState<OrderData | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [waNumber, setWaNumber] = useState("");
@@ -68,17 +72,11 @@ function OrderConfirmed() {
 
   useEffect(() => {
     if (!id) return;
-    supabase
-      .from("orders")
-      .select("product_name,product_id,customer_name,total,delivery_fee,created_at,color,size,quantity")
-      .eq("id", id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        setOrder(data as OrderData);
-        supabase.from("products").select("image_url").eq("id", (data as OrderData).product_id).maybeSingle()
-          .then(({ data: p }) => { if (p && (p as { image_url: string | null }).image_url) setImageUrl((p as { image_url: string }).image_url); });
-      });
+    fetchOrder({ data: { id } }).then((res) => {
+      if (!res) return;
+      setOrder(res as OrderData);
+      if (res.image_url) setImageUrl(res.image_url);
+    });
   }, [id]);
 
   useEffect(() => {
@@ -147,7 +145,7 @@ function OrderConfirmed() {
           >
             <div className="px-6 py-5 border-b border-border/40 flex items-center gap-3">
               {imageUrl ? (
-                <img src={imageUrl} alt={order.product_name} className="w-12 h-12 rounded-md object-cover shrink-0" />
+                <img src={proxyUrl(imageUrl)} alt={order.product_name} className="w-12 h-12 rounded-md object-cover shrink-0" />
               ) : (
                 <Package className="size-4 text-accent shrink-0" />
               )}

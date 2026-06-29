@@ -1,4 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { proxyUrl } from "@/lib/img-proxy";
 import { getLenis } from "@/lib/lenis";
 import { slugify } from "@/lib/slugify";
 import { useEffect, useRef, useState } from "react";
@@ -82,7 +83,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted transition-colors"
               >
                 <div className="size-10 rounded bg-muted shrink-0 overflow-hidden">
-                  {r.image_url && <img src={r.image_url} alt="" className="w-full h-full object-cover" />}
+                  {r.image_url && <img src={proxyUrl(r.image_url)} alt="" className="w-full h-full object-cover" />}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{r.name}</div>

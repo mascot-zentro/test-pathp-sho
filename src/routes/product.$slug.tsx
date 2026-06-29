@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { proxyUrl } from "@/lib/img-proxy";
 import { createServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Copy, Facebook, ZoomIn, Ruler, Heart, Truck, RotateCcw, ShieldCheck, Package } from "lucide-react";
@@ -288,7 +289,7 @@ function ProductPage() {
             {images[activeImage] && (
               <>
                 <img
-                  src={images[activeImage]}
+                  src={proxyUrl(images[activeImage])}
                   alt={product.name}
                   fetchPriority="high"
                   decoding="async"
@@ -298,7 +299,7 @@ function ProductPage() {
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{
-                      backgroundImage: `url(${images[activeImage]})`,
+                      backgroundImage: `url(${proxyUrl(images[activeImage])})`,
                       backgroundSize: "260%",
                       backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
                       backgroundRepeat: "no-repeat",
@@ -316,7 +317,7 @@ function ProductPage() {
               {images.map((url, i) => (
                 <button key={i} type="button" onClick={() => setActiveImage(i)}
                   className={`size-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all duration-200 flex-none ${i === activeImage ? "border-accent shadow-sm" : "border-transparent opacity-60 hover:opacity-100"}`}>
-                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                  <img src={proxyUrl(url)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
