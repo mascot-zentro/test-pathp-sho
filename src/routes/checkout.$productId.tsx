@@ -19,7 +19,7 @@ export const Route = createFileRoute("/checkout/$productId")({
   component: Checkout,
 });
 
-type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number; images: string[] | null };
+type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number; image_url: string | null };
 
 function Checkout() {
   const { productId } = Route.useParams();
@@ -54,7 +54,7 @@ function Checkout() {
   const fetchDeliveryEstimate = useServerFn(getDeliveryEstimate);
 
   useEffect(() => {
-    supabase.from("products").select("id,name,price,sale_price,on_sale,weight,images").eq("id", productId).maybeSingle()
+    supabase.from("products").select("id,name,price,sale_price,on_sale,weight,image_url").eq("id", productId).maybeSingle()
       .then(({ data }) => setProduct(data as Product | null));
     fetchCities().then((res: unknown) => {
       const r = res as { data?: { data?: { city_id: number; city_name: string }[] } };
@@ -273,10 +273,10 @@ function Checkout() {
         </form>
 
         <aside className="border rounded-lg overflow-hidden h-fit bg-card md:order-last">
-          {product.images?.[0] && (
+          {product.image_url && (
             <div className="aspect-3/4 w-full overflow-hidden bg-muted">
               <img
-                src={product.images[0]}
+                src={product.image_url}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
