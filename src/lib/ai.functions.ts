@@ -75,6 +75,21 @@ export const askAIChat = createServerFn()
       { data: faqs },
       { data: promos },
       { data: categories },
+    // Detect order ID in message (e.g. #2848FF0E or order 2848FF0E)
+    const orderIdMatch = data.message.match(/\b([0-9A-F]{6,})\b/i) ??
+      data.message.match(/#([A-Z0-9]+)/i) ??
+      data.conversationHistory.slice(-2).map(m => m.content).join(" ").match(/\b([0-9A-F]{6,})\b/i);
+    const mentionedOrderId = orderIdMatch?.[1]?.toUpperCase() ?? null;
+
+    const [
+      { data: products },
+      { data: allColors },
+      { data: allSizes },
+      { data: settings },
+      { data: faqs },
+      { data: promos },
+      { data: categories },
+      orderResult,
     ] = await Promise.all([
       db.from("products").select("id,name,price,sale_price,on_sale,category,description,stock_quantity").eq("active", true).order("name"),
       db.from("product_colors").select("product_id,name,stock_quantity"),
@@ -83,7 +98,34 @@ export const askAIChat = createServerFn()
       db.from("faqs").select("question,answer").eq("active", true).order("position"),
       db.from("promo_codes").select("code,discount_percent,expires_at").eq("active", true),
       db.from("categories").select("name").order("position"),
+      mentionedOrderId
+        ? db.from("orders").select("id,product_name,status,pathao_status,created_at,customer_name,quantity,total,size,color").ilike("id", `%${mentionedOrderId}%`).limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
+
+    type OrderRow = { id: string; product_name: string; status: string; pathao_status: string | null; created_at: string; customer_name: string; quantity: number; total: number; size: string | null; color: string | null };
+    const foundOrder = orderResult.data as OrderRow | null;
+
+    const statusLabels: Record<string, string> = {
+      pending: "Pending — not yet dispatched",
+      processing: "Processing — being prepared",
+      dispatched: "Dispatched — handed to Pathao for delivery",
+      delivered: "Delivered — order completed",
+      cancelled: "Cancelled",
+      returned: "Returned",
+    };
+
+    const orderContext = foundOrder
+      ? `═══ ORDER LOOKUP RESULT ═══
+Order ID: ${foundOrder.id}
+Customer: ${foundOrder.customer_name}
+Product: ${foundOrder.product_name}${foundOrder.size ? ` | Size: ${foundOrder.size}` : ""}${foundOrder.color ? ` | Color: ${foundOrder.color}` : ""}
+Quantity: ${foundOrder.quantity} | Total: NRS ${foundOrder.total}
+Status: ${statusLabels[foundOrder.status] ?? foundOrder.status}${foundOrder.pathao_status ? `\nPathao courier status: ${foundOrder.pathao_status}` : ""}
+Ordered on: ${new Date(foundOrder.created_at).toLocaleDateString("en-NP", { timeZone: "Asia/Kathmandu", dateStyle: "medium" })}`
+      : mentionedOrderId
+        ? `═══ ORDER LOOKUP ═══\nNo order found with ID containing "${mentionedOrderId}". Tell the customer the ID may be incorrect and suggest they visit /track or WhatsApp us.`
+        : "";
 
     type PRow = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; description: string | null; stock_quantity: number | null };
     type ColorRow = { product_id: string; name: string; stock_quantity: number | null };
@@ -149,12 +191,14 @@ Categories we carry: ${categoryList || "women's fashion"}
 • Delivery: 3–7 business days across Nepal. Delivery fee: ${deliveryFee}.
 • Returns: ${returnPolicy}
 • Sizes: XS, S, M, L, XL, XXL (varies per product — check product details below)
-• Order tracking: Customers can track their order at ${storeName}'s website — go to the Track page and enter your phone number. Direct link: /track
+• Order tracking: Customers can track at /track (enter phone number). If a customer provides an order ID, you can look it up and give them the status directly.
 
 ═══ OUR PRODUCTS (live inventory) ═══
 ${productList || "No products currently available."}
 
 ${data.productName ? `═══ CUSTOMER IS CURRENTLY VIEWING ═══\n"${data.productName}"${data.productCategory ? ` — ${data.productCategory}` : ""}` : ""}
+
+${orderContext}
 
 ${faqText ? `═══ FREQUENTLY ASKED QUESTIONS ═══\n${faqText}` : ""}
 
