@@ -14,7 +14,7 @@ interface AIChatProps {
 export function AIChat({ productName, productCategory }: AIChatProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hi! I'm Aavi 👋 Ask me anything about sizing, delivery, returns, or our products." },
+    { role: "assistant", content: "Hi! I'm Aavi, your shopping assistant. I can help you find products, check sizing, or answer questions about delivery and returns." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
