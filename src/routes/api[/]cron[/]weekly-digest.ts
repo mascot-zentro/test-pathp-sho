@@ -13,7 +13,7 @@ export const ServerRoute = createServerFileRoute("/api/cron/weekly-digest").meth
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const offset = 5.75 * 60 * 60 * 1000; // NPT UTC+5:45
+    const offset = 5.75 * 60 * 60 * 1000;
     const nowUtc = Date.now();
     const weekAgoUtc = nowUtc - 7 * 24 * 60 * 60 * 1000;
     const prevWeekStartUtc = weekAgoUtc - 7 * 24 * 60 * 60 * 1000;
@@ -38,7 +38,6 @@ export const ServerRoute = createServerFileRoute("/api/cron/weekly-digest").meth
     const delivered = cur.filter((o) => o.status === "delivered").length;
     const cancelled = cur.filter((o) => ["cancelled", "returned"].includes(o.status)).length;
 
-    // Top 5 products this week
     const productCounts: Record<string, number> = {};
     for (const o of cur) {
       productCounts[o.product_name] = (productCounts[o.product_name] ?? 0) + 1;
@@ -49,7 +48,6 @@ export const ServerRoute = createServerFileRoute("/api/cron/weekly-digest").meth
       .map(([name, count], i) => `${i + 1}. ${name} — ${count} order${count > 1 ? "s" : ""}`)
       .join("\n");
 
-    // Best day of the week
     const dayTotals: Record<string, number> = {};
     for (const o of cur) {
       const day = new Date(o.created_at).toLocaleDateString("en-NP", { weekday: "long", timeZone: "Asia/Kathmandu" });
@@ -57,7 +55,7 @@ export const ServerRoute = createServerFileRoute("/api/cron/weekly-digest").meth
     }
     const bestDay = Object.entries(dayTotals).sort((a, b) => b[1] - a[1])[0];
 
-    const fmt = (n: number | null) => n === null ? "—" : `${n > 0 ? "+" : ""}${Math.round(n)}%`;
+    const fmt = (n: number | null) => n === null ? "" : ` (${n > 0 ? "+" : ""}${Math.round(n)}%)`;
     const arrow = (n: number | null) => n === null ? "" : n > 0 ? " 📈" : n < 0 ? " 📉" : "";
 
     const startDate = new Date(weekAgoUtc).toLocaleDateString("en-NP", { month: "short", day: "numeric", timeZone: "Asia/Kathmandu" });
@@ -70,8 +68,8 @@ export const ServerRoute = createServerFileRoute("/api/cron/weekly-digest").meth
         ? "No orders this week."
         : `**${startDate} – ${endDate}** recap:`,
       fields: cur.length === 0 ? [] : [
-        { name: "Orders", value: `${cur.length} ${fmt(orderChange)}${arrow(orderChange)}`, inline: true },
-        { name: "Revenue (COD)", value: `NRS ${Math.round(curRevenue).toLocaleString()} ${fmt(revenueChange)}${arrow(revenueChange)}`, inline: true },
+        { name: "Orders", value: `${cur.length}${fmt(orderChange)}${arrow(orderChange)}`, inline: true },
+        { name: "Revenue (COD)", value: `NRS ${Math.round(curRevenue).toLocaleString()}${fmt(revenueChange)}${arrow(revenueChange)}`, inline: true },
         { name: "Avg Order Value", value: `NRS ${Math.round(curRevenue / cur.length).toLocaleString()}`, inline: true },
         { name: "Delivered", value: String(delivered), inline: true },
         { name: "Cancelled/Returned", value: String(cancelled), inline: true },

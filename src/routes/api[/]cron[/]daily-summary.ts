@@ -21,8 +21,7 @@ export const ServerRoute = createServerFileRoute("/api/cron/daily-summary").meth
     const yesterdayEnd = new Date(yesterday);
     yesterdayEnd.setHours(23, 59, 59, 999);
 
-    // Convert back to UTC for the DB query
-    const offset = 5.75 * 60 * 60 * 1000; // NPT is UTC+5:45
+    const offset = 5.75 * 60 * 60 * 1000;
     const from = new Date(yesterday.getTime() - offset).toISOString();
     const to = new Date(yesterdayEnd.getTime() - offset).toISOString();
 
@@ -38,7 +37,6 @@ export const ServerRoute = createServerFileRoute("/api/cron/daily-summary").meth
     const cancelled = all.filter((o) => ["cancelled", "returned"].includes(o.status)).length;
     const pending = all.filter((o) => !["delivered", "cancelled", "returned"].includes(o.status)).length;
 
-    // Top products
     const productCounts: Record<string, number> = {};
     for (const o of all) {
       productCounts[o.product_name] = (productCounts[o.product_name] ?? 0) + 1;
