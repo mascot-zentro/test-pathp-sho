@@ -335,6 +335,18 @@ async function insertOrderAndSubmitToPathao(
     })
   ).catch(() => {});
 
+  // Fire-and-forget — never awaited so a WhatsApp/Meta API failure can't affect the order
+  import("./whatsapp-notify.server").then(({ notifyWhatsAppOrderConfirmed }) =>
+    notifyWhatsAppOrderConfirmed({
+      orderId: order.id,
+      customerName: args.customerName,
+      customerPhone: args.customerPhone,
+      customerAddress: args.customerAddress,
+      productName: args.productName,
+      total: args.total,
+    })
+  ).catch(() => {});
+
   const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
   const storeId = setting?.value ? Number(setting.value) : null;
 
