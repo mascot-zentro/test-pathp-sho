@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep 'product\\\\.$slug\\\\|TooltipProvider')"
+      "Bash(grep 'product\\\\.$slug\\\\|TooltipProvider')",
+      "Bash(git commit -m ' *)",
+      "Bash(wc -l /Users/shreeyushdhungana/Documents/test-pathp-sho/src/routes/product.\\\\$slug.tsx *)",
+      "Read(//Users/shreeyushdhungana/Documents/test-pathp-sho/src/routes/**)",
+      "Bash(grep -n \"related\\\\|You may also\\\\|sortedRelated\\\\|AIChat\\\\|SiteFooter\" /Users/shreeyushdhungana/Documents/test-pathp-sho/src/routes/product.\\\\$slug.tsx | tail -30)"
     ]
   }
 }

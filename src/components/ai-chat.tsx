@@ -9,10 +9,11 @@ type Message = { role: "user" | "assistant"; content: string };
 interface AIChatProps {
   productName?: string;
   productCategory?: string;
+  openOnMount?: boolean;
 }
 
-export function AIChat({ productName, productCategory }: AIChatProps) {
-  const [open, setOpen] = useState(false);
+export function AIChat({ productName, productCategory, openOnMount }: AIChatProps) {
+  const [open, setOpen] = useState(!!openOnMount);
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: "Hi! I'm Aavi, your shopping assistant. I can help you find products, check sizing, or answer questions about delivery and returns." },
   ]);

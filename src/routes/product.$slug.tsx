@@ -303,11 +303,15 @@ function ProductPage() {
     });
   };
 
-  const handleShare = async (platform: "whatsapp" | "facebook" | "copy") => {
+  const handleShare = async (platform: "whatsapp" | "facebook" | "copy" | "social") => {
     if (platform === "whatsapp") {
       window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, "_blank");
     } else if (platform === "facebook") {
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, "_blank");
+    } else if (platform === "social") {
+      // ?from=social opens chat automatically so DM traffic lands on a guided page, not a bare product page
+      await navigator.clipboard.writeText(`${shareUrl}${shareUrl.includes("?") ? "&" : "?"}from=social`);
+      toast.success("Social link copied! Paste it in your bio/story.");
     } else {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied!");
@@ -668,15 +672,15 @@ function ProductPage() {
             {/* Social share */}
             <div className="mt-6 flex items-center gap-3 pt-6 border-t border-border/40">
               <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Share</span>
-              {(["whatsapp","facebook","copy"] as const).map((p, i) => (
+              {(["whatsapp","facebook","copy","social"] as const).map((p, i) => (
                 <Tooltip key={p}>
                   <TooltipTrigger asChild>
                     <button type="button" onClick={() => handleShare(p)}
                       className="size-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:border-accent hover:text-accent transition-all duration-200">
-                      {i === 0 ? <MessageCircle className="size-3.5" /> : i === 1 ? <Facebook className="size-3.5" /> : <Copy className="size-3.5" />}
+                      {i === 0 ? <MessageCircle className="size-3.5" /> : i === 1 ? <Facebook className="size-3.5" /> : i === 2 ? <Copy className="size-3.5" /> : <Sparkles className="size-3.5" />}
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>{p === "copy" ? "Copy link" : `Share on ${p}`}</TooltipContent>
+                  <TooltipContent>{p === "copy" ? "Copy link" : p === "social" ? "Copy link for Instagram/TikTok bio" : `Share on ${p}`}</TooltipContent>
                 </Tooltip>
               ))}
             </div>
@@ -756,7 +760,7 @@ function ProductPage() {
           </div>
         </section>
       )}
-      <AIChat productName={product.name} productCategory={product.category ?? undefined} />
+      <AIChat productName={product.name} productCategory={product.category ?? undefined} openOnMount={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "social"} />
       <SiteFooter />
     </div>
   );
