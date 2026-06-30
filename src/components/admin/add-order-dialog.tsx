@@ -48,6 +48,12 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [skipPathao, setSkipPathao] = useState(false);
+  // DM sales (Instagram/TikTok) are quoted flat rates to the customer —
+  // NRS 100 inside Kathmandu ring road, 150-250 outside — which usually
+  // don't match Pathao's calculated price-plan fee. This lets the admin
+  // override the auto-calculated fee with what was actually quoted.
+  const [manualFeeOverride, setManualFeeOverride] = useState(false);
+  const [manualFee, setManualFee] = useState<string>("100");
 
   // Live stock for the selected catalog product, so the admin picks a real
   // color/size instead of typing free text blind. null = "no variants of
@@ -138,11 +144,13 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
     setForm(EMPTY_FORM);
     setCityId(null); setZoneId(null); setAreaId(null);
     setDeliveryFee(null); setSkipPathao(false);
+    setManualFeeOverride(false); setManualFee("100");
     setColorOptions(null); setSizeOptions(null); setBaseStock(null);
   };
 
+  const effectiveDeliveryFee = manualFeeOverride ? Number(manualFee) || 0 : deliveryFee;
   const subtotal = (Number(form.unitPrice) || 0) * form.quantity;
-  const total = subtotal + (deliveryFee ?? 0);
+  const total = subtotal + (effectiveDeliveryFee ?? 0);
 
   const handleSubmit = async () => {
     if (!form.productName.trim()) { toast.error("Enter a product name."); return; }
@@ -186,7 +194,7 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
           areaId: skipPathao ? null : areaId,
           specialInstruction: form.specialInstruction.trim() || null,
           weight: Number(form.weight) || 0.5,
-          deliveryFee: skipPathao ? 0 : (deliveryFee ?? 0),
+          deliveryFee: skipPathao ? 0 : (effectiveDeliveryFee ?? 0),
           source: form.source,
           skipStockCheck: !form.productId,
           skipPathao,
@@ -393,22 +401,42 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
                   <Label>Special instructions (optional)</Label>
                   <Textarea value={form.specialInstruction} onChange={(e) => setForm((f) => ({ ...f, specialInstruction: e.target.value }))} />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {deliveryFeeLoading
-                    ? "Calculating delivery fee…"
-                    : deliveryFee !== null
-                    ? `Delivery fee: NRS ${deliveryFee}`
-                    : cityId && zoneId
-                    ? "Couldn't calculate delivery fee — order will still be saved, but Pathao submission may fail."
-                    : "Select city and zone to calculate the delivery fee."}
-                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    {manualFeeOverride
+                      ? "Using the rate quoted to the customer instead of Pathao's calculated fee."
+                      : deliveryFeeLoading
+                      ? "Calculating delivery fee…"
+                      : deliveryFee !== null
+                      ? `Delivery fee: NRS ${deliveryFee}`
+                      : cityId && zoneId
+                      ? "Couldn't calculate delivery fee — order will still be saved, but Pathao submission may fail."
+                      : "Select city and zone to calculate the delivery fee."}
+                  </p>
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer shrink-0">
+                    <input type="checkbox" checked={manualFeeOverride} onChange={(e) => setManualFeeOverride(e.target.checked)} />
+                    Set manually
+                  </label>
+                </div>
+                {manualFeeOverride && (
+                  <div>
+                    <Label>Delivery fee quoted to customer (NRS)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={manualFee}
+                      onChange={(e) => setManualFee(e.target.value)}
+                      placeholder="e.g. 100 inside ring road, 150-250 outside"
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>
 
           <div className="flex justify-between items-center bg-muted/50 rounded-lg px-4 py-3">
             <span className="text-sm text-muted-foreground">
-              Subtotal NRS {subtotal}{!skipPathao && deliveryFee !== null ? ` + delivery NRS ${deliveryFee}` : ""}
+              Subtotal NRS {subtotal}{!skipPathao && effectiveDeliveryFee !== null ? ` + delivery NRS ${effectiveDeliveryFee}` : ""}
             </span>
             <span className="font-bold text-lg tabular-nums">NRS {total}</span>
           </div>
