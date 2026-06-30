@@ -779,6 +779,18 @@ export const createCartOrder = createServerFn({ method: "POST" })
       })
     ).catch(() => {});
 
+    // Fire-and-forget — never awaited so a WhatsApp/Meta API failure can't affect the order
+    import("./whatsapp-notify.server").then(({ notifyWhatsAppOrderConfirmed }) =>
+      notifyWhatsAppOrderConfirmed({
+        orderId: groupId,
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        customerAddress: data.customerAddress,
+        productName: cartProductName,
+        total: Math.round(cartTotal * 100) / 100,
+      })
+    ).catch(() => {});
+
     const { data: setting } = await supabaseAdmin.from("app_settings").select("value").eq("key", "pathao_store_id").maybeSingle();
     const storeId = setting?.value ? Number(setting.value) : null;
     if (!storeId) {
