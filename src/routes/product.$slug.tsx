@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AIChat } from "@/components/ai-chat";
 import { getAISizeRecommendation, getAIRecommendations } from "@/lib/ai.functions";
+import { trackViewContent, trackAddToCart } from "@/lib/meta-pixel";
 
 // ── Server fetch for SSR OG tags ────────────────────────────────────────────
 const fetchProductMeta = createServerFn({ method: "GET" })
@@ -216,6 +217,7 @@ function ProductPage() {
     pushRV({ id: product.id, name: product.name, price: product.price, sale_price: product.sale_price, on_sale: product.on_sale, image_url: product.image_url });
     setRecentlyViewed(getRV().filter((p) => p.id !== product.id).slice(0, 4));
     setWishlisted(isWishlisted(product.id));
+    trackViewContent({ id: product.id, name: product.name, price: product.on_sale && product.sale_price ? product.sale_price : product.price });
   }, [product?.id]);
 
   useEffect(() => {
@@ -610,6 +612,7 @@ function ProductPage() {
                     <Button size="lg" variant="outline" className="flex-1 rounded-full text-sm tracking-wide hover:border-accent hover:text-accent transition-all duration-200" disabled={outOfStock}
                       onClick={() => {
                         addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
+                        trackAddToCart({ id: product.id, name: product.name, price, quantity: 1 });
                         toast.success("Added to cart");
                       }}>
                       Add to cart

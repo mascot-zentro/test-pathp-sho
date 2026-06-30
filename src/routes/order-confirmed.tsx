@@ -7,6 +7,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { getOrderConfirmation } from "@/lib/orders.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { trackPurchase } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/order-confirmed")({
   validateSearch: z.object({ id: z.string().optional() }).parse,
@@ -75,6 +76,7 @@ function OrderConfirmed() {
       if (!res) return;
       setOrder(res as OrderData);
       if (res.image_url) setImageUrl(res.image_url);
+      trackPurchase({ orderId: id, total: res.total });
     });
   }, [id]);
 
