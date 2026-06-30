@@ -18,7 +18,7 @@ function toWhatsAppNumber(phone: string): string | null {
   return digits.length >= 10 ? digits : null;
 }
 
-async function sendTemplate(toPhone: string, templateName: string, bodyParams: string[]): Promise<void> {
+async function sendTemplate(toPhone: string, templateName: string, headerParams: string[], bodyParams: string[]): Promise<void> {
   const to = toWhatsAppNumber(toPhone);
   if (!to || !GRAPH_URL || !ACCESS_TOKEN) return;
 
@@ -34,6 +34,7 @@ async function sendTemplate(toPhone: string, templateName: string, bodyParams: s
           name: templateName,
           language: { code: "en" },
           components: [
+            { type: "header", parameters: headerParams.map((text) => ({ type: "text", text })) },
             { type: "body", parameters: bodyParams.map((text) => ({ type: "text", text })) },
           ],
         },
@@ -53,12 +54,12 @@ export async function notifyWhatsAppOrderConfirmed(order: {
   total: number;
 }): Promise<void> {
   const shortId = order.orderId.slice(0, 8).toUpperCase();
-  // Template body expected: "Namaste {{1}}, thank you for shopping with The Aavira. Your order #{{2}} for {{3}} (NRS {{4}}) has been confirmed and will be delivered to {{5}}. Payment is cash on delivery — no advance required. We truly appreciate your trust in us and hope you love it. Track your order anytime at theaavira.com/track"
-  await sendTemplate(order.customerPhone, "order_confirmation", [
-    order.customerName,
-    shortId,
-    order.productName,
-    String(order.total),
-    order.customerAddress,
-  ]);
+  // Header expected: "Namaste {{1}} ji"
+  // Body expected: "Thank you for shopping with The Aavira. Your order #{{1}} for {{2}} (NRS {{3}}) has been confirmed and will be delivered to {{4}}. Payment is cash on delivery — no advance required. We truly appreciate your trust in us and hope you love it. Track your order anytime at theaavira.com/track"
+  await sendTemplate(
+    order.customerPhone,
+    "order_confirmation",
+    [order.customerName],
+    [shortId, order.productName, String(order.total), order.customerAddress],
+  );
 }
