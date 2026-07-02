@@ -51,7 +51,6 @@ export type Order = {
   order_group_id: string | null;
   created_at: string;
   slip_printed_at: string | null;
-  delivery_fee: number;
 };
 
 export type Faq = {

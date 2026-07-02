@@ -45,7 +45,6 @@ type OrderGroup = {
   source: string;
   createdAt: string;
   groupTotal: number;
-  groupDelivery: number;
   anyRestocked: boolean;
   slipPrinted: boolean;
 };
@@ -72,7 +71,6 @@ function buildGroups(orders: Order[]): OrderGroup[] {
       source: rep.source,
       createdAt: rep.created_at,
       groupTotal: rows.reduce((s, r) => s + Number(r.total), 0),
-      groupDelivery: Number(rep.delivery_fee ?? 0),
       anyRestocked: rows.some((r) => r.stock_restocked),
       slipPrinted: rows.some((r) => !!r.slip_printed_at),
     };
@@ -90,7 +88,7 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
 function slipCard(group: OrderGroup, storeName: string, compact = false): string {
   const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
   const shortId = group.groupId.slice(0, 8).toUpperCase();
-  const total = group.groupTotal + group.groupDelivery;
+  const total = group.groupTotal;
 
   const items = group.rows.map((r) => {
     const variant = [r.color, r.size].filter(Boolean).join(", ");
@@ -212,8 +210,6 @@ const SLIP_STYLES_COMPACT = `
   .slip.compact .item-name{font-size:11px}
   .slip.compact .item-variant{font-size:9px}
   .slip.compact .td-qty,.slip.compact .td-amt{font-size:11px}
-  .slip.compact .summary{padding:8px 14px}
-  .slip.compact .summary-row{font-size:11px}
   .slip.compact .total-row{padding:8px 14px}
   .slip.compact .total-label{font-size:12px}
   .slip.compact .total-amount{font-size:16px}
