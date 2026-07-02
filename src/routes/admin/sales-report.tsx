@@ -141,7 +141,7 @@ function SalesReportPage() {
   const byDay = useMemo(() => {
     const map = new Map<string, { orders: number; units: number; revenue: number }>();
     inRange.forEach((o) => {
-      const key = new Date(o.created_at).toLocaleDateString();
+      const key = new Date(o.created_at).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
       const cur = map.get(key) ?? { orders: 0, units: 0, revenue: 0 };
       cur.orders += 1;
       cur.units += Number(o.quantity);

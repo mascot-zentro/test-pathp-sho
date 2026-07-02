@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +34,9 @@ export const Route = createFileRoute("/admin/inventory")({
 
 type StockRow = {
   key: string;
+  productId: string;
   productName: string;
+  productSlug: string;
   variant: string | null;
   axis: "color" | "size" | null;
   stock: number | null;
@@ -44,6 +46,10 @@ type StockRow = {
   imageUrl: string | null;
   active: boolean;
 };
+
+function slugify(name: string) {
+  return name.toLowerCase().replace(/['"]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "product";
+}
 
 const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 
@@ -126,6 +132,8 @@ function InventoryPage() {
   // Colors and sizes are independent stock pools (a product can track
   // both at once — see the decrement_stock fix), so each variant gets its
   // own row rather than trying to collapse them into one number.
+  const navigate = useNavigate();
+
   const stockRows = useMemo<StockRow[]>(() => {
     const rows: StockRow[] = [];
     for (const p of products) {
@@ -134,10 +142,13 @@ function InventoryPage() {
       const threshold = p.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD;
       const pColors = colors.filter((c) => c.product_id === p.id);
       const pSizes = sizes.filter((s) => s.product_id === p.id);
+      const productSlug = slugify(p.name);
       if (pColors.length === 0 && pSizes.length === 0) {
         rows.push({
           key: p.id,
+          productId: p.id,
           productName: p.name,
+          productSlug,
           variant: null,
           axis: null,
           stock: p.stock_quantity,
@@ -152,7 +163,9 @@ function InventoryPage() {
       for (const c of pColors) {
         rows.push({
           key: c.id,
+          productId: p.id,
           productName: p.name,
+          productSlug,
           variant: c.name,
           axis: "color",
           stock: c.stock_quantity,
@@ -166,7 +179,9 @@ function InventoryPage() {
       for (const s of pSizes) {
         rows.push({
           key: s.id,
+          productId: p.id,
           productName: p.name,
+          productSlug,
           variant: s.name,
           axis: "size",
           stock: s.stock_quantity,
@@ -177,6 +192,7 @@ function InventoryPage() {
           active: p.active,
         });
       }
+
     }
     return rows.sort((a, b) => (a.stock ?? Infinity) - (b.stock ?? Infinity));
   }, [products, colors, sizes]);
@@ -372,7 +388,12 @@ function InventoryPage() {
                 </TableHeader>
                 <TableBody>
                   {visibleStockRows.map((r) => (
-                    <TableRow key={r.key}>
+                    <TableRow
+                      key={r.key}
+                      onDoubleClick={() => navigate({ to: "/admin/products/$slug", params: { slug: r.productSlug } })}
+                      className="cursor-pointer"
+                      title="Double-click to edit product"
+                    >
                       <TableCell>
                         <div className="size-10 bg-muted rounded-md overflow-hidden border">
                           {r.imageUrl && (
@@ -547,9 +568,11 @@ function InventoryPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{ex.description}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(ex.expense_date).toLocaleDateString()}
-                          {ex.category ? ` · ${ex.category}` : ""}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[11px] font-semibold bg-muted px-1.5 py-0.5 rounded text-foreground tabular-nums">
+                            {new Date(ex.expense_date + "T00:00:00").toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                          {ex.category && <span className="text-xs text-muted-foreground">{ex.category}</span>}
                         </div>
                       </div>
                       <div className="tabular-nums font-medium whitespace-nowrap">

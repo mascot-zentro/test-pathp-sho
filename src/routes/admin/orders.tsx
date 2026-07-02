@@ -83,56 +83,102 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
   return "secondary";
 }
 
-function printSlip(group: OrderGroup, storeName: string) {
-  const date = new Date(group.createdAt).toLocaleDateString("en-US", {
-    day: "numeric", month: "long", year: "numeric",
-  });
+function slipCard(group: OrderGroup, storeName: string): string {
+  const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
   const items = group.rows.map((r) => {
     const variant = [r.color, r.size].filter(Boolean).join(", ");
     return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">${r.product_name}${variant ? ` <span style="color:#6b7280;font-size:12px">(${variant})</span>` : ""}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">${r.quantity}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right">NRS ${Number(r.total).toFixed(0)}</td>
+      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:12px">${r.product_name}${variant ? `<span style="color:#6b7280"> (${variant})</span>` : ""}</td>
+      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:12px">${r.quantity}</td>
+      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px">NRS ${Number(r.total).toFixed(0)}</td>
     </tr>`;
   }).join("");
 
+  return `<div class="slip">
+    <div class="slip-header">
+      <div>
+        <div class="brand">${storeName}</div>
+        <div class="order-id">Order #${group.groupId.slice(0, 8).toUpperCase()}</div>
+      </div>
+      <div class="date">${date}</div>
+    </div>
+    <div class="section-label">Ship to</div>
+    <div class="ship-box">
+      <strong>${group.customerName}</strong><br>
+      <span class="phone">${group.customerPhone}</span><br>
+      <span class="address">${group.customerAddress}</span>
+    </div>
+    <div class="section-label">Items</div>
+    <table>
+      <thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+      <tbody>${items}</tbody>
+    </table>
+    <div class="total-row">Total &nbsp;<strong>NRS ${group.groupTotal.toFixed(0)}</strong></div>
+    <div class="cod-badge">💵 Cash on Delivery</div>
+  </div>`;
+}
+
+function printSlip(group: OrderGroup, storeName: string) {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Packing Slip</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,sans-serif;font-size:13px;color:#111;padding:32px;max-width:600px;margin:auto}
-    h1{font-size:20px;font-weight:700;margin-bottom:2px}
-    .sub{color:#6b7280;font-size:12px;margin-bottom:24px}
-    .section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin-bottom:4px}
-    .box{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:16px}
-    table{width:100%;border-collapse:collapse;margin-bottom:16px}
-    th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;padding:0 8px 8px}
-    th:last-child,td:last-child{text-align:right}
-    th:nth-child(2),td:nth-child(2){text-align:center}
-    .total{font-weight:700;font-size:14px;text-align:right;padding-top:8px;border-top:2px solid #111}
-    .footer{margin-top:32px;padding-top:16px;border-top:1px dashed #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
-    @media print{@page{margin:20mm}}
+    body{font-family:system-ui,sans-serif;font-size:13px;color:#111;background:#fff}
+    .slip{border:1.5px solid #d1d5db;border-radius:10px;padding:16px;margin:24px auto;max-width:540px;background:#fff}
+    .slip-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #111}
+    .brand{font-size:17px;font-weight:800;letter-spacing:-0.5px}
+    .order-id{font-size:11px;color:#6b7280;margin-top:2px;font-family:monospace}
+    .date{font-size:11px;color:#6b7280;text-align:right;font-weight:600}
+    .section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin-bottom:4px;margin-top:10px}
+    .ship-box{border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;background:#f9fafb;font-size:12px;line-height:1.5}
+    .phone{color:#374151;font-weight:600}
+    .address{color:#6b7280}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th{text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;padding:0 6px 6px}
+    .total-row{text-align:right;padding-top:8px;border-top:2px solid #111;font-size:13px;margin-top:4px}
+    .cod-badge{margin-top:10px;text-align:center;font-size:11px;color:#6b7280;border-top:1px dashed #e5e7eb;padding-top:8px}
+    @media print{body{margin:0}@page{margin:12mm}}
   </style></head><body>
-  <h1>${storeName}</h1>
-  <p class="sub">Packing Slip &nbsp;·&nbsp; ${date} &nbsp;·&nbsp; Order #${group.groupId.slice(0, 8).toUpperCase()}</p>
-
-  <p class="section-label">Ship to</p>
-  <div class="box">
-    <strong>${group.customerName}</strong><br>
-    ${group.customerPhone}<br>
-    <span style="color:#6b7280">${group.customerAddress}</span>
-  </div>
-
-  <p class="section-label">Items</p>
-  <table>
-    <thead><tr><th>Product</th><th>Qty</th><th>Amount</th></tr></thead>
-    <tbody>${items}</tbody>
-  </table>
-  <div class="total">Total &nbsp; NRS ${group.groupTotal.toFixed(0)}</div>
-
-  <div class="footer">Thank you for your order! Please handle with care.</div>
+  ${slipCard(group, storeName)}
   </body></html>`;
 
-  const win = window.open("", "_blank", "width=700,height=900");
+  const win = window.open("", "_blank", "width=640,height=900");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+function printBulkSlips(groups: OrderGroup[], storeName: string) {
+  const slips = groups.map((g) => slipCard(g, storeName)).join("");
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bulk Packing Slips</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;font-size:12px;color:#111;background:#fff}
+    .page{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
+    .slip{border:1.5px solid #d1d5db;border-radius:8px;padding:12px;background:#fff;page-break-inside:avoid}
+    .slip-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #111}
+    .brand{font-size:14px;font-weight:800;letter-spacing:-0.5px}
+    .order-id{font-size:10px;color:#6b7280;margin-top:1px;font-family:monospace}
+    .date{font-size:10px;color:#6b7280;text-align:right;font-weight:600}
+    .section-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin-bottom:3px;margin-top:8px}
+    .ship-box{border:1px solid #e5e7eb;border-radius:5px;padding:6px 10px;background:#f9fafb;font-size:11px;line-height:1.5}
+    .phone{color:#374151;font-weight:600}
+    .address{color:#6b7280}
+    table{width:100%;border-collapse:collapse;margin-top:4px}
+    th{text-align:left;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;padding:0 4px 4px}
+    .total-row{text-align:right;padding-top:6px;border-top:2px solid #111;font-size:12px;margin-top:2px}
+    .cod-badge{margin-top:6px;text-align:center;font-size:10px;color:#6b7280;border-top:1px dashed #e5e7eb;padding-top:6px}
+    @media print{
+      body{margin:0}
+      @page{margin:8mm;size:A4}
+      .page{padding:0;gap:8px}
+    }
+  </style></head><body>
+  <div class="page">${slips}</div>
+  </body></html>`;
+
+  const win = window.open("", "_blank", "width=900,height=1100");
   if (!win) return;
   win.document.write(html);
   win.document.close();
@@ -433,15 +479,28 @@ function OrdersPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {selectedCount > 0 ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="text-xs h-8 gap-1.5"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="size-3.5" />
-                  Delete {selectedCount} selected
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selected = groups.filter((g) => selectedGroupIds.has(g.groupId));
+                      printBulkSlips(selected, storeName);
+                    }}
+                    className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent flex items-center gap-1.5 transition-colors"
+                  >
+                    <Printer className="size-3.5" />
+                    Print {selectedCount} slip{selectedCount !== 1 ? "s" : ""}
+                  </button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="text-xs h-8 gap-1.5"
+                    onClick={() => setDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="size-3.5" />
+                    Delete {selectedCount}
+                  </Button>
+                </div>
               ) : (
                 <button
                   type="button"

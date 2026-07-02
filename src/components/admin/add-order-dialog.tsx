@@ -219,7 +219,7 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
       <Button type="button" size="sm" onClick={() => setOpen(true)} className="gap-1.5">
         <Plus className="size-4" /> Add order
       </Button>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} style={{ overscrollBehavior: "contain" }}>
         <DialogHeader>
           <DialogTitle>Add an order</DialogTitle>
           <DialogDescription>
