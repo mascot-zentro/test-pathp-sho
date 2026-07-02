@@ -46,6 +46,7 @@ type OrderGroup = {
   createdAt: string;
   groupTotal: number;
   anyRestocked: boolean;
+  slipPrinted: boolean;
 };
 
 function buildGroups(orders: Order[]): OrderGroup[] {
@@ -71,6 +72,7 @@ function buildGroups(orders: Order[]): OrderGroup[] {
       createdAt: rep.created_at,
       groupTotal: rows.reduce((s, r) => s + Number(r.total), 0),
       anyRestocked: rows.some((r) => r.stock_restocked),
+      slipPrinted: rows.some((r) => !!r.slip_printed_at),
     };
   });
 }
@@ -83,61 +85,130 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
   return "secondary";
 }
 
-function slipCard(group: OrderGroup, storeName: string): string {
-  const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
+function slipCard(group: OrderGroup, storeName: string, compact = false): string {
+  const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "long", year: "numeric" });
+  const shortId = group.groupId.slice(0, 8).toUpperCase();
   const items = group.rows.map((r) => {
-    const variant = [r.color, r.size].filter(Boolean).join(", ");
+    const variant = [r.color, r.size].filter(Boolean).join(" · ");
     return `<tr>
-      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:12px">${r.product_name}${variant ? `<span style="color:#6b7280"> (${variant})</span>` : ""}</td>
-      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:12px">${r.quantity}</td>
-      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px">NRS ${Number(r.total).toFixed(0)}</td>
+      <td class="td-product">${r.product_name}${variant ? `<span class="variant"> · ${variant}</span>` : ""}</td>
+      <td class="td-qty">${r.quantity}</td>
+      <td class="td-amt">NRS ${Number(r.total).toLocaleString()}</td>
     </tr>`;
   }).join("");
 
-  return `<div class="slip">
-    <div class="slip-header">
-      <div>
-        <div class="brand">${storeName}</div>
-        <div class="order-id">Order #${group.groupId.slice(0, 8).toUpperCase()}</div>
+  return `<div class="slip${compact ? " compact" : ""}">
+    <div class="top-bar">
+      <div class="top-bar-brand">${storeName}</div>
+      <div class="top-bar-right">
+        <div class="top-bar-label">PACKING SLIP</div>
+        <div class="top-bar-date">${date}</div>
       </div>
-      <div class="date">${date}</div>
     </div>
-    <div class="section-label">Ship to</div>
+
+    <div class="meta-row">
+      <div class="meta-block">
+        <div class="meta-label">Order</div>
+        <div class="meta-value mono">#${shortId}</div>
+      </div>
+      <div class="meta-block">
+        <div class="meta-label">Payment</div>
+        <div class="meta-value">Cash on Delivery</div>
+      </div>
+      <div class="meta-block">
+        <div class="meta-label">Items</div>
+        <div class="meta-value">${group.rows.reduce((s, r) => s + r.quantity, 0)} unit${group.rows.reduce((s, r) => s + r.quantity, 0) !== 1 ? "s" : ""}</div>
+      </div>
+    </div>
+
+    <div class="section-label">Ship To</div>
     <div class="ship-box">
-      <strong>${group.customerName}</strong><br>
-      <span class="phone">${group.customerPhone}</span><br>
-      <span class="address">${group.customerAddress}</span>
+      <div class="ship-name">${group.customerName}</div>
+      <div class="ship-phone">${group.customerPhone}</div>
+      <div class="ship-address">${group.customerAddress}</div>
     </div>
-    <div class="section-label">Items</div>
+
+    <div class="section-label">Order Summary</div>
     <table>
-      <thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Amount</th></tr></thead>
+      <thead>
+        <tr>
+          <th class="th-product">Product</th>
+          <th class="th-qty">Qty</th>
+          <th class="th-amt">Amount</th>
+        </tr>
+      </thead>
       <tbody>${items}</tbody>
     </table>
-    <div class="total-row">Total &nbsp;<strong>NRS ${group.groupTotal.toFixed(0)}</strong></div>
-    <div class="cod-badge">💵 Cash on Delivery</div>
+
+    <div class="total-bar">
+      <span>Total</span>
+      <span class="total-amount">NRS ${group.groupTotal.toLocaleString()}</span>
+    </div>
+
+    <div class="footer-note">Please keep <strong>NRS ${group.groupTotal.toLocaleString()}</strong> ready for delivery · Thank you for shopping with ${storeName}!</div>
   </div>`;
 }
 
-function printSlip(group: OrderGroup, storeName: string) {
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Packing Slip</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,sans-serif;font-size:13px;color:#111;background:#fff}
-    .slip{border:1.5px solid #d1d5db;border-radius:10px;padding:16px;margin:24px auto;max-width:540px;background:#fff}
-    .slip-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #111}
-    .brand{font-size:17px;font-weight:800;letter-spacing:-0.5px}
-    .order-id{font-size:11px;color:#6b7280;margin-top:2px;font-family:monospace}
-    .date{font-size:11px;color:#6b7280;text-align:right;font-weight:600}
-    .section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin-bottom:4px;margin-top:10px}
-    .ship-box{border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;background:#f9fafb;font-size:12px;line-height:1.5}
-    .phone{color:#374151;font-weight:600}
-    .address{color:#6b7280}
-    table{width:100%;border-collapse:collapse;margin-top:6px}
-    th{text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#9ca3af;padding:0 6px 6px}
-    .total-row{text-align:right;padding-top:8px;border-top:2px solid #111;font-size:13px;margin-top:4px}
-    .cod-badge{margin-top:10px;text-align:center;font-size:11px;color:#6b7280;border-top:1px dashed #e5e7eb;padding-top:8px}
-    @media print{body{margin:0}@page{margin:12mm}}
-  </style></head><body>
+const SLIP_STYLES = `
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:#111;background:#f3f4f6}
+  .slip{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin:24px auto;max-width:560px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+  .top-bar{background:#111;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
+  .top-bar-brand{font-size:20px;font-weight:800;letter-spacing:-0.5px}
+  .top-bar-right{text-align:right}
+  .top-bar-label{font-size:9px;font-weight:700;letter-spacing:0.15em;color:#9ca3af;text-transform:uppercase}
+  .top-bar-date{font-size:12px;color:#d1d5db;margin-top:2px}
+  .meta-row{display:flex;gap:0;border-bottom:1px solid #f3f4f6}
+  .meta-block{flex:1;padding:10px 20px;border-right:1px solid #f3f4f6}
+  .meta-block:last-child{border-right:none}
+  .meta-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin-bottom:2px}
+  .meta-value{font-size:12px;font-weight:600;color:#111}
+  .mono{font-family:monospace;font-size:13px}
+  .section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;padding:12px 20px 4px}
+  .ship-box{margin:0 20px 4px;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;background:#f9fafb}
+  .ship-name{font-size:14px;font-weight:700;color:#111;margin-bottom:2px}
+  .ship-phone{font-size:13px;font-weight:600;color:#374151;margin-bottom:2px}
+  .ship-address{font-size:12px;color:#6b7280}
+  table{width:100%;border-collapse:collapse;margin:0 0 0}
+  th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;padding:8px 20px;border-bottom:1px solid #f3f4f6;text-align:left}
+  .th-qty,.td-qty{text-align:center;width:50px}
+  .th-amt,.td-amt{text-align:right;width:100px}
+  .td-product,.td-qty,.td-amt{padding:8px 20px;border-bottom:1px solid #f9fafb;font-size:12px;vertical-align:middle}
+  .variant{color:#9ca3af;font-size:11px}
+  .total-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:2px solid #111;margin-top:4px}
+  .total-bar span{font-size:13px;font-weight:600;color:#6b7280}
+  .total-amount{font-size:16px;font-weight:800;color:#111}
+  .footer-note{text-align:center;font-size:11px;color:#9ca3af;padding:10px 20px 14px;border-top:1px dashed #e5e7eb;line-height:1.5}
+`;
+
+const SLIP_STYLES_COMPACT = `
+  .slip.compact .top-bar{padding:10px 14px}
+  .slip.compact .top-bar-brand{font-size:15px}
+  .slip.compact .top-bar-date{font-size:10px}
+  .slip.compact .meta-block{padding:7px 14px}
+  .slip.compact .meta-value{font-size:11px}
+  .slip.compact .section-label{padding:8px 14px 3px}
+  .slip.compact .ship-box{margin:0 14px 4px;padding:7px 10px}
+  .slip.compact .ship-name{font-size:12px}
+  .slip.compact .ship-phone,.slip.compact .ship-address{font-size:11px}
+  .slip.compact th,.slip.compact .td-product,.slip.compact .td-qty,.slip.compact .td-amt{padding:5px 14px;font-size:11px}
+  .slip.compact .total-bar{padding:8px 14px}
+  .slip.compact .total-amount{font-size:14px}
+  .slip.compact .footer-note{font-size:10px;padding:7px 14px 10px}
+`;
+
+async function markPrinted(groupIds: string[]) {
+  const now = new Date().toISOString();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+  await db.from("orders").update({ slip_printed_at: now }).in("order_group_id", groupIds);
+  await db.from("orders").update({ slip_printed_at: now }).in("id", groupIds).is("order_group_id", null);
+}
+
+function printSlip(group: OrderGroup, storeName: string, onPrinted?: () => void) {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Packing Slip · #${group.groupId.slice(0,8).toUpperCase()}</title>
+  <style>${SLIP_STYLES}@media print{body{background:#fff}.slip{margin:0;max-width:100%;box-shadow:none;border:none}@page{margin:12mm}}</style>
+  </head><body>
   ${slipCard(group, storeName)}
   </body></html>`;
 
@@ -147,43 +218,30 @@ function printSlip(group: OrderGroup, storeName: string) {
   win.document.close();
   win.focus();
   win.print();
+  markPrinted([group.groupId]).then(() => onPrinted?.());
 }
 
-function printBulkSlips(groups: OrderGroup[], storeName: string) {
-  const slips = groups.map((g) => slipCard(g, storeName)).join("");
+function printBulkSlips(groups: OrderGroup[], storeName: string, onPrinted?: () => void) {
+  const slips = groups.map((g) => slipCard(g, storeName, true)).join("");
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bulk Packing Slips</title>
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,sans-serif;font-size:12px;color:#111;background:#fff}
-    .page{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
-    .slip{border:1.5px solid #d1d5db;border-radius:8px;padding:12px;background:#fff;page-break-inside:avoid}
-    .slip-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #111}
-    .brand{font-size:14px;font-weight:800;letter-spacing:-0.5px}
-    .order-id{font-size:10px;color:#6b7280;margin-top:1px;font-family:monospace}
-    .date{font-size:10px;color:#6b7280;text-align:right;font-weight:600}
-    .section-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin-bottom:3px;margin-top:8px}
-    .ship-box{border:1px solid #e5e7eb;border-radius:5px;padding:6px 10px;background:#f9fafb;font-size:11px;line-height:1.5}
-    .phone{color:#374151;font-weight:600}
-    .address{color:#6b7280}
-    table{width:100%;border-collapse:collapse;margin-top:4px}
-    th{text-align:left;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;padding:0 4px 4px}
-    .total-row{text-align:right;padding-top:6px;border-top:2px solid #111;font-size:12px;margin-top:2px}
-    .cod-badge{margin-top:6px;text-align:center;font-size:10px;color:#6b7280;border-top:1px dashed #e5e7eb;padding-top:6px}
-    @media print{
-      body{margin:0}
-      @page{margin:8mm;size:A4}
-      .page{padding:0;gap:8px}
-    }
+    ${SLIP_STYLES}
+    ${SLIP_STYLES_COMPACT}
+    body{background:#fff}
+    .page{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px}
+    .slip{margin:0;max-width:100%;box-shadow:none;page-break-inside:avoid}
+    @media print{@page{margin:8mm;size:A4}.page{padding:0;gap:8px}}
   </style></head><body>
   <div class="page">${slips}</div>
   </body></html>`;
 
-  const win = window.open("", "_blank", "width=900,height=1100");
+  const win = window.open("", "_blank", "width=960,height=1100");
   if (!win) return;
   win.document.write(html);
   win.document.close();
   win.focus();
   win.print();
+  markPrinted(groups.map((g) => g.groupId)).then(() => onPrinted?.());
 }
 
 function OrderMessageTools({ g }: { g: OrderGroup }) {
@@ -300,7 +358,7 @@ function OrdersPage() {
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {
         if (error) toast.error(`Couldn't load orders: ${error.message}`);
-        setOrders((data as Order[]) ?? []);
+        setOrders((data as unknown as Order[]) ?? []);
         setSelectedGroupIds(new Set());
       });
 
@@ -480,17 +538,24 @@ function OrdersPage() {
             <div className="flex flex-wrap items-center gap-2">
               {selectedCount > 0 ? (
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const selected = groups.filter((g) => selectedGroupIds.has(g.groupId));
-                      printBulkSlips(selected, storeName);
-                    }}
-                    className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent flex items-center gap-1.5 transition-colors"
-                  >
-                    <Printer className="size-3.5" />
-                    Print {selectedCount} slip{selectedCount !== 1 ? "s" : ""}
-                  </button>
+                  {(() => {
+                    const selected = groups.filter((g) => selectedGroupIds.has(g.groupId));
+                    const unprinted = selected.filter((g) => !g.slipPrinted);
+                    return unprinted.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => printBulkSlips(unprinted, storeName, load)}
+                        className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent flex items-center gap-1.5 transition-colors"
+                      >
+                        <Printer className="size-3.5" />
+                        Print {unprinted.length} unprinted
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1.5 px-3 py-2">
+                        <Printer className="size-3.5" /> All slips printed
+                      </span>
+                    );
+                  })()}
                   <Button
                     variant="destructive"
                     size="sm"
@@ -645,11 +710,11 @@ function OrdersPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => printSlip(g, storeName)}
+                              onClick={() => printSlip(g, storeName, load)}
                               title="Print packing slip"
-                              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent"
+                              className={`flex items-center gap-1 text-[11px] hover:text-accent ${g.slipPrinted ? "text-green-600" : "text-muted-foreground"}`}
                             >
-                              <Printer className="size-3" /> Print slip
+                              <Printer className="size-3" /> {g.slipPrinted ? "Printed ✓" : "Print slip"}
                             </button>
                           </div>
                         </div>
@@ -658,11 +723,11 @@ function OrdersPage() {
                           <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
                           <button
                             type="button"
-                            onClick={() => printSlip(g, storeName)}
+                            onClick={() => printSlip(g, storeName, load)}
                             title="Print packing slip"
-                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-accent ml-auto"
+                            className={`flex items-center gap-1 text-[11px] hover:text-accent ml-auto ${g.slipPrinted ? "text-green-600" : "text-muted-foreground"}`}
                           >
-                            <Printer className="size-3" /> Print slip
+                            <Printer className="size-3" /> {g.slipPrinted ? "Printed ✓" : "Print slip"}
                           </button>
                         </div>
                       )}
