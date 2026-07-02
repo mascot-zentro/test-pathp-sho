@@ -36,6 +36,14 @@ const EMPTY_FORM = {
 export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
   const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -219,7 +227,11 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
       <Button type="button" size="sm" onClick={() => setOpen(true)} className="gap-1.5">
         <Plus className="size-4" /> Add order
       </Button>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()} style={{ overscrollBehavior: "contain" }}>
+      <DialogContent
+        className="max-w-2xl max-h-[85dvh] overflow-y-auto overscroll-contain"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Add an order</DialogTitle>
           <DialogDescription>
