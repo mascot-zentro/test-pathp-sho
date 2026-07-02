@@ -251,24 +251,30 @@ function printBulkSlips(groups: OrderGroup[], storeName: string, onPrinted?: () 
     ${SLIP_STYLES}
     ${SLIP_STYLES_COMPACT}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{background:#fff;margin:0}
+    html,body{margin:0;padding:0;background:#fff}
     .page{
       display:grid;
       grid-template-columns:1fr 1fr;
-      grid-auto-rows:min-content;
-      width:100%;
-      height:100%;
+      grid-template-rows:repeat(2,50vh);
+      width:100vw;
+      height:100vh;
     }
     .cell{
-      border:1px dashed #bbb;
-      padding:4px;
+      border:1px dashed #aaa;
+      padding:3px;
       overflow:hidden;
+      height:50vh;
     }
-    .slip{margin:0;max-width:100%;box-shadow:none;border:none;border-radius:0}
+    .slip{margin:0;width:100%;max-width:100%;box-shadow:none;border:none;border-radius:0;height:100%;overflow:hidden}
     @media print{
-      @page{margin:0;size:A4}
-      body{margin:0}
-      .cell{border:1px dashed #bbb}
+      @page{margin:0;size:A4 portrait}
+      html,body{width:210mm;height:297mm}
+      .page{
+        width:210mm;height:297mm;
+        grid-template-rows:repeat(2,148.5mm);
+      }
+      .cell{height:148.5mm;border:1px dashed #aaa;page-break-inside:avoid}
+      .slip{height:148.5mm}
     }
   </style></head><body>
   <div class="page">${slips}</div>
