@@ -90,9 +90,7 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
 function slipCard(group: OrderGroup, storeName: string, compact = false): string {
   const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
   const shortId = group.groupId.slice(0, 8).toUpperCase();
-  const subtotal = group.groupTotal;
-  const delivery = group.groupDelivery;
-  const total = subtotal + delivery;
+  const total = group.groupTotal + group.groupDelivery;
 
   const items = group.rows.map((r) => {
     const variant = [r.color, r.size].filter(Boolean).join(", ");
@@ -156,19 +154,6 @@ function slipCard(group: OrderGroup, storeName: string, compact = false): string
 
     <div class="divider"></div>
 
-    <div class="summary">
-      <div class="summary-row">
-        <span>Subtotal</span>
-        <span>NRS ${subtotal.toLocaleString()}</span>
-      </div>
-      <div class="summary-row">
-        <span>Delivery</span>
-        <span>NRS ${delivery.toLocaleString()}</span>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
     <div class="total-row">
       <span class="total-label">Total due</span>
       <span class="total-amount">NRS ${total.toLocaleString()}</span>
@@ -207,8 +192,6 @@ const SLIP_STYLES = `
   .item-variant{font-size:11px;color:#8a7d65;margin-top:2px}
   .td-qty{font-size:13px;color:#1a1a1a;text-align:center}
   .td-amt{font-size:13px;color:#1a1a1a;font-weight:500;text-align:right}
-  .summary{padding:12px 24px}
-  .summary-row{display:flex;justify-content:space-between;font-size:13px;color:#555;padding:3px 0}
   .total-row{display:flex;justify-content:space-between;align-items:baseline;padding:14px 24px}
   .total-label{font-family:Georgia,serif;font-style:italic;font-size:15px;color:#1a1a1a}
   .total-amount{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#8a6f3e;letter-spacing:-0.5px}
