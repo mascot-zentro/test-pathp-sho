@@ -7,7 +7,10 @@ import { AdminPageHeader } from "@/components/admin/page-header";
 import { Stat } from "@/components/admin/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search, ChevronDown, ChevronUp, MessageCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search, ChevronDown, ChevronUp, MessageCircle, Sparkles, Copy, Check } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { draftWhatsAppReply } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/admin/customers")({
   ssr: false,
@@ -78,6 +81,77 @@ function nameInitials(name: string) {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function WhatsAppDrafter({ c }: { c: Customer }) {
+  const [customerMsg, setCustomerMsg] = useState("");
+  const [draft, setDraft] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const draftReply = useServerFn(draftWhatsAppReply);
+
+  const lastOrder = c.orders[0];
+  const orderDetails = lastOrder
+    ? `Last order: ${lastOrder.product_name}${lastOrder.size ? ` (${lastOrder.size})` : ""}${lastOrder.color ? ` in ${lastOrder.color}` : ""} — NRS ${lastOrder.total} — status: ${lastOrder.status}`
+    : undefined;
+
+  const generate = async () => {
+    setGenerating(true);
+    try {
+      const result = await draftReply({ data: { customerMessage: customerMsg || "General inquiry", customerName: c.name, orderDetails } });
+      setDraft(result);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(draft);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-4 border-t border-border/50 pt-4 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">AI WhatsApp reply</p>
+      <Textarea
+        placeholder="Paste customer's message here (optional)…"
+        value={customerMsg}
+        onChange={(e) => setCustomerMsg(e.target.value)}
+        rows={2}
+        className="text-sm resize-none"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={generate}
+          disabled={generating}
+          className="flex items-center gap-1.5 text-xs bg-accent text-white px-3 py-1.5 rounded-md disabled:opacity-50 hover:bg-accent/90 transition"
+        >
+          <Sparkles className="size-3" />
+          {generating ? "Drafting…" : "Draft reply"}
+        </button>
+        {draft && (
+          <button
+            type="button"
+            onClick={copy}
+            className="flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-md hover:bg-muted/50 transition"
+          >
+            {copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        )}
+      </div>
+      {draft && (
+        <Textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={3}
+          className="text-sm resize-none bg-muted/30"
+        />
+      )}
+    </div>
+  );
 }
 
 function CustomerCard({ c }: { c: Customer }) {
@@ -161,6 +235,7 @@ function CustomerCard({ c }: { c: Customer }) {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
             Order history
           </p>
+
           <div className="space-y-2">
             {c.orders.map((o) => (
               <div
@@ -188,6 +263,7 @@ function CustomerCard({ c }: { c: Customer }) {
               </div>
             ))}
           </div>
+          <WhatsAppDrafter c={c} />
         </div>
       )}
     </div>

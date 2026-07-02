@@ -249,6 +249,64 @@ Candidates: ${data.candidates.map((c) => `${c.id}: "${c.name}" (${c.category ?? 
     }
   });
 
+// AI product description generator
+export const generateProductDescription = createServerFn()
+  .validator(z.object({
+    name: z.string(),
+    category: z.string().nullable(),
+    price: z.number(),
+    colors: z.array(z.string()).optional(),
+    sizes: z.array(z.string()).optional(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are a copywriter for The Aavira, a premium women's fashion store in Nepal. Write compelling, concise product descriptions in 2-3 sentences. Focus on fit, feel, occasion, and styling. Tone: warm, confident, aspirational. Never mention price. Never use hashtags. Write in English.`;
+    const prompt = `Product: "${data.name}"
+Category: ${data.category ?? "women's fashion"}
+Price: NRS ${data.price}
+${data.colors?.length ? `Colors: ${data.colors.join(", ")}` : ""}
+${data.sizes?.length ? `Sizes: ${data.sizes.join(", ")}` : ""}
+Write a 2-3 sentence product description.`;
+    return groq(prompt, system, 150);
+  });
+
+// AI WhatsApp reply drafter
+export const draftWhatsAppReply = createServerFn()
+  .validator(z.object({
+    customerMessage: z.string().max(500),
+    customerName: z.string().optional(),
+    orderDetails: z.string().optional(),
+  }))
+  .handler(async ({ data }) => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const db = createClient(process.env.SUPABASE_URL ?? "", process.env.SUPABASE_SERVICE_ROLE_KEY ?? "", {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const [{ data: products }, { data: settings }] = await Promise.all([
+      db.from("products").select("name,price,sale_price,on_sale,stock_quantity,category").eq("active", true).order("name"),
+      db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee", "return_policy"]),
+    ]);
+
+    const settingsMap: Record<string, string> = {};
+    (settings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) settingsMap[r.key] = r.value; });
+
+    const productList = (products ?? []).map((p: { name: string; price: number; sale_price: number | null; on_sale: boolean; stock_quantity: number | null; category: string | null }) => {
+      const price = p.on_sale && p.sale_price ? `NRS ${p.sale_price} (sale)` : `NRS ${p.price}`;
+      const stock = p.stock_quantity === 0 ? "out of stock" : "in stock";
+      return `• ${p.name} — ${price} — ${stock}`;
+    }).join("\n");
+
+    const system = `You are drafting a WhatsApp reply on behalf of The Aavira, a women's fashion store in Nepal. Write a short, friendly, professional reply in 1-3 sentences. Use "Hi${data.customerName ? ` ${data.customerName.split(" ")[0]}` : ""}!" as the greeting. We do Cash on Delivery only. Delivery: 3-7 days. Delivery fee: ${settingsMap.delivery_fee ? `NRS ${settingsMap.delivery_fee}` : "standard rate"}. Return policy: ${settingsMap.return_policy ?? "7 days unused"}. Write only the reply text — no labels, no quotes.`;
+
+    const prompt = `Customer message: "${data.customerMessage}"
+${data.orderDetails ? `Order context: ${data.orderDetails}` : ""}
+Our products:
+${productList}
+Draft a helpful WhatsApp reply.`;
+
+    return groq(prompt, system, 120);
+  });
+
 // AI semantic search
 export const aiSearch = createServerFn()
   .validator(z.object({

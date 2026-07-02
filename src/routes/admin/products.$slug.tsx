@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { ImageUpload } from "@/components/image-upload";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, Trash2, Sparkles } from "lucide-react";
 import {
   type Category,
   type Product,
@@ -27,6 +27,8 @@ import {
   STANDARD_SIZES,
 } from "@/lib/admin-types";
 import { slugify } from "@/lib/slugify";
+import { useServerFn } from "@tanstack/react-start";
+import { generateProductDescription } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/admin/products/$slug")({
   ssr: false,
@@ -47,6 +49,9 @@ function ProductEditPage() {
   const [onSale, setOnSale] = useState(false);
   const [active, setActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingDesc, setGeneratingDesc] = useState(false);
+  const [description, setDescription] = useState<string | null>(null);
+  const generateDesc = useServerFn(generateProductDescription);
 
   const loadProduct = () => {
     supabase
@@ -56,6 +61,7 @@ function ProductEditPage() {
         const match = ((data as Product[]) ?? []).find((p) => slugify(p.name) === slug) ?? null;
         setProduct(match);
         setImageUrl(match?.image_url ?? null);
+        setDescription(match?.description ?? null);
         setOnSale(match?.on_sale ?? false);
         setActive(match?.active ?? true);
         setLoading(false);
@@ -318,8 +324,42 @@ function ProductEditPage() {
                 <Input name="name" required defaultValue={product.name} />
               </div>
               <div>
-                <Label>Description</Label>
-                <Textarea name="description" defaultValue={product.description ?? ""} />
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Description</Label>
+                  <button
+                    type="button"
+                    disabled={generatingDesc}
+                    onClick={async () => {
+                      setGeneratingDesc(true);
+                      try {
+                        const result = await generateDesc({
+                          data: {
+                            name: product.name,
+                            category: product.category,
+                            price: product.price,
+                            colors: colors.map((c) => c.name),
+                            sizes: sizes.map((s) => s.name),
+                          },
+                        });
+                        setDescription(result);
+                      } catch {
+                        toast.error("Failed to generate description");
+                      } finally {
+                        setGeneratingDesc(false);
+                      }
+                    }}
+                    className="flex items-center gap-1 text-xs text-accent hover:text-accent/80 disabled:opacity-50 transition"
+                  >
+                    <Sparkles className="size-3" />
+                    {generatingDesc ? "Generating…" : "AI generate"}
+                  </button>
+                </div>
+                <Textarea
+                  name="description"
+                  value={description ?? ""}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                />
               </div>
               <div>
                 <Label>Category</Label>
