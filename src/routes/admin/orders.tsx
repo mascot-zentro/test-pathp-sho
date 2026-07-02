@@ -104,7 +104,7 @@ function slipCard(group: OrderGroup, storeName: string, compact = false): string
 
   return `<div class="slip${compact ? " compact" : ""}">
     <div class="slip-header">
-      <div class="brand-name">${storeName.toUpperCase()}</div>
+      <img class="logo" src="/Aavira.png" alt="${storeName}" />
       <div class="slip-title">ORDER CONFIRMATION</div>
     </div>
 
@@ -165,56 +165,59 @@ const SLIP_STYLES = `
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Georgia',serif;font-size:13px;color:#1a1a1a;background:#f5f5f0}
   .slip{background:#fff;border:1px solid #e8e3d8;border-radius:4px;overflow:hidden;margin:24px auto;max-width:540px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
-  .slip-header{text-align:center;padding:32px 24px 20px;background:#fff}
-  .brand-name{font-family:Georgia,serif;font-size:26px;font-weight:400;letter-spacing:0.25em;color:#1a1a1a;margin-bottom:16px}
+  .slip-header{text-align:center;padding:24px 24px 16px;background:#fff}
+  .logo{width:90px;height:90px;object-fit:contain;margin-bottom:8px}
   .slip-title{font-size:9px;font-weight:400;letter-spacing:0.3em;color:#8a7d65;text-transform:uppercase}
   .divider{height:1px;background:#e8e3d8;margin:0 24px}
-  .meta-row{display:flex;justify-content:space-between;padding:16px 24px}
+  .meta-row{display:flex;justify-content:space-between;padding:14px 24px}
   .meta-col{}
   .meta-col.right{text-align:right}
   .meta-label{font-size:8px;font-weight:700;letter-spacing:0.2em;color:#8a7d65;text-transform:uppercase;margin-bottom:4px}
   .meta-value{font-size:13px;font-weight:600;color:#1a1a1a}
   .mono{font-family:monospace;letter-spacing:0.05em}
-  .info-row{display:flex;gap:0;padding:16px 24px}
+  .info-row{display:flex;gap:0;padding:14px 24px}
   .info-col{flex:1}
   .info-label{font-size:8px;font-weight:700;letter-spacing:0.2em;color:#8a7d65;text-transform:uppercase;margin-bottom:8px}
-  .ship-name{font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
-  .ship-detail{font-size:12px;color:#555;margin-bottom:2px}
-  .cod-badge{display:inline-block;margin-top:8px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#8a7d65;border:1px solid #d4c9b0;padding:3px 8px;border-radius:2px}
+  .ship-name{font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+  .ship-detail{font-size:11px;color:#555;margin-bottom:2px}
+  .cod-badge{display:inline-block;margin-top:6px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#8a7d65;border:1px solid #d4c9b0;padding:3px 8px;border-radius:2px}
   table{width:100%;border-collapse:collapse}
-  th{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#8a7d65;padding:10px 24px;text-align:left}
+  th{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#8a7d65;padding:8px 24px;text-align:left}
   .th-qty,.td-qty{text-align:center;width:48px}
   .th-amt,.td-amt{text-align:right;width:110px}
-  .td-product,.td-qty,.td-amt{padding:12px 24px;border-bottom:1px solid #f0ece4;vertical-align:top}
+  .td-product,.td-qty,.td-amt{padding:10px 24px;border-bottom:1px solid #f0ece4;vertical-align:top}
   .item-name{font-size:13px;color:#1a1a1a;font-weight:500}
   .item-variant{font-size:11px;color:#8a7d65;margin-top:2px}
   .td-qty{font-size:13px;color:#1a1a1a;text-align:center}
   .td-amt{font-size:13px;color:#1a1a1a;font-weight:500;text-align:right}
-  .total-row{display:flex;justify-content:space-between;align-items:baseline;padding:14px 24px}
-  .total-label{font-family:Georgia,serif;font-style:italic;font-size:15px;color:#1a1a1a}
-  .total-amount{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#8a6f3e;letter-spacing:-0.5px}
-  .footer-note{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:12px;color:#8a7d65;padding:14px 24px 20px;border-top:1px solid #e8e3d8}
+  .total-row{display:flex;justify-content:space-between;align-items:baseline;padding:12px 24px}
+  .total-label{font-family:Georgia,serif;font-style:italic;font-size:14px;color:#1a1a1a}
+  .total-amount{font-family:Georgia,serif;font-size:20px;font-weight:700;color:#8a6f3e;letter-spacing:-0.5px}
+  .footer-note{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:11px;color:#8a7d65;padding:10px 24px 16px;border-top:1px solid #e8e3d8}
 `;
 
 const SLIP_STYLES_COMPACT = `
-  .slip.compact .slip-header{padding:16px 14px 12px}
-  .slip.compact .brand-name{font-size:18px;margin-bottom:10px}
-  .slip.compact .slip-title{font-size:7px}
-  .slip.compact .divider{margin:0 14px}
-  .slip.compact .meta-row{padding:10px 14px}
-  .slip.compact .info-row{padding:10px 14px}
-  .slip.compact .ship-name{font-size:12px}
-  .slip.compact .ship-detail{font-size:10px}
-  .slip.compact th{padding:6px 14px;font-size:7px}
-  .slip.compact .td-product,.slip.compact .td-qty,.slip.compact .td-amt{padding:7px 14px}
-  .slip.compact .item-name{font-size:11px}
-  .slip.compact .item-variant{font-size:9px}
-  .slip.compact .td-qty,.slip.compact .td-amt{font-size:11px}
-  .slip.compact .total-row{padding:8px 14px}
-  .slip.compact .total-label{font-size:12px}
-  .slip.compact .total-amount{font-size:16px}
-  .slip.compact .footer-note{font-size:10px;padding:8px 14px 12px}
-  .slip.compact .cod-badge{font-size:7px;padding:2px 6px}
+  .slip.compact .slip-header{padding:10px 10px 8px}
+  .slip.compact .logo{width:52px;height:52px;margin-bottom:5px}
+  .slip.compact .slip-title{font-size:6px;letter-spacing:0.2em}
+  .slip.compact .divider{margin:0 10px}
+  .slip.compact .meta-row{padding:7px 10px}
+  .slip.compact .meta-label{font-size:6px}
+  .slip.compact .meta-value{font-size:10px}
+  .slip.compact .info-row{padding:7px 10px}
+  .slip.compact .info-label{font-size:6px;margin-bottom:4px}
+  .slip.compact .ship-name{font-size:10px;margin-bottom:2px}
+  .slip.compact .ship-detail{font-size:9px;margin-bottom:1px}
+  .slip.compact .cod-badge{font-size:6px;padding:2px 5px;margin-top:4px}
+  .slip.compact th{padding:5px 10px;font-size:6px}
+  .slip.compact .td-product,.slip.compact .td-qty,.slip.compact .td-amt{padding:5px 10px}
+  .slip.compact .item-name{font-size:9px}
+  .slip.compact .item-variant{font-size:8px}
+  .slip.compact .td-qty,.slip.compact .td-amt{font-size:9px}
+  .slip.compact .total-row{padding:6px 10px}
+  .slip.compact .total-label{font-size:10px}
+  .slip.compact .total-amount{font-size:13px}
+  .slip.compact .footer-note{font-size:8px;padding:6px 10px 8px}
 `;
 
 async function markPrinted(groupIds: string[]) {
@@ -242,15 +245,31 @@ function printSlip(group: OrderGroup, storeName: string, onPrinted?: () => void)
 }
 
 function printBulkSlips(groups: OrderGroup[], storeName: string, onPrinted?: () => void) {
-  const slips = groups.map((g) => slipCard(g, storeName, true)).join("");
+  const slips = groups.map((g) => `<div class="cell">${slipCard(g, storeName, true)}</div>`).join("");
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bulk Packing Slips</title>
   <style>
     ${SLIP_STYLES}
     ${SLIP_STYLES_COMPACT}
-    body{background:#fff}
-    .page{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px}
-    .slip{margin:0;max-width:100%;box-shadow:none;page-break-inside:avoid}
-    @media print{@page{margin:8mm;size:A4}.page{padding:0;gap:8px}}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#fff;margin:0}
+    .page{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      grid-auto-rows:min-content;
+      width:100%;
+      height:100%;
+    }
+    .cell{
+      border:1px dashed #bbb;
+      padding:4px;
+      overflow:hidden;
+    }
+    .slip{margin:0;max-width:100%;box-shadow:none;border:none;border-radius:0}
+    @media print{
+      @page{margin:0;size:A4}
+      body{margin:0}
+      .cell{border:1px dashed #bbb}
+    }
   </style></head><body>
   <div class="page">${slips}</div>
   </body></html>`;
