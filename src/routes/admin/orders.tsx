@@ -85,7 +85,7 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
   return "secondary";
 }
 
-function slipCard(group: OrderGroup, storeName: string, compact = false): string {
+function slipCard(group: OrderGroup, storeName: string, compact = false, phone = "", instagram = ""): string {
   const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
   const shortId = group.groupId.slice(0, 8).toUpperCase();
   const total = group.groupTotal;
@@ -157,7 +157,10 @@ function slipCard(group: OrderGroup, storeName: string, compact = false): string
       <span class="total-amount">NRS ${total.toLocaleString()}</span>
     </div>
 
-    <div class="footer-note">Thank you for shopping with ${storeName}</div>
+    <div class="footer-note">
+      Thank you for shopping with ${storeName}
+      ${(phone || instagram) ? `<div class="footer-contact">${instagram ? `<span>${instagram}</span>` : ""}${phone && instagram ? " &nbsp;·&nbsp; " : ""}${phone ? `<span>${phone}</span>` : ""}</div>` : ""}
+    </div>
   </div>`;
 }
 
@@ -194,6 +197,7 @@ const SLIP_STYLES = `
   .total-label{font-family:Georgia,serif;font-style:italic;font-size:14px;color:#1a1a1a}
   .total-amount{font-family:Georgia,serif;font-size:20px;font-weight:700;color:#8a6f3e;letter-spacing:-0.5px}
   .footer-note{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:11px;color:#8a7d65;padding:10px 24px 16px;border-top:1px solid #e8e3d8}
+  .footer-contact{font-family:-apple-system,sans-serif;font-style:normal;font-size:10px;color:#8a7d65;margin-top:4px;letter-spacing:0.05em}
 `;
 
 const SLIP_STYLES_COMPACT = `
@@ -228,11 +232,11 @@ async function markPrinted(groupIds: string[]) {
   await db.from("orders").update({ slip_printed_at: now }).in("id", groupIds).is("order_group_id", null);
 }
 
-function printSlip(group: OrderGroup, storeName: string, onPrinted?: () => void) {
+function printSlip(group: OrderGroup, storeName: string, onPrinted?: () => void, phone = "", instagram = "") {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Packing Slip · #${group.groupId.slice(0,8).toUpperCase()}</title>
   <style>${SLIP_STYLES}@media print{body{background:#fff}.slip{margin:0;max-width:100%;box-shadow:none;border:none}@page{margin:12mm}}</style>
   </head><body>
-  ${slipCard(group, storeName)}
+  ${slipCard(group, storeName, false, phone, instagram)}
   </body></html>`;
 
   const win = window.open("", "_blank", "width=640,height=900");
@@ -244,8 +248,8 @@ function printSlip(group: OrderGroup, storeName: string, onPrinted?: () => void)
   markPrinted([group.groupId]).then(() => onPrinted?.());
 }
 
-function printBulkSlips(groups: OrderGroup[], storeName: string, onPrinted?: () => void) {
-  const slips = groups.map((g) => `<div class="cell">${slipCard(g, storeName, true)}</div>`).join("");
+function printBulkSlips(groups: OrderGroup[], storeName: string, onPrinted?: () => void, phone = "", instagram = "") {
+  const slips = groups.map((g) => `<div class="cell">${slipCard(g, storeName, true, phone, instagram)}</div>`).join("");
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bulk Packing Slips</title>
   <style>
     ${SLIP_STYLES}
@@ -377,6 +381,8 @@ function OrdersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [storeName, setStoreName] = useState("Store");
+  const [storePhone, setStorePhone] = useState("");
+  const [storeInstagram, setStoreInstagram] = useState("");
   const [sendingReport, setSendingReport] = useState(false);
 
   const sendDailyReport = async () => {
@@ -410,8 +416,16 @@ function OrdersPage() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    supabase.from("app_settings").select("value").eq("key", "store_name").maybeSingle()
-      .then(({ data }) => { if (data?.value) setStoreName(data.value); });
+    supabase.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "social_instagram"])
+      .then(({ data }) => {
+        const m = Object.fromEntries((data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]));
+        if (m.store_name) setStoreName(m.store_name);
+        if (m.whatsapp_number) setStorePhone(m.whatsapp_number);
+        if (m.social_instagram) {
+          const handle = m.social_instagram.replace(/\/$/, "").split("/").pop() ?? "";
+          setStoreInstagram(handle.startsWith("@") ? handle : `@${handle}`);
+        }
+      });
   }, []);
 
   const groups = useMemo(() => buildGroups(orders), [orders]);
@@ -589,7 +603,7 @@ function OrdersPage() {
                     return unprinted.length > 0 ? (
                       <button
                         type="button"
-                        onClick={() => printBulkSlips(unprinted, storeName, load)}
+                        onClick={() => printBulkSlips(unprinted, storeName, load, storePhone, storeInstagram)}
                         className="text-xs border rounded-lg px-3 py-2 bg-background hover:border-accent hover:text-accent flex items-center gap-1.5 transition-colors"
                       >
                         <Printer className="size-3.5" />
@@ -755,7 +769,7 @@ function OrdersPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => printSlip(g, storeName, load)}
+                              onClick={() => printSlip(g, storeName, load, storePhone, storeInstagram)}
                               title="Print packing slip"
                               className={`flex items-center gap-1 text-[11px] hover:text-accent ${g.slipPrinted ? "text-green-600" : "text-muted-foreground"}`}
                             >
@@ -768,7 +782,7 @@ function OrdersPage() {
                           <div className="text-xs text-muted-foreground italic">Not yet sent to Pathao</div>
                           <button
                             type="button"
-                            onClick={() => printSlip(g, storeName, load)}
+                            onClick={() => printSlip(g, storeName, load, storePhone, storeInstagram)}
                             title="Print packing slip"
                             className={`flex items-center gap-1 text-[11px] hover:text-accent ml-auto ${g.slipPrinted ? "text-green-600" : "text-muted-foreground"}`}
                           >
