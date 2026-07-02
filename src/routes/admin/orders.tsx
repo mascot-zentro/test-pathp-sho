@@ -70,7 +70,7 @@ function buildGroups(orders: Order[]): OrderGroup[] {
       customerAddress: rep.customer_address,
       source: rep.source,
       createdAt: rep.created_at,
-      groupTotal: rows.reduce((s, r) => s + Number(r.total), 0) + Number(rep.delivery_fee ?? 0),
+      groupTotal: rows.reduce((s, r) => s + Number(r.total), 0),
       anyRestocked: rows.some((r) => r.stock_restocked),
       slipPrinted: rows.some((r) => !!r.slip_printed_at),
     };
