@@ -23,25 +23,29 @@ async function sendTemplate(toPhone: string, templateName: string, headerParams:
   if (!to || !GRAPH_URL || !ACCESS_TOKEN) return;
 
   try {
-    await fetch(GRAPH_URL, {
+    const payload = {
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: "en" },
+        components: [
+          { type: "header", parameters: headerParams.map((text) => ({ type: "text", text })) },
+          { type: "body", parameters: bodyParams.map((text) => ({ type: "text", text })) },
+        ],
+      },
+    };
+    console.log("[whatsapp] sending to", to, "template:", templateName, "payload:", JSON.stringify(payload));
+    const res = await fetch(GRAPH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${ACCESS_TOKEN}` },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to,
-        type: "template",
-        template: {
-          name: templateName,
-          language: { code: "en" },
-          components: [
-            { type: "header", parameters: headerParams.map((text) => ({ type: "text", text })) },
-            { type: "body", parameters: bodyParams.map((text) => ({ type: "text", text })) },
-          ],
-        },
-      }),
+      body: JSON.stringify(payload),
     });
-  } catch {
-    // Non-critical — never let a failed WhatsApp send break an order
+    const json = await res.json();
+    console.log("[whatsapp] response status:", res.status, "body:", JSON.stringify(json));
+  } catch (err) {
+    console.error("[whatsapp] fetch error:", err);
   }
 }
 

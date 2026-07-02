@@ -64,7 +64,7 @@ export function AIChat({ productName, productCategory, openOnMount }: AIChatProp
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "fixed bottom-24 right-5 z-50 size-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200",
+          "fixed bottom-22 right-5 z-50 size-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200",
           "bg-accent text-accent-foreground hover:scale-105 active:scale-95",
           open && "rotate-12"
         )}
@@ -75,8 +75,8 @@ export function AIChat({ productName, productCategory, openOnMount }: AIChatProp
 
       {/* Chat window */}
       {open && (
-        <div className="fixed bottom-40 right-5 z-50 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-border/60 bg-background shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: "420px" }}>
+        <div className="fixed bottom-36 right-5 z-50 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-border/60 bg-background shadow-2xl flex flex-col overflow-hidden"
+          style={{ height: "min(420px, calc(100dvh - 10rem))" }}>
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3 bg-accent text-accent-foreground shrink-0">
             <div className="size-8 rounded-full bg-accent-foreground/20 grid place-items-center">
