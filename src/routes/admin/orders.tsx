@@ -20,11 +20,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2, Printer, Send } from "lucide-react";
+import { DollarSign, RefreshCw, ShoppingCart, Truck, Megaphone, RotateCcw, Package, Trash2, Printer, Send, Sparkles, Copy, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Stat } from "@/components/admin/stat-card";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { type Order, STATUS_COLORS, sourceLabel, ORDER_SOURCES } from "@/lib/admin-types";
 import { AddOrderDialog } from "@/components/admin/add-order-dialog";
+import { draftPaymentConfirmation, draftAddressConfirmation } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/admin/orders")({
   ssr: false,
@@ -136,6 +138,83 @@ function printSlip(group: OrderGroup, storeName: string) {
   win.document.close();
   win.focus();
   win.print();
+}
+
+function OrderMessageTools({ g }: { g: OrderGroup }) {
+  const [draft, setDraft] = useState("");
+  const [active, setActive] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const paymentFn = useServerFn(draftPaymentConfirmation);
+  const addressFn = useServerFn(draftAddressConfirmation);
+
+  const run = async (type: "payment" | "address") => {
+    setActive(type);
+    setDraft("");
+    setCopied(false);
+    setLoading(true);
+    try {
+      const firstName = g.rows[0];
+      if (type === "payment") {
+        const result = await paymentFn({ data: { customerName: g.customerName, productName: g.rows.map((r) => r.product_name).join(", "), total: g.groupTotal, orderId: g.groupId } });
+        setDraft(result);
+      } else {
+        const result = await addressFn({ data: { customerName: g.customerName, productName: g.rows.map((r) => r.product_name).join(", "), address: g.customerAddress } });
+        setDraft(result);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(draft);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => run("payment")}
+          disabled={loading}
+          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-md border transition disabled:opacity-50 ${active === "payment" && draft ? "bg-accent/10 border-accent/30" : "hover:bg-muted/50"}`}
+        >
+          <Sparkles className="size-3" />
+          {loading && active === "payment" ? "Drafting…" : "💳 Payment confirm"}
+        </button>
+        <button
+          type="button"
+          onClick={() => run("address")}
+          disabled={loading}
+          className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-md border transition disabled:opacity-50 ${active === "address" && draft ? "bg-accent/10 border-accent/30" : "hover:bg-muted/50"}`}
+        >
+          <Sparkles className="size-3" />
+          {loading && active === "address" ? "Drafting…" : "📍 Confirm address"}
+        </button>
+      </div>
+      {draft && (
+        <div className="space-y-1.5">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            className="text-xs resize-none bg-muted/30"
+          />
+          <button
+            type="button"
+            onClick={copy}
+            className="flex items-center gap-1.5 text-[11px] border px-2.5 py-1.5 rounded-md hover:bg-muted/50 transition"
+          >
+            {copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function OrdersPage() {
@@ -536,6 +615,7 @@ function OrdersPage() {
                       <div className="text-sm font-medium truncate">{g.customerName}</div>
                       <div className="text-sm text-muted-foreground">{g.customerPhone}</div>
                       <div className="text-xs text-muted-foreground leading-relaxed">{g.customerAddress}</div>
+                      <OrderMessageTools g={g} />
                     </div>
 
                     {/* Total + status */}

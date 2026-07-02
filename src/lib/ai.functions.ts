@@ -307,6 +307,82 @@ Draft a helpful WhatsApp reply.`;
     return groq(prompt, system, 120);
   });
 
+// AI: Thank you for first order
+export const draftFirstOrderThankYou = createServerFn()
+  .validator(z.object({
+    customerName: z.string(),
+    productName: z.string(),
+    total: z.number(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are writing a warm WhatsApp message on behalf of The Aavira, a women's fashion store in Nepal. Tone: warm, genuine, not salesy. 2-3 sentences max. Start with "Hi ${data.customerName.split(" ")[0]}!". Never use hashtags. Write only the message text.`;
+    const prompt = `Write a thank-you WhatsApp message for a first-time customer. They ordered "${data.productName}" for NRS ${data.total}. Make them feel welcomed and excited about their purchase.`;
+    return groq(prompt, system, 120);
+  });
+
+// AI: Instagram repost request
+export const draftInstagramRepostRequest = createServerFn()
+  .validator(z.object({
+    customerName: z.string(),
+    productName: z.string(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are writing a WhatsApp message on behalf of The Aavira, a Nepali women's fashion store. Ask the customer to tag us on Instagram when they wear their purchase. Tone: friendly, casual, not pushy. 2-3 sentences. Start with "Hi ${data.customerName.split(" ")[0]}!". Include "@theaavira" as the Instagram handle. Write only the message text.`;
+    const prompt = `Customer bought "${data.productName}". Ask them to tag us in their Instagram photo when they wear it.`;
+    return groq(prompt, system, 100);
+  });
+
+// AI: Testimonial collector
+export const draftTestimonialRequest = createServerFn()
+  .validator(z.object({
+    customerName: z.string(),
+    productName: z.string(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are writing a WhatsApp message on behalf of The Aavira, a Nepali women's fashion store. Ask for a short 1-2 sentence review. Tone: soft, genuine, not pushy. 2-3 sentences max. Start with "Hi ${data.customerName.split(" ")[0]}!". Write only the message text.`;
+    const prompt = `Customer bought "${data.productName}". Ask them to share a quick review or feedback about their experience.`;
+    return groq(prompt, system, 100);
+  });
+
+// AI: Before/after styling story ask
+export const draftStylingStoryAsk = createServerFn()
+  .validator(z.object({
+    customerName: z.string(),
+    productName: z.string(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are writing a WhatsApp message on behalf of The Aavira, a Nepali women's fashion store. Ask the customer to share how they styled their purchase — a photo or description. Tone: fun, encouraging, genuine. 2-3 sentences max. Start with "Hi ${data.customerName.split(" ")[0]}!". Write only the message text.`;
+    const prompt = `Customer bought "${data.productName}". Ask them to share their styling — how they wore it, what they paired it with, or a photo of their look.`;
+    return groq(prompt, system, 100);
+  });
+
+// AI: Payment confirmation message
+export const draftPaymentConfirmation = createServerFn()
+  .validator(z.object({
+    customerName: z.string(),
+    productName: z.string(),
+    total: z.number(),
+    orderId: z.string(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are writing a WhatsApp order confirmation message on behalf of The Aavira, a Nepali women's fashion store (Cash on Delivery). Tone: professional, warm, reassuring. 2-3 sentences. Start with "Hi ${data.customerName.split(" ")[0]}!". Include the order summary. Write only the message text.`;
+    const prompt = `Confirm receipt of order #${data.orderId.slice(0, 8).toUpperCase()} for "${data.productName}" totalling NRS ${data.total}. Mention it will be delivered in 3-7 business days.`;
+    return groq(prompt, system, 130);
+  });
+
+// AI: Address confirmation message
+export const draftAddressConfirmation = createServerFn()
+  .validator(z.object({
+    customerName: z.string(),
+    productName: z.string(),
+    address: z.string(),
+  }))
+  .handler(async ({ data }) => {
+    const system = `You are writing a WhatsApp message on behalf of The Aavira, a Nepali women's fashion store. Ask the customer to confirm their delivery address before shipping. Tone: friendly, professional. 2-3 sentences. Start with "Hi ${data.customerName.split(" ")[0]}!". Write only the message text.`;
+    const prompt = `Before shipping "${data.productName}", confirm the delivery address: "${data.address}". Ask them to reply YES to confirm or share a corrected address.`;
+    return groq(prompt, system, 120);
+  });
+
 // AI semantic search
 export const aiSearch = createServerFn()
   .validator(z.object({

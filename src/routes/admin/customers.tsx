@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, ShoppingCart, DollarSign, TrendingUp, Phone, MapPin, Search, ChevronDown, ChevronUp, MessageCircle, Sparkles, Copy, Check } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { draftWhatsAppReply } from "@/lib/ai.functions";
+import { draftWhatsAppReply, draftFirstOrderThankYou, draftInstagramRepostRequest, draftTestimonialRequest, draftStylingStoryAsk } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/admin/customers")({
   ssr: false,
@@ -154,6 +154,113 @@ function WhatsAppDrafter({ c }: { c: Customer }) {
   );
 }
 
+type QuickTool = {
+  label: string;
+  icon: string;
+  fn: (c: Customer) => Promise<string>;
+};
+
+function QuickMessageTools({ c }: { c: Customer }) {
+  const [active, setActive] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const thankYouFn = useServerFn(draftFirstOrderThankYou);
+  const repostFn = useServerFn(draftInstagramRepostRequest);
+  const testimonialFn = useServerFn(draftTestimonialRequest);
+  const stylingFn = useServerFn(draftStylingStoryAsk);
+
+  const lastOrder = c.orders[0];
+
+  const tools: QuickTool[] = [
+    {
+      label: "First order thanks",
+      icon: "🎉",
+      fn: async () => lastOrder
+        ? thankYouFn({ data: { customerName: c.name, productName: lastOrder.product_name, total: lastOrder.total } })
+        : Promise.resolve("No orders found."),
+    },
+    {
+      label: "Instagram repost",
+      icon: "📸",
+      fn: async () => lastOrder
+        ? repostFn({ data: { customerName: c.name, productName: lastOrder.product_name } })
+        : Promise.resolve("No orders found."),
+    },
+    {
+      label: "Ask for review",
+      icon: "⭐",
+      fn: async () => lastOrder
+        ? testimonialFn({ data: { customerName: c.name, productName: lastOrder.product_name } })
+        : Promise.resolve("No orders found."),
+    },
+    {
+      label: "Styling story",
+      icon: "✨",
+      fn: async () => lastOrder
+        ? stylingFn({ data: { customerName: c.name, productName: lastOrder.product_name } })
+        : Promise.resolve("No orders found."),
+    },
+  ];
+
+  const run = async (tool: QuickTool) => {
+    setActive(tool.label);
+    setDraft("");
+    setCopied(false);
+    setLoading(true);
+    try {
+      const result = await tool.fn(c);
+      setDraft(result);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(draft);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Quick messages</p>
+      <div className="flex flex-wrap gap-2">
+        {tools.map((tool) => (
+          <button
+            key={tool.label}
+            type="button"
+            onClick={() => run(tool)}
+            disabled={loading}
+            className={`text-xs px-3 py-1.5 rounded-md border transition disabled:opacity-50 ${active === tool.label ? "bg-accent text-white border-accent" : "hover:bg-muted/50"}`}
+          >
+            {loading && active === tool.label ? "Drafting…" : `${tool.icon} ${tool.label}`}
+          </button>
+        ))}
+      </div>
+      {draft && (
+        <div className="space-y-1.5">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            className="text-sm resize-none bg-muted/30"
+          />
+          <button
+            type="button"
+            onClick={copy}
+            className="flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-md hover:bg-muted/50 transition"
+          >
+            {copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}
+            {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CustomerCard({ c }: { c: Customer }) {
   const [open, setOpen] = useState(false);
   const initials = nameInitials(c.name);
@@ -264,6 +371,7 @@ function CustomerCard({ c }: { c: Customer }) {
             ))}
           </div>
           <WhatsAppDrafter c={c} />
+          <QuickMessageTools c={c} />
         </div>
       )}
     </div>
