@@ -45,6 +45,7 @@ type OrderGroup = {
   source: string;
   createdAt: string;
   groupTotal: number;
+  groupDelivery: number;
   anyRestocked: boolean;
   slipPrinted: boolean;
 };
@@ -71,6 +72,7 @@ function buildGroups(orders: Order[]): OrderGroup[] {
       source: rep.source,
       createdAt: rep.created_at,
       groupTotal: rows.reduce((s, r) => s + Number(r.total), 0),
+      groupDelivery: Number(rep.delivery_fee ?? 0),
       anyRestocked: rows.some((r) => r.stock_restocked),
       slipPrinted: rows.some((r) => !!r.slip_printed_at),
     };
@@ -86,115 +88,154 @@ function pathaoStatusTone(slug: string | null): "default" | "secondary" | "destr
 }
 
 function slipCard(group: OrderGroup, storeName: string, compact = false): string {
-  const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "long", year: "numeric" });
+  const date = new Date(group.createdAt).toLocaleDateString("en-NP", { day: "numeric", month: "short", year: "numeric" });
   const shortId = group.groupId.slice(0, 8).toUpperCase();
+  const subtotal = group.groupTotal;
+  const delivery = group.groupDelivery;
+  const total = subtotal + delivery;
+
   const items = group.rows.map((r) => {
-    const variant = [r.color, r.size].filter(Boolean).join(" · ");
+    const variant = [r.color, r.size].filter(Boolean).join(", ");
     return `<tr>
-      <td class="td-product">${r.product_name}${variant ? `<span class="variant"> · ${variant}</span>` : ""}</td>
+      <td class="td-product">
+        <div class="item-name">${r.product_name}</div>
+        ${variant ? `<div class="item-variant">${variant}</div>` : ""}
+      </td>
       <td class="td-qty">${r.quantity}</td>
       <td class="td-amt">NRS ${Number(r.total).toLocaleString()}</td>
     </tr>`;
   }).join("");
 
   return `<div class="slip${compact ? " compact" : ""}">
-    <div class="top-bar">
-      <div class="top-bar-brand">${storeName}</div>
-      <div class="top-bar-right">
-        <div class="top-bar-label">PACKING SLIP</div>
-        <div class="top-bar-date">${date}</div>
-      </div>
+    <div class="slip-header">
+      <div class="brand-name">${storeName.toUpperCase()}</div>
+      <div class="slip-title">ORDER CONFIRMATION</div>
     </div>
+
+    <div class="divider"></div>
 
     <div class="meta-row">
-      <div class="meta-block">
-        <div class="meta-label">Order</div>
+      <div class="meta-col">
+        <div class="meta-label">ORDER</div>
         <div class="meta-value mono">#${shortId}</div>
       </div>
-      <div class="meta-block">
-        <div class="meta-label">Payment</div>
-        <div class="meta-value">Cash on Delivery</div>
-      </div>
-      <div class="meta-block">
-        <div class="meta-label">Items</div>
-        <div class="meta-value">${group.rows.reduce((s, r) => s + r.quantity, 0)} unit${group.rows.reduce((s, r) => s + r.quantity, 0) !== 1 ? "s" : ""}</div>
+      <div class="meta-col right">
+        <div class="meta-label">DATE</div>
+        <div class="meta-value">${date}</div>
       </div>
     </div>
 
-    <div class="section-label">Ship To</div>
-    <div class="ship-box">
-      <div class="ship-name">${group.customerName}</div>
-      <div class="ship-phone">${group.customerPhone}</div>
-      <div class="ship-address">${group.customerAddress}</div>
+    <div class="divider"></div>
+
+    <div class="info-row">
+      <div class="info-col">
+        <div class="info-label">SHIP TO</div>
+        <div class="ship-name">${group.customerName}</div>
+        <div class="ship-detail">${group.customerAddress}</div>
+        <div class="ship-detail">${group.customerPhone}</div>
+      </div>
+      <div class="info-col">
+        <div class="info-label">PAYMENT</div>
+        <div class="ship-name">Cash on delivery</div>
+        <div class="cod-badge">PENDING COLLECTION</div>
+      </div>
     </div>
 
-    <div class="section-label">Order Summary</div>
+    <div class="divider"></div>
+
     <table>
       <thead>
         <tr>
-          <th class="th-product">Product</th>
-          <th class="th-qty">Qty</th>
-          <th class="th-amt">Amount</th>
+          <th class="th-product">ITEM</th>
+          <th class="th-qty">QTY</th>
+          <th class="th-amt">AMOUNT</th>
         </tr>
       </thead>
       <tbody>${items}</tbody>
     </table>
 
-    <div class="total-bar">
-      <span>Total</span>
-      <span class="total-amount">NRS ${group.groupTotal.toLocaleString()}</span>
+    <div class="divider"></div>
+
+    <div class="summary">
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <span>NRS ${subtotal.toLocaleString()}</span>
+      </div>
+      <div class="summary-row">
+        <span>Delivery</span>
+        <span>NRS ${delivery.toLocaleString()}</span>
+      </div>
     </div>
 
-    <div class="footer-note">Please keep <strong>NRS ${group.groupTotal.toLocaleString()}</strong> ready for delivery · Thank you for shopping with ${storeName}!</div>
+    <div class="divider"></div>
+
+    <div class="total-row">
+      <span class="total-label">Total due</span>
+      <span class="total-amount">NRS ${total.toLocaleString()}</span>
+    </div>
+
+    <div class="footer-note">Thank you for shopping with ${storeName}</div>
   </div>`;
 }
 
 const SLIP_STYLES = `
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:#111;background:#f3f4f6}
-  .slip{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin:24px auto;max-width:560px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
-  .top-bar{background:#111;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}
-  .top-bar-brand{font-size:20px;font-weight:800;letter-spacing:-0.5px}
-  .top-bar-right{text-align:right}
-  .top-bar-label{font-size:9px;font-weight:700;letter-spacing:0.15em;color:#9ca3af;text-transform:uppercase}
-  .top-bar-date{font-size:12px;color:#d1d5db;margin-top:2px}
-  .meta-row{display:flex;gap:0;border-bottom:1px solid #f3f4f6}
-  .meta-block{flex:1;padding:10px 20px;border-right:1px solid #f3f4f6}
-  .meta-block:last-child{border-right:none}
-  .meta-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;margin-bottom:2px}
-  .meta-value{font-size:12px;font-weight:600;color:#111}
-  .mono{font-family:monospace;font-size:13px}
-  .section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af;padding:12px 20px 4px}
-  .ship-box{margin:0 20px 4px;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;background:#f9fafb}
-  .ship-name{font-size:14px;font-weight:700;color:#111;margin-bottom:2px}
-  .ship-phone{font-size:13px;font-weight:600;color:#374151;margin-bottom:2px}
-  .ship-address{font-size:12px;color:#6b7280}
-  table{width:100%;border-collapse:collapse;margin:0 0 0}
-  th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;padding:8px 20px;border-bottom:1px solid #f3f4f6;text-align:left}
-  .th-qty,.td-qty{text-align:center;width:50px}
-  .th-amt,.td-amt{text-align:right;width:100px}
-  .td-product,.td-qty,.td-amt{padding:8px 20px;border-bottom:1px solid #f9fafb;font-size:12px;vertical-align:middle}
-  .variant{color:#9ca3af;font-size:11px}
-  .total-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:2px solid #111;margin-top:4px}
-  .total-bar span{font-size:13px;font-weight:600;color:#6b7280}
-  .total-amount{font-size:16px;font-weight:800;color:#111}
-  .footer-note{text-align:center;font-size:11px;color:#9ca3af;padding:10px 20px 14px;border-top:1px dashed #e5e7eb;line-height:1.5}
+  body{font-family:'Georgia',serif;font-size:13px;color:#1a1a1a;background:#f5f5f0}
+  .slip{background:#fff;border:1px solid #e8e3d8;border-radius:4px;overflow:hidden;margin:24px auto;max-width:540px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+  .slip-header{text-align:center;padding:32px 24px 20px;background:#fff}
+  .brand-name{font-family:Georgia,serif;font-size:26px;font-weight:400;letter-spacing:0.25em;color:#1a1a1a;margin-bottom:16px}
+  .slip-title{font-size:9px;font-weight:400;letter-spacing:0.3em;color:#8a7d65;text-transform:uppercase}
+  .divider{height:1px;background:#e8e3d8;margin:0 24px}
+  .meta-row{display:flex;justify-content:space-between;padding:16px 24px}
+  .meta-col{}
+  .meta-col.right{text-align:right}
+  .meta-label{font-size:8px;font-weight:700;letter-spacing:0.2em;color:#8a7d65;text-transform:uppercase;margin-bottom:4px}
+  .meta-value{font-size:13px;font-weight:600;color:#1a1a1a}
+  .mono{font-family:monospace;letter-spacing:0.05em}
+  .info-row{display:flex;gap:0;padding:16px 24px}
+  .info-col{flex:1}
+  .info-label{font-size:8px;font-weight:700;letter-spacing:0.2em;color:#8a7d65;text-transform:uppercase;margin-bottom:8px}
+  .ship-name{font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+  .ship-detail{font-size:12px;color:#555;margin-bottom:2px}
+  .cod-badge{display:inline-block;margin-top:8px;font-size:8px;font-weight:700;letter-spacing:0.15em;color:#8a7d65;border:1px solid #d4c9b0;padding:3px 8px;border-radius:2px}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;color:#8a7d65;padding:10px 24px;text-align:left}
+  .th-qty,.td-qty{text-align:center;width:48px}
+  .th-amt,.td-amt{text-align:right;width:110px}
+  .td-product,.td-qty,.td-amt{padding:12px 24px;border-bottom:1px solid #f0ece4;vertical-align:top}
+  .item-name{font-size:13px;color:#1a1a1a;font-weight:500}
+  .item-variant{font-size:11px;color:#8a7d65;margin-top:2px}
+  .td-qty{font-size:13px;color:#1a1a1a;text-align:center}
+  .td-amt{font-size:13px;color:#1a1a1a;font-weight:500;text-align:right}
+  .summary{padding:12px 24px}
+  .summary-row{display:flex;justify-content:space-between;font-size:13px;color:#555;padding:3px 0}
+  .total-row{display:flex;justify-content:space-between;align-items:baseline;padding:14px 24px}
+  .total-label{font-family:Georgia,serif;font-style:italic;font-size:15px;color:#1a1a1a}
+  .total-amount{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#8a6f3e;letter-spacing:-0.5px}
+  .footer-note{text-align:center;font-family:Georgia,serif;font-style:italic;font-size:12px;color:#8a7d65;padding:14px 24px 20px;border-top:1px solid #e8e3d8}
 `;
 
 const SLIP_STYLES_COMPACT = `
-  .slip.compact .top-bar{padding:10px 14px}
-  .slip.compact .top-bar-brand{font-size:15px}
-  .slip.compact .top-bar-date{font-size:10px}
-  .slip.compact .meta-block{padding:7px 14px}
-  .slip.compact .meta-value{font-size:11px}
-  .slip.compact .section-label{padding:8px 14px 3px}
-  .slip.compact .ship-box{margin:0 14px 4px;padding:7px 10px}
+  .slip.compact .slip-header{padding:16px 14px 12px}
+  .slip.compact .brand-name{font-size:18px;margin-bottom:10px}
+  .slip.compact .slip-title{font-size:7px}
+  .slip.compact .divider{margin:0 14px}
+  .slip.compact .meta-row{padding:10px 14px}
+  .slip.compact .info-row{padding:10px 14px}
   .slip.compact .ship-name{font-size:12px}
-  .slip.compact .ship-phone,.slip.compact .ship-address{font-size:11px}
-  .slip.compact th,.slip.compact .td-product,.slip.compact .td-qty,.slip.compact .td-amt{padding:5px 14px;font-size:11px}
-  .slip.compact .total-bar{padding:8px 14px}
-  .slip.compact .total-amount{font-size:14px}
-  .slip.compact .footer-note{font-size:10px;padding:7px 14px 10px}
+  .slip.compact .ship-detail{font-size:10px}
+  .slip.compact th{padding:6px 14px;font-size:7px}
+  .slip.compact .td-product,.slip.compact .td-qty,.slip.compact .td-amt{padding:7px 14px}
+  .slip.compact .item-name{font-size:11px}
+  .slip.compact .item-variant{font-size:9px}
+  .slip.compact .td-qty,.slip.compact .td-amt{font-size:11px}
+  .slip.compact .summary{padding:8px 14px}
+  .slip.compact .summary-row{font-size:11px}
+  .slip.compact .total-row{padding:8px 14px}
+  .slip.compact .total-label{font-size:12px}
+  .slip.compact .total-amount{font-size:16px}
+  .slip.compact .footer-note{font-size:10px;padding:8px 14px 12px}
+  .slip.compact .cod-badge{font-size:7px;padding:2px 6px}
 `;
 
 async function markPrinted(groupIds: string[]) {
