@@ -420,7 +420,10 @@ function OrdersPage() {
       .then(({ data }) => {
         const m = Object.fromEntries((data ?? []).map((r: { key: string; value: string }) => [r.key, r.value]));
         if (m.store_name) setStoreName(m.store_name);
-        if (m.whatsapp_number) setStorePhone(m.whatsapp_number);
+        if (m.whatsapp_number) {
+          const num = String(m.whatsapp_number).replace(/^\+?977/, "");
+          setStorePhone(num);
+        }
         if (m.social_instagram) {
           const handle = m.social_instagram.replace(/\/$/, "").split("/").pop() ?? "";
           setStoreInstagram(handle.startsWith("@") ? handle : `@${handle}`);
