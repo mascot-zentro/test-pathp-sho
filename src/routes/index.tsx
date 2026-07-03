@@ -167,12 +167,6 @@ function Index() {
 
           <div className="container mx-auto px-6 py-24 md:py-32 grid md:grid-cols-[1fr_auto] gap-12 items-center w-full">
             <div className="max-w-2xl">
-              <Reveal>
-                <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full bg-accent/10 border border-accent/20">
-                  <Sparkles className="size-3.5 text-accent animate-soft-pulse" />
-                  <span className="text-xs font-medium tracking-[0.18em] uppercase text-accent">New season · 2025</span>
-                </div>
-              </Reveal>
 
               <Reveal delay={70}>
                 <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-light leading-none tracking-tight whitespace-pre-line">
