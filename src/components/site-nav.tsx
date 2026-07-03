@@ -182,6 +182,7 @@ export function SiteNav() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [announcement, setAnnouncement] = useState<{ text: string; link: string } | null>(null);
+  const [impactPublic, setImpactPublic] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -210,6 +211,11 @@ export function SiteNav() {
       if (ann) setAnnouncement(ann);
       try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify({ storeName: sName, logoUrl: lUrl, announcement: ann, ts: Date.now() })); } catch {}
     });
+  }, []);
+
+  useEffect(() => {
+    supabase.from("impact_settings").select("is_page_public").single()
+      .then(({ data }) => { if (data?.is_page_public) setImpactPublic(true); });
   }, []);
 
   useEffect(() => {
@@ -285,6 +291,9 @@ export function SiteNav() {
             {!searchOpen && NAV_LINKS.map((l) => (
               <NavLink key={l.to} to={l.to} label={l.label} />
             ))}
+            {!searchOpen && impactPublic && (
+              <NavLink to="/impact" label="Impact" />
+            )}
             {!searchOpen && isAdmin && (
               <Link to="/admin"
                 className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">
@@ -381,6 +390,14 @@ export function SiteNav() {
                       </Link>
                     </SheetClose>
                   ))}
+                  {impactPublic && (
+                    <SheetClose asChild>
+                      <Link to="/impact"
+                        className="px-2 py-2.5 text-sm text-foreground/80 hover:text-foreground rounded-lg hover:bg-muted/60 transition-colors">
+                        Impact
+                      </Link>
+                    </SheetClose>
+                  )}
                   <SheetClose asChild>
                     <Link to="/wishlist"
                       className="px-2 py-2.5 text-sm text-foreground/80 hover:text-foreground rounded-lg hover:bg-muted/60 transition-colors flex items-center gap-2">

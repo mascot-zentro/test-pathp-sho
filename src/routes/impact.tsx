@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Heart, ExternalLink, Download, Loader2, CheckCircle2 } from "lucide-react";
+import { SiteNav } from "@/components/site-nav";
+import { SiteFooter } from "@/components/site-footer";
 
 export const Route = createFileRoute("/impact")({
   ssr: false,
@@ -265,7 +267,8 @@ function ImpactPage() {
   const lastEntryDate = lastEntry ? `${MONTHS[lastEntry.month - 1]} ${lastEntry.year}` : "—";
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-800">
+    <div className="min-h-screen bg-stone-50 text-stone-800 flex flex-col">
+      <SiteNav />
       {/* Hero */}
       <section className="relative bg-gradient-to-br from-amber-50 via-rose-50 to-stone-50 border-b border-stone-200">
         <div className="max-w-4xl mx-auto px-4 py-20 text-center">
@@ -511,6 +514,7 @@ function ImpactPage() {
           </Link>
         </div>
       </section>
+      <SiteFooter />
     </div>
   );
 }
