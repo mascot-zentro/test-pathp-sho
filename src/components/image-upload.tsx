@@ -11,7 +11,7 @@ export function ImageUpload({
   label,
   aspect = "square",
 }: {
-  bucket: "product-images" | "site-assets";
+  bucket: "product-images" | "site-assets" | "impact";
   value: string | null;
   onChange: (url: string | null) => void;
   label?: string;

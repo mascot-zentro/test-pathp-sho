@@ -18,6 +18,7 @@ import {
   ChevronRight,
   AlertTriangle,
   X,
+  Heart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -67,6 +68,7 @@ const NAV_GROUPS = [
     items: [
       { to: "/admin/faqs", label: "FAQs", icon: HelpCircle },
       { to: "/admin/content", label: "Content", icon: FileText },
+      { to: "/admin/impact", label: "Impact", icon: Heart },
       { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
     ],
   },
