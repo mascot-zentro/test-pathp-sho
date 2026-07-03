@@ -272,7 +272,7 @@ function SalesReportPage() {
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <Stat
-              label="Revenue"
+              label="Net profit"
               value={`NRS ${revenue.toFixed(0)}`}
               icon={DollarSign}
               tone="success"
