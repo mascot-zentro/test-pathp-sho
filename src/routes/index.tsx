@@ -6,7 +6,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { Reveal } from "@/components/reveal";
 import { LazyImageFill } from "@/components/lazy-image";
-import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight } from "lucide-react";
+import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight, Heart } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,6 +50,7 @@ function Index() {
     image: "",
   });
   const [about, setAbout] = useState({ title: "", body: "", image: "" });
+  const [impactPublic, setImpactPublic] = useState<boolean | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const heroImgRef = useRef<HTMLImageElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -110,6 +111,16 @@ function Index() {
         (data ?? []).forEach((r) => { if (r.value) obj[r.key] = r.value; });
         setHero((h) => ({ title: obj.hero_title || h.title, subtitle: obj.hero_subtitle || h.subtitle, image: obj.hero_image_url || "" }));
         setAbout({ title: obj.about_title || "", body: obj.about_body || "", image: obj.about_image_url || "" });
+      });
+  }, []);
+
+  useEffect(() => {
+    supabase
+      .from("impact_settings")
+      .select("is_page_public")
+      .single()
+      .then(({ data }) => {
+        setImpactPublic(data?.is_page_public ?? false);
       });
   }, []);
 
@@ -471,6 +482,33 @@ function Index() {
         )}
 
         {/* ── INSTAGRAM FEED ────────────────────────────────────────────────── */}
+        {/* ── IMPACT ───────────────────────────────────────────────────────── */}
+        {impactPublic === true && (
+          <section className="border-t border-border/40 py-20 md:py-28 bg-[oklch(0.97_0.012_358/0.4)]">
+            <div className="container mx-auto px-6">
+              <Reveal className="flex flex-col items-center text-center gap-5 max-w-2xl mx-auto">
+                <div className="size-14 rounded-full bg-accent/10 grid place-items-center">
+                  <Heart className="size-6 text-accent" />
+                </div>
+                <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-accent">Aavira Impact</p>
+                <h2 className="font-display text-4xl md:text-5xl font-light leading-tight">
+                  Fashion that gives back
+                </h2>
+                <p className="text-muted-foreground leading-relaxed font-light text-base md:text-lg">
+                  A portion of every purchase goes toward causes that matter. See where your money goes, the projects we fund, and the lives we touch together.
+                </p>
+                <Link
+                  to="/impact"
+                  className="group mt-2 inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-accent text-accent-foreground text-sm font-medium tracking-wide transition-all duration-300 hover:bg-accent/90 hover:shadow-lg hover:shadow-accent/20"
+                >
+                  See our impact
+                  <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
+              </Reveal>
+            </div>
+          </section>
+        )}
+
         <section className="border-t border-border/40 py-20 md:py-28">
           <div className="container mx-auto px-6">
             <Reveal className="text-center mb-12">
