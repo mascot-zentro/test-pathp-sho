@@ -169,8 +169,6 @@ type Project = {
   title: string;
   description: string | null;
   cover_image: string | null;
-  goal_amount: number | null;
-  raised_amount: number;
   status: "planned" | "ongoing" | "completed";
   partner_org_name: string | null;
   partner_org_url: string | null;
@@ -480,8 +478,6 @@ const EMPTY_PROJECT: Omit<Project, "id"> = {
   title: "",
   description: null,
   cover_image: null,
-  goal_amount: null,
-  raised_amount: 0,
   status: "planned",
   partner_org_name: null,
   partner_org_url: null,
@@ -566,7 +562,7 @@ function ProjectsTab() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit" : "Add"} Project</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <FieldRow label="Title *">
@@ -576,14 +572,6 @@ function ProjectsTab() {
               <Textarea rows={3} value={form.description ?? ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value || null }))} />
             </FieldRow>
             <ImageUpload bucket="impact" value={form.cover_image} onChange={(url) => setForm((f) => ({ ...f, cover_image: url }))} label="Cover image" aspect="wide" />
-            <div className="grid grid-cols-2 gap-4">
-              <FieldRow label="Goal amount (NPR)">
-                <Input type="number" step="0.01" value={form.goal_amount ?? ""} onChange={(e) => setForm((f) => ({ ...f, goal_amount: e.target.value ? parseFloat(e.target.value) : null }))} />
-              </FieldRow>
-              <FieldRow label="Raised amount (NPR)">
-                <Input type="number" step="0.01" value={form.raised_amount} onChange={(e) => setForm((f) => ({ ...f, raised_amount: parseFloat(e.target.value) || 0 }))} />
-              </FieldRow>
-            </div>
             <FieldRow label="Status">
               <Select value={form.status} onValueChange={(v: any) => setForm((f) => ({ ...f, status: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
