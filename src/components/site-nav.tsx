@@ -6,6 +6,7 @@ import { Search, ShoppingBag, ShoppingCart, User as UserIcon, X, Heart, Menu, Sp
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/lib/cart";
+import { useWishlistCount } from "@/lib/wishlist";
 import { Button } from "@/components/ui/button";
 import { useServerFn } from "@tanstack/react-start";
 import { aiSearch } from "@/lib/ai.functions";
@@ -178,6 +179,7 @@ function NavLink({ to, label }: { to: string; label: string }) {
 export function SiteNav() {
   const { user } = useAuth();
   const { count } = useCart();
+  const wishlistCount = useWishlistCount();
   const [storeName, setStoreName] = useState("Store");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -316,9 +318,14 @@ export function SiteNav() {
               </button>
             )}
             <Link to="/wishlist"
-              className="size-9 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+              className="relative size-9 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
               aria-label="Wishlist">
               <Heart className="size-3.5" />
+              {wishlistCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 bg-accent text-accent-foreground text-[9px] leading-none rounded-full size-3.5 grid place-items-center font-medium">
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
             <Link to="/cart"
               className="relative size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const KEY = "wishlist";
 
 export type WishlistItem = {
@@ -18,11 +20,11 @@ export function toggleWishlist(item: WishlistItem): boolean {
   const exists = list.some((i) => i.id === item.id);
   if (exists) {
     localStorage.setItem(KEY, JSON.stringify(list.filter((i) => i.id !== item.id)));
-    return false;
   } else {
     localStorage.setItem(KEY, JSON.stringify([item, ...list]));
-    return true;
   }
+  window.dispatchEvent(new Event("wishlist-updated"));
+  return !exists;
 }
 
 export function isWishlisted(id: string): boolean {
@@ -31,4 +33,20 @@ export function isWishlisted(id: string): boolean {
 
 export function removeFromWishlist(id: string) {
   localStorage.setItem(KEY, JSON.stringify(getWishlist().filter((i) => i.id !== id)));
+  window.dispatchEvent(new Event("wishlist-updated"));
+}
+
+export function useWishlistCount(): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    setCount(getWishlist().length);
+    const handler = () => setCount(getWishlist().length);
+    window.addEventListener("storage", handler);
+    window.addEventListener("wishlist-updated", handler);
+    return () => {
+      window.removeEventListener("storage", handler);
+      window.removeEventListener("wishlist-updated", handler);
+    };
+  }, []);
+  return count;
 }
