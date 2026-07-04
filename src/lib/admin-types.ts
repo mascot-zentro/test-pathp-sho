@@ -39,7 +39,9 @@ export type Order = {
   color: string | null;
   size: string | null;
   quantity: number;
+  unit_price: number;
   total: number;
+  delivery_fee: number;
   customer_name: string;
   customer_phone: string;
   customer_address: string;

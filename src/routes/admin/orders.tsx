@@ -90,15 +90,19 @@ function slipCard(group: OrderGroup, storeName: string, compact = false, phone =
   const shortId = group.groupId.slice(0, 8).toUpperCase();
   const total = group.groupTotal;
 
+  const deliveryFeeTotal = group.rows.reduce((s, r) => s + Number(r.delivery_fee ?? 0), 0);
+
   const items = group.rows.map((r) => {
     const variant = [r.color, r.size].filter(Boolean).join(", ");
+    // Show unit price × quantity — the pure product cost, no delivery
+    const lineTotal = Number(r.total) - Number(r.delivery_fee ?? 0);
     return `<tr>
       <td class="td-product">
         <div class="item-name">${r.product_name}</div>
         ${variant ? `<div class="item-variant">${variant}</div>` : ""}
       </td>
       <td class="td-qty">${r.quantity}</td>
-      <td class="td-amt">NRS ${Number(r.total).toLocaleString()}</td>
+      <td class="td-amt">NRS ${lineTotal.toLocaleString()}</td>
     </tr>`;
   }).join("");
 
@@ -152,6 +156,14 @@ function slipCard(group: OrderGroup, storeName: string, compact = false, phone =
 
     <div class="divider"></div>
 
+    ${deliveryFeeTotal > 0 ? `<div class="subtotal-row">
+      <span class="subtotal-label">Products</span>
+      <span class="subtotal-value">NRS ${(total - deliveryFeeTotal).toLocaleString()}</span>
+    </div>
+    <div class="subtotal-row">
+      <span class="subtotal-label">Delivery</span>
+      <span class="subtotal-value">NRS ${deliveryFeeTotal.toLocaleString()}</span>
+    </div>` : ""}
     <div class="total-row">
       <span class="total-label">Total due</span>
       <span class="total-amount">NRS ${total.toLocaleString()}</span>
@@ -191,6 +203,9 @@ const SLIP_STYLES = `
   .td-product,.td-qty,.td-amt{padding:10px 24px;border-bottom:1px solid #f0ece4;vertical-align:top}
   .item-name{font-size:13px;color:#1a1a1a;font-weight:500}
   .item-variant{font-size:11px;color:#8a7d65;margin-top:2px}
+  .subtotal-row{display:flex;justify-content:space-between;padding:3px 24px}
+  .subtotal-label{font-size:11px;color:#8a7d65}
+  .subtotal-value{font-size:11px;color:#8a7d65;tabular-nums}
   .td-qty{font-size:13px;color:#1a1a1a;text-align:center}
   .td-amt{font-size:13px;color:#1a1a1a;font-weight:500;text-align:right}
   .total-row{display:flex;justify-content:space-between;align-items:baseline;padding:12px 24px}

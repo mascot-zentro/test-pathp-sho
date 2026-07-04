@@ -52,6 +52,16 @@ type Order = {
   delivery_fee: number;
   discount_amount: number;     // discount already applied (deducted from total)
   status: string;
+  product_id: string | null;
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+};
+
+type Product = {
+  id: string;
+  name: string;
+  cost_price: number | null;
 };
 
 type Expense = {
@@ -92,8 +102,10 @@ type MonthRow = {
   operatingExp: number;
   marketingExp: number;
   socialWork: number;
+  inventoryCost: number;      // Σ (quantity × cost_price) — cost of goods sold
   totalExpenses: number;
   // ── Profit layers ─────────────────────────────────────────────────────────
+  grossProfit: number;        // salesRevenue − inventoryCost
   operatingProfit: number;    // salesRevenue − operatingExp − marketingExp (before social work)
   netProfit: number;          // salesRevenue − totalExpenses
   cashFlow: number;           // cumulative net profit (running total)
@@ -352,6 +364,7 @@ function ProfitLossPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [adSpends, setAdSpends] = useState<AdSpend[]>([]);
   const [impactEntries, setImpactEntries] = useState<ImpactEntry[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedYear, setSelectedYear] = useState<YearOption>(new Date().getFullYear());
@@ -360,18 +373,20 @@ function ProfitLossPage() {
   const load = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     const db = supabase as any;
-    const [o, e, a, i] = await Promise.all([
+    const [o, e, a, i, p] = await Promise.all([
       db.from("orders")
-        .select("id,created_at,total,delivery_fee,discount_amount,status")
+        .select("id,created_at,total,delivery_fee,discount_amount,status,product_id,product_name,unit_price,quantity")
         .not("status", "eq", "cancelled"),
       db.from("expenses").select("*"),
       db.from("ad_spend").select("*"),
       db.from("impact_fund_entries").select("*"),
+      db.from("products").select("id,name,cost_price"),
     ]);
     if (o.data) setOrders(o.data);
     if (e.data) setExpenses(e.data);
     if (a.data) setAdSpends(a.data);
     if (i.data) setImpactEntries(i.data);
+    if (p.data) setProducts(p.data);
     setLoading(false);
     setRefreshing(false);
   };
@@ -436,6 +451,15 @@ function ProfitLossPage() {
       const discountsGiven = monthOrders.reduce((a, o) => a + Number(o.discount_amount ?? 0), 0);
       const preDiscountSales = salesRevenue + discountsGiven;
 
+      // ── Inventory cost (cost of goods sold) ─────────────────────────────
+      // cost_price is per unit. inventoryCost = Σ (quantity × cost_price)
+      const productCostMap = new Map(products.map((p) => [p.id, p.cost_price]));
+      const inventoryCost = monthOrders.reduce((a, o) => {
+        const cp = o.product_id ? (productCostMap.get(o.product_id) ?? null) : null;
+        return a + (cp !== null ? Number(o.quantity) * Number(cp) : 0);
+      }, 0);
+      const grossProfit = salesRevenue - inventoryCost;
+
       // ── Expense calculations ─────────────────────────────────────────────
       const monthExpenses = expenses.filter((e) => {
         const d = ym(e.expense_date);
@@ -461,6 +485,7 @@ function ProfitLossPage() {
         label: `${MONTH_NAMES[m - 1]} ${y}`,
         year: y, month: m,
         salesRevenue, discountsGiven, preDiscountSales,
+        inventoryCost, grossProfit,
         operatingExp, marketingExp, socialWork, totalExpenses,
         operatingProfit, netProfit,
         orderCount: monthOrders.length,
@@ -473,7 +498,7 @@ function ProfitLossPage() {
       cumulative += r.netProfit;
       return { ...r, cashFlow: cumulative };
     });
-  }, [orders, expenses, adSpends, impactEntries, selectedYear]);
+  }, [orders, expenses, adSpends, impactEntries, products, selectedYear]);
 
   // ── Totals ───────────────────────────────────────────────────────────────
 
@@ -481,6 +506,8 @@ function ProfitLossPage() {
     salesRevenue:     rows.reduce((a, r) => a + r.salesRevenue, 0),
     discountsGiven:   rows.reduce((a, r) => a + r.discountsGiven, 0),
     preDiscountSales: rows.reduce((a, r) => a + r.preDiscountSales, 0),
+    inventoryCost:    rows.reduce((a, r) => a + r.inventoryCost, 0),
+    grossProfit:      rows.reduce((a, r) => a + r.grossProfit, 0),
     operatingExp:     rows.reduce((a, r) => a + r.operatingExp, 0),
     marketingExp:     rows.reduce((a, r) => a + r.marketingExp, 0),
     socialWork:       rows.reduce((a, r) => a + r.socialWork, 0),
@@ -489,6 +516,37 @@ function ProfitLossPage() {
     netProfit:        rows.reduce((a, r) => a + r.netProfit, 0),
     orderCount:       rows.reduce((a, r) => a + r.orderCount, 0),
   }), [rows]);
+
+  // ── Per-product margin breakdown ─────────────────────────────────────────
+  const productMargins = useMemo(() => {
+    const filteredOrders = orders.filter(
+      (o) => selectedYear === "all" || new Date(o.created_at).getFullYear() === selectedYear,
+    );
+    const map = new Map<string, { name: string; unitsSold: number; revenue: number; costTotal: number; hasCost: boolean }>();
+    for (const o of filteredOrders) {
+      const key = o.product_name;
+      const cp = o.product_id ? (products.find((p) => p.id === o.product_id)?.cost_price ?? null) : null;
+      const rev = Number(o.unit_price) * Number(o.quantity);
+      const cost = cp !== null ? Number(cp) * Number(o.quantity) : 0;
+      const existing = map.get(key);
+      if (existing) {
+        existing.unitsSold += Number(o.quantity);
+        existing.revenue += rev;
+        existing.costTotal += cost;
+        if (cp !== null) existing.hasCost = true;
+      } else {
+        map.set(key, { name: key, unitsSold: Number(o.quantity), revenue: rev, costTotal: cost, hasCost: cp !== null });
+      }
+    }
+    return Array.from(map.values())
+      .map((p) => ({
+        ...p,
+        grossProfit: p.hasCost ? p.revenue - p.costTotal : null,
+        margin: p.hasCost && p.revenue > 0 ? ((p.revenue - p.costTotal) / p.revenue) * 100 : null,
+        avgUnitMargin: p.hasCost && p.unitsSold > 0 ? (p.revenue - p.costTotal) / p.unitsSold : null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [orders, products, selectedYear]);
 
   // ── Best / worst month ────────────────────────────────────────────────────
 
@@ -655,8 +713,8 @@ function ProfitLossPage() {
         <MetricCard
           label="Total Sales"
           value={fmt(totals.salesRevenue)}
-          sub={`${totals.orderCount} orders`}
-          tooltip="Aavira's actual income from product sales — delivery fees are excluded entirely because they go directly to the delivery company (pass-through)."
+          sub={totals.inventoryCost > 0 ? `${totals.orderCount} orders · incl. ${fmt(totals.inventoryCost, true)} product cost` : `${totals.orderCount} orders`}
+          tooltip="Total money received from customers for products sold — includes the product cost (what you paid to buy/make it) plus your profit margin. Delivery fees are excluded as they go to the delivery company."
         />
         <MetricCard
           label="Pre-Discount Sales"
@@ -682,18 +740,18 @@ function ProfitLossPage() {
       {/* ── Profit cards (row 2) ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard
-          label="Social Work"
-          value={fmt(totals.socialWork)}
-          sub="Impact fund contributions"
-          tooltip="Amount set aside for community and social impact causes — counted as an expense but tracked separately to highlight the social mission."
+          label="Inventory Cost (COGS)"
+          value={totals.inventoryCost > 0 ? fmt(totals.inventoryCost) : "—"}
+          sub={totals.inventoryCost > 0 ? `${pct(totals.inventoryCost, totals.salesRevenue)} of sales` : "Add cost price to products"}
+          tooltip="Cost of Goods Sold — how much was spent buying or making the products that were sold. Set cost price on each product to see this."
         />
         <MetricCard
-          label="Operating Profit"
-          value={fmt(totals.operatingProfit)}
-          sub="Before social work deduction"
-          accent
-          negative={totals.operatingProfit < 0}
-          tooltip="Sales Revenue minus operating costs and marketing/ads only — before deducting social work. Shows pure business profitability."
+          label="Gross Profit"
+          value={totals.inventoryCost > 0 ? fmt(totals.grossProfit) : "—"}
+          sub={totals.inventoryCost > 0 ? `Margin ${pct(totals.grossProfit, totals.salesRevenue)}` : "Set cost price per product"}
+          accent={totals.grossProfit >= 0}
+          negative={totals.grossProfit < 0}
+          tooltip="Sales Revenue minus product cost (COGS). This is profit before operating costs, ads, or social work — how much you made on the products themselves."
         />
         <MetricCard
           label="Net Profit"
@@ -754,6 +812,10 @@ function ProfitLossPage() {
           <p className="text-xs text-muted-foreground mb-4">Where every rupee of expenses goes</p>
           <div className="space-y-3.5">
             {[
+              {
+                label: "Inventory / COGS", value: totals.inventoryCost, color: "bg-teal-400",
+                tooltip: "Cost of products sold — what was paid to buy or make the items. Based on the cost price set on each product.",
+              },
               {
                 label: "Operating Costs", value: totals.operatingExp, color: "bg-orange-400",
                 tooltip: "Day-to-day running costs: supplies, packaging, rent, utilities, staff wages, etc. These are the costs of keeping the business running.",
@@ -829,9 +891,23 @@ function ProfitLossPage() {
           {/* Profit waterfall */}
           <div className="mt-4 pt-4 border-t border-border/40 space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Sales Revenue</span>
+              <span className="text-muted-foreground">Sales Revenue (incl. product cost)</span>
               <span className="font-medium tabular-nums text-emerald-700">{fmt(totals.salesRevenue)}</span>
             </div>
+            {totals.inventoryCost > 0 && (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">− Inventory / COGS</span>
+                  <span className="tabular-nums text-teal-600">−{fmt(totals.inventoryCost)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-medium border-t border-border/30 pt-1.5">
+                  <span>= Gross Profit</span>
+                  <span className={cn("tabular-nums", totals.grossProfit >= 0 ? "text-emerald-700" : "text-red-500")}>
+                    {fmt(totals.grossProfit)}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">− Operating &amp; Marketing</span>
               <span className="tabular-nums text-red-500">−{fmt(totals.operatingExp + totals.marketingExp)}</span>
@@ -1068,7 +1144,7 @@ function ProfitLossPage() {
                                     {r.totalExpenses > 0 && (
                                       <div
                                         className="bg-red-400"
-                                        style={{ width: `${(r.totalExpenses / (r.grossIncome + r.totalExpenses || 1)) * 100}%` }}
+                                        style={{ width: `${(r.totalExpenses / (r.salesRevenue + r.totalExpenses || 1)) * 100}%` }}
                                       />
                                     )}
                                   </div>
@@ -1120,6 +1196,85 @@ function ProfitLossPage() {
       {/* ── Cash flow chart ────────────────────────────────────────────────────── */}
       <CashFlowChart rows={rows} />
 
+      {/* ── Product Margins ───────────────────────────────────────────────────── */}
+      {productMargins.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="px-6 py-4 border-b border-border/60">
+            <p className="text-sm font-semibold">Product Margins</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Revenue and profit per product — based on cost price set on each product. Products without a cost price show revenue only.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-muted/30">
+                  <TH>Product</TH>
+                  <TH right tooltip="Number of units sold in this period">Units Sold</TH>
+                  <TH right tooltip="Total sales revenue from this product (selling price × units, excl. delivery)">Revenue</TH>
+                  <TH right tooltip="Total cost of goods — cost price × units sold. Only shown when cost price is set on the product.">COGS</TH>
+                  <TH right tooltip="Revenue minus COGS. How much profit the product made before operating costs.">Gross Profit</TH>
+                  <TH right tooltip="Gross Profit ÷ Revenue. Higher % = more profit per sale.">Margin %</TH>
+                  <TH right tooltip="Average gross profit earned per unit sold.">Profit / Unit</TH>
+                </tr>
+              </thead>
+              <tbody>
+                {productMargins.map((p) => (
+                  <tr key={p.name} className="hover:bg-muted/20 transition-colors">
+                    <TD bold>{p.name}</TD>
+                    <TD right mono muted>{p.unitsSold}</TD>
+                    <TD right mono bold>{fmt(p.revenue)}</TD>
+                    <TD right mono neg={p.hasCost}>{p.hasCost ? `−${fmt(p.costTotal)}` : <span className="text-muted-foreground/40 italic text-xs">no cost set</span>}</TD>
+                    <TD right mono accent={p.grossProfit !== null && p.grossProfit >= 0} neg={p.grossProfit !== null && p.grossProfit < 0}>
+                      {p.grossProfit !== null ? fmt(p.grossProfit) : "—"}
+                    </TD>
+                    <TD right>
+                      {p.margin !== null ? (
+                        <span className={cn("font-medium text-sm", p.margin >= 30 ? "text-emerald-600" : p.margin >= 10 ? "text-amber-600" : "text-red-500")}>
+                          {p.margin.toFixed(1)}%
+                        </span>
+                      ) : "—"}
+                    </TD>
+                    <TD right mono muted>
+                      {p.avgUnitMargin !== null ? fmt(p.avgUnitMargin) : "—"}
+                    </TD>
+                  </tr>
+                ))}
+              </tbody>
+              {productMargins.some((p) => p.hasCost) && (
+                <tfoot>
+                  <tr className="bg-muted/50 border-t-2 border-border">
+                    <td className="px-3.5 py-3.5 text-xs font-bold uppercase tracking-widest">Total</td>
+                    <td className="px-3.5 py-3.5 text-right text-xs font-semibold tabular-nums">
+                      {productMargins.reduce((a, p) => a + p.unitsSold, 0)}
+                    </td>
+                    <td className="px-3.5 py-3.5 text-right text-xs font-bold tabular-nums">
+                      {fmt(productMargins.reduce((a, p) => a + p.revenue, 0))}
+                    </td>
+                    <td className="px-3.5 py-3.5 text-right text-xs tabular-nums text-red-500">
+                      −{fmt(productMargins.reduce((a, p) => a + p.costTotal, 0))}
+                    </td>
+                    <td className={cn(
+                      "px-3.5 py-3.5 text-right text-xs font-bold tabular-nums",
+                      totals.grossProfit >= 0 ? "text-emerald-700" : "text-red-500",
+                    )}>
+                      {fmt(productMargins.filter((p) => p.hasCost).reduce((a, p) => a + (p.grossProfit ?? 0), 0))}
+                    </td>
+                    <td className={cn(
+                      "px-3.5 py-3.5 text-right text-xs font-semibold",
+                      totals.grossProfit >= 0 ? "text-emerald-600" : "text-red-500",
+                    )}>
+                      {pct(totals.grossProfit, totals.salesRevenue)}
+                    </td>
+                    <td className="px-3.5 py-3.5" />
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── Glossary ──────────────────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-border bg-muted/20 p-6">
         <p className="text-sm font-semibold mb-1">Glossary — What does each number mean?</p>
@@ -1130,6 +1285,8 @@ function ProfitLossPage() {
             { term: "Pre-Discount Sales", def: "What customers would have paid at full price before promo codes were applied. Sales Revenue + Discounts Given." },
             { term: "Discounts Given", def: "Total value of promo codes and discounts applied. This is money voluntarily given away — it reduces Aavira's income." },
             { term: "Delivery (excluded)", def: "Delivery fees are collected from customers and passed directly to the delivery company. They are NOT income for Aavira and do not appear anywhere on this P&L." },
+            { term: "Inventory Cost (COGS)", def: "Cost of Goods Sold — the total amount paid to buy or make the products that were sold. Calculated as cost price × quantity for each order. Set the cost price on each product to see this." },
+            { term: "Gross Profit", def: "Sales Revenue minus Inventory Cost. Shows how much was made from selling the products themselves, before any other costs like rent, ads, or staff." },
             { term: "Operating Costs", def: "Day-to-day expenses: packaging, supplies, rent, wages, utilities — the cost of running the business." },
             { term: "Marketing / Ads", def: "Money spent on advertising (Facebook, Instagram, Google, etc.) to bring in customers." },
             { term: "Social Work", def: "Monthly amount contributed to the Aavira impact fund for community causes. Tracked separately." },
