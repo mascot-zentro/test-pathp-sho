@@ -120,7 +120,7 @@ function CartPage() {
     if (!cityId || !zoneId || items.length === 0) { setDeliveryFee(null); setDeliveryError(null); return; }
     setDeliveryFeeLoading(true);
     setDeliveryError(null);
-    fetchDeliveryEstimate({ data: { cityId, zoneId, weight: Math.min(10, Math.max(0.5, totalWeight)) } })
+    fetchDeliveryEstimate({ data: { cityId, zoneId, weight: Math.min(10, Math.max(0.5, totalWeight)), cityName: cityName || undefined } })
       .then((res: unknown) => {
         // getDeliveryEstimate returns { ok: true, fee } or { ok: false, reason },
         // never a bare number — this used to check `typeof fee === "number"`

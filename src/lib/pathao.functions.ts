@@ -106,7 +106,7 @@ export const savePathaoCredentials = createServerFn({ method: "POST" })
 // city & zone" forever even after city/zone *were* selected — there was no
 // way to tell the customer (or the admin debugging it) why.
 export const getDeliveryEstimate = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ cityId: z.number(), zoneId: z.number(), weight: z.number().min(0.5).max(10) }))
+  .inputValidator(z.object({ cityId: z.number(), zoneId: z.number(), weight: z.number().min(0.5).max(10), cityName: z.string().optional() }))
   .handler(async ({ data }) => {
     const { enforceRateLimit } = await import("./rate-limit.server");
     await enforceRateLimit("delivery_estimate", { maxHits: 30, windowSeconds: 60 });
@@ -127,16 +127,19 @@ export const getDeliveryEstimate = createServerFn({ method: "POST" })
       const fee = res?.data?.final_price;
       if (typeof fee !== "number") {
         console.error("[getDeliveryEstimate] Pathao responded but with no final_price:", JSON.stringify(res));
+        if (data.cityName) {
+          const { getFallbackDeliveryFee } = await import("./pathao-fallback-rates");
+          return { ok: true as const, fee: getFallbackDeliveryFee(data.cityName, data.weight), fallback: true as const };
+        }
         return { ok: false as const, reason: "unavailable" as const };
       }
       return { ok: true as const, fee };
     } catch (e) {
-      // Swallowing this used to leave both the customer and the admin with
-      // zero clue why delivery pricing broke (wrong store_id for the
-      // current credentials, expired/invalid token, Pathao API down,
-      // etc.) — logging it server-side means it's visible in deployment
-      // logs even though the client only ever sees "unavailable".
       console.error("[getDeliveryEstimate] Pathao price-plan call failed:", String(e));
+      if (data.cityName) {
+        const { getFallbackDeliveryFee } = await import("./pathao-fallback-rates");
+        return { ok: true as const, fee: getFallbackDeliveryFee(data.cityName, data.weight), fallback: true as const };
+      }
       return { ok: false as const, reason: "unavailable" as const };
     }
   });

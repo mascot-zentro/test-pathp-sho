@@ -268,26 +268,26 @@ function Index() {
         {/* ── PRODUCT GRID ──────────────────────────────────────────────────── */}
         <section id="shop" className="container mx-auto px-6 pb-28">
           <Reveal>
-            <div className="flex items-end justify-between mb-12">
+            <div className="flex items-end justify-between pb-6 border-b border-border/40 mb-10">
               <div>
-                <p className="text-[11px] tracking-[0.25em] uppercase text-accent mb-3">Collection</p>
-                <h2 className="text-3xl md:text-5xl font-display font-light">The edit</h2>
+                <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground/60 mb-2">Collection</p>
+                <h2 className="text-2xl md:text-4xl font-display font-light tracking-tight">The edit</h2>
               </div>
-              <Link to="/sale" className="group flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent transition-colors">
-                Sale <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <Link to="/sale" className="group flex items-center gap-1.5 text-[11px] tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-200">
+                Sale <ArrowRight className="size-3 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </div>
           </Reveal>
 
           {categories.length > 0 && (
             <Reveal delay={60}>
-              <div className="flex flex-wrap gap-2 mb-10">
+              <div className="flex flex-wrap gap-1.5 mb-10">
                 {[null, ...categories].map((c) => (
                   <button key={c ?? "__all"} type="button" onClick={() => setActiveCategory(c)}
-                    className={`text-xs px-5 py-2.5 rounded-full tracking-wide transition-all duration-200 border ${
+                    className={`text-[11px] px-4 py-1.5 tracking-[0.12em] uppercase transition-all duration-200 border-b-2 ${
                       activeCategory === c
-                        ? c === null ? "border-foreground bg-foreground text-background" : "border-accent bg-accent text-accent-foreground"
-                        : "border-border/60 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                        ? "border-foreground text-foreground font-medium"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                     }`}>
                     {c ?? "All"}
                   </button>
@@ -297,12 +297,12 @@ function Index() {
           )}
 
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i}>
-                  <div className="aspect-3/4 rounded-2xl skeleton" />
-                  <div className="mt-4 h-3 skeleton rounded-full w-3/4" />
-                  <div className="mt-2 h-3 skeleton rounded-full w-1/3" />
+                  <div className="aspect-3/4 skeleton" />
+                  <div className="mt-3 h-2.5 skeleton rounded-sm w-3/4" />
+                  <div className="mt-2 h-2.5 skeleton rounded-sm w-1/3" />
                 </div>
               ))}
             </div>
@@ -311,61 +311,61 @@ function Index() {
               {products.length === 0 ? "No products yet — check back soon." : "No products in this category."}
             </p>
           ) : (
-            <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-12 md:gap-x-6 md:gap-y-16">
+            <div ref={gridRef} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-10 md:gap-x-5 md:gap-y-14">
               {visibleProducts.map((p, i) => {
                 const outOfStock = p.stock_quantity === 0;
                 const displayPrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
                 return (
                   <Reveal key={p.id} delay={(i % 8) * 50}>
                     <Link to="/product/$slug" params={{ slug: slugify(p.name) }} className="group block">
-                      <div className="relative aspect-3/4 overflow-hidden rounded-2xl">
+                      <div className="relative aspect-3/4 overflow-hidden bg-muted/30">
                         {p.image_url ? (
                           <>
                             <LazyImageFill src={p.image_url} alt={p.name}
                               fetchPriority={i < 4 ? "high" : "auto"}
-                              className={`object-cover transition-all duration-700 ease-out group-hover:scale-[1.06] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`} />
+                              className={`object-cover transition-all duration-700 ease-out group-hover:scale-[1.04] ${hoverImages[p.id] ? "group-hover:opacity-0" : ""} ${outOfStock ? "opacity-40 grayscale" : ""}`} />
                             {hoverImages[p.id] && (
                               <img src={hoverImages[p.id] ?? ""} alt="" loading="lazy" decoding="async"
-                                className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.04] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.06]" />
+                                className="absolute inset-0 w-full h-full object-cover opacity-0 scale-[1.03] transition-all duration-700 ease-out group-hover:opacity-100 group-hover:scale-[1.04]" />
                             )}
                           </>
                         ) : (
-                          <div className="w-full h-full bg-[oklch(0.95_0.010_60)] grid place-items-center text-muted-foreground/30 text-xs tracking-widest uppercase">No image</div>
+                          <div className="w-full h-full bg-muted/50 grid place-items-center text-muted-foreground/30 text-[10px] tracking-widest uppercase">No image</div>
                         )}
 
                         {!outOfStock && (
-                          <div className="absolute inset-0 bg-linear-to-t from-foreground/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                          <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                         )}
 
                         {outOfStock && (
-                          <span className="absolute top-3 left-3 bg-background/95 backdrop-blur-sm text-muted-foreground text-[10px] font-medium px-3 py-1.5 rounded-full">
+                          <span className="absolute top-2.5 left-2.5 bg-background/90 backdrop-blur-sm text-muted-foreground text-[9px] font-medium px-2.5 py-1 tracking-widest uppercase">
                             Sold out
                           </span>
                         )}
                         {p.on_sale && p.sale_price && !outOfStock && (
-                          <span className="absolute top-3 left-3 bg-accent text-accent-foreground text-[10px] font-semibold px-3 py-1.5 rounded-full">
+                          <span className="absolute top-2.5 left-2.5 bg-foreground text-background text-[9px] font-medium px-2.5 py-1 tracking-widest uppercase">
                             −{Math.round((1 - p.sale_price / p.price) * 100)}%
                           </span>
                         )}
 
                         {!outOfStock && (
-                          <div className="absolute bottom-3 inset-x-0 flex justify-center">
-                            <span className="bg-background/95 backdrop-blur-sm text-[10px] font-medium px-4 py-2 rounded-full tracking-widest uppercase shadow-md opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 whitespace-nowrap">
+                          <div className="absolute bottom-0 inset-x-0 p-3 flex justify-center">
+                            <span className="bg-background/90 backdrop-blur-sm text-[9px] font-medium px-5 py-2 tracking-[0.2em] uppercase opacity-0 translate-y-1.5 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 whitespace-nowrap">
                               View piece
                             </span>
                           </div>
                         )}
                       </div>
 
-                      <div className="mt-4 px-0.5">
-                        <h3 className="text-sm font-light leading-snug group-hover:text-accent transition-colors duration-200 line-clamp-2">
+                      <div className="mt-3">
+                        <h3 className="text-[13px] font-light leading-snug text-foreground/80 group-hover:text-foreground transition-colors duration-200 line-clamp-1">
                           {p.name}
                         </h3>
-                        <div className="mt-1.5 text-sm tabular-nums">
+                        <div className="mt-1 text-[13px] tabular-nums">
                           {p.on_sale && p.sale_price ? (
                             <span className="flex items-center gap-2">
-                              <span className="text-muted-foreground line-through text-xs">NRS {p.price}</span>
-                              <span className="text-accent font-medium">NRS {p.sale_price}</span>
+                              <span className="text-muted-foreground/50 line-through text-xs">NRS {p.price}</span>
+                              <span className="text-foreground font-medium">NRS {p.sale_price}</span>
                             </span>
                           ) : (
                             <span className="text-muted-foreground">NRS {displayPrice}</span>
