@@ -740,6 +740,11 @@ function OrdersPage() {
                               {g.rows.length} items · 1 parcel
                             </span>
                           )}
+                          {g.slipPrinted && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-normal text-green-700 border-green-300 bg-green-50">
+                              Slip printed
+                            </Badge>
+                          )}
                         </div>
                       </div>
 

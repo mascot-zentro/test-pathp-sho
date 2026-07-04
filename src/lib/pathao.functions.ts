@@ -374,7 +374,10 @@ async function insertOrderAndSubmitToPathao(
       item_weight: args.weight,
       item_description: `${args.productName}${variantLabel ? ` (${variantLabel})` : ""}`,
       amount_to_collect: Math.round(args.total),
-    })) as { data?: { consignment_id?: string } };
+    })) as { data?: { consignment_id?: string; delivery_fee?: number } };
+
+    const actualDeliveryFee = pathaoRes?.data?.delivery_fee;
+    const deliveryFeeUpdate = typeof actualDeliveryFee === "number" ? { delivery_fee: actualDeliveryFee } : {};
 
     await supabaseAdmin
       .from("orders")
@@ -382,6 +385,7 @@ async function insertOrderAndSubmitToPathao(
         pathao_consignment_id: pathaoRes?.data?.consignment_id ?? null,
         pathao_response: pathaoRes as never,
         status: "submitted",
+        ...deliveryFeeUpdate,
       })
       .eq("id", order.id);
     return { orderId: order.id, pathao: pathaoRes };
