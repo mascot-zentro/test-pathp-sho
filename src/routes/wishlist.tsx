@@ -10,6 +10,12 @@ import { SiteFooter } from "@/components/site-footer";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/wishlist")({
+  head: () => ({
+    meta: [
+      { title: "Wishlist — The Aavira" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: WishlistPage,
 });
 
@@ -77,7 +83,7 @@ function WishlistPage() {
                 return (
                   <div key={item.id} className="group relative">
                     <Link to="/product/$slug" params={{ slug: slugify(item.name) }} className="block">
-                      <div className="aspect-[3/4] bg-[oklch(0.95_0.010_60)] rounded-xl overflow-hidden relative">
+                      <div className="aspect-3/4 bg-[oklch(0.95_0.010_60)] rounded-xl overflow-hidden relative">
                         {item.image_url ? (
                           <img
                             src={item.image_url ?? ""}

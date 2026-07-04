@@ -10,7 +10,7 @@ import { MessageCircle, Truck, RotateCcw, CreditCard } from "lucide-react";
 export const Route = createFileRoute("/faq")({
   head: () => ({
     meta: [
-      { title: "FAQ — Modern Store" },
+      { title: "FAQ — The Aavira" },
       { name: "description", content: "Answers to common questions about delivery, payment, and returns." },
     ],
   }),

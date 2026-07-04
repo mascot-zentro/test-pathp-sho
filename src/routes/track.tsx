@@ -13,7 +13,7 @@ import { Search, Package, Truck, CheckCircle2, Clock, XCircle, ChevronDown, Chev
 export const Route = createFileRoute("/track")({
   head: () => ({
     meta: [
-      { title: "Track Order — Modern Store" },
+      { title: "Track Order — The Aavira" },
       { name: "description", content: "Track your order status using the phone number you used at checkout." },
     ],
   }),

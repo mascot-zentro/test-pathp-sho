@@ -129,7 +129,7 @@ function SearchBar({ onClose }: { onClose?: () => void }) {
               <button key={r.id} type="button" onClick={() => go(r.name)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors">
                 <div className="size-9 rounded-lg bg-muted shrink-0 overflow-hidden">
-                  {r.image_url && <img src={r.image_url} alt="" className="w-full h-full object-cover" />}
+                  {r.image_url && <img src={r.image_url} alt={r.name} className="w-full h-full object-cover" />}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{r.name}</div>
@@ -310,13 +310,13 @@ export function SiteNav() {
               </div>
             ) : (
               <button type="button" onClick={() => setSearchOpen(true)}
-                className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+                className="size-9 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
                 aria-label="Search">
                 <Search className="size-3.5" />
               </button>
             )}
             <Link to="/wishlist"
-              className="size-8 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+              className="size-9 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
               aria-label="Wishlist">
               <Heart className="size-3.5" />
             </Link>

@@ -38,7 +38,7 @@ export function SiteFooter() {
     });
   }, []);
 
-  const storeName = vals.store_name || "Modern Store";
+  const storeName = vals.store_name || "The Aavira";
   const instagram = vals.social_instagram || "https://www.instagram.com/the_aavira/";
   const facebook = vals.social_facebook || "https://www.facebook.com/profile.php?id=61583443176427";
   const tiktok = vals.social_tiktok || "https://www.tiktok.com/@the_aavira";

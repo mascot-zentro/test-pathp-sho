@@ -11,6 +11,12 @@ import { trackPurchase } from "@/lib/meta-pixel";
 
 export const Route = createFileRoute("/order-confirmed")({
   validateSearch: z.object({ id: z.string().optional() }).parse,
+  head: () => ({
+    meta: [
+      { title: "Order Confirmed — The Aavira" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: OrderConfirmed,
 });
 
@@ -50,6 +56,7 @@ function OrderConfirmed() {
   const navigate = useNavigate();
   const fetchOrder = useServerFn(getOrderConfirmation);
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [orderError, setOrderError] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [waNumber, setWaNumber] = useState("");
   const [show, setShow] = useState(false);
@@ -72,12 +79,14 @@ function OrderConfirmed() {
 
   useEffect(() => {
     if (!id) return;
-    fetchOrder({ data: { id } }).then((res) => {
-      if (!res) return;
-      setOrder(res as OrderData);
-      if (res.image_url) setImageUrl(res.image_url);
-      trackPurchase({ orderId: id, total: res.total });
-    });
+    fetchOrder({ data: { id } })
+      .then((res) => {
+        if (!res) { setOrderError(true); return; }
+        setOrder(res as OrderData);
+        if (res.image_url) setImageUrl(res.image_url);
+        trackPurchase({ orderId: id, total: res.total });
+      })
+      .catch(() => setOrderError(true));
   }, [id]);
 
   useEffect(() => {

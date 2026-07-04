@@ -7,7 +7,7 @@ import { SiteFooter } from "@/components/site-footer";
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title: "Terms & Conditions" },
+      { title: "Terms & Conditions — The Aavira" },
       { name: "description", content: "Terms and conditions for shopping with us, including orders, delivery, payment, and returns." },
     ],
   }),
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/terms")({
 });
 
 function TermsPage() {
-  const [storeName, setStoreName] = useState("Modern Store");
+  const [storeName, setStoreName] = useState("The Aavira");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
 

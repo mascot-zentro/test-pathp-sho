@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 export const Route = createFileRoute("/sale")({
   head: () => ({
     meta: [
-      { title: "Sale — Modern Store" },
+      { title: "Sale — The Aavira" },
       { name: "description", content: "Limited-time discounts on selected items." },
     ],
   }),

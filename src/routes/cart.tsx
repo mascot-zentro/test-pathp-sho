@@ -15,6 +15,12 @@ import { getCities, getZones, getAreas, getDeliveryEstimate, createCartOrder, pr
 import { getSavedAddress, saveAddress, type SavedAddress } from "@/lib/saved-address";
 
 export const Route = createFileRoute("/cart")({
+  head: () => ({
+    meta: [
+      { title: "Cart — The Aavira" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: CartPage,
 });
 
