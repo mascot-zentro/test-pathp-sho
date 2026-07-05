@@ -20,11 +20,12 @@
 
   Operating expenses  = Σ expenses.amount
   Marketing expenses  = Σ ad_spend.amount
-  Social work         = Σ impact_fund_entries.contribution_amount
-  Total expenses      = operating + marketing + social work
+  Social work         = impactPct% × operating profit (auto-calculated per month)
+  Total expenses      = inventory cost + operating + marketing + social work
 
+  Gross profit        = sales revenue − inventory cost
   Operating profit    = sales revenue − operating expenses − marketing expenses
-  Net profit          = sales revenue − total expenses
+  Net profit          = sales revenue − total expenses  (= gross profit − operating − marketing − social)
   Cash flow           = cumulative net profit (running total)
 */
 
@@ -365,6 +366,7 @@ function ProfitLossPage() {
   const [adSpends, setAdSpends] = useState<AdSpend[]>([]);
   const [impactEntries, setImpactEntries] = useState<ImpactEntry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [impactPct, setImpactPct] = useState<number>(5);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedYear, setSelectedYear] = useState<YearOption>(new Date().getFullYear());
@@ -373,7 +375,7 @@ function ProfitLossPage() {
   const load = async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
     const db = supabase as any;
-    const [o, e, a, i, p] = await Promise.all([
+    const [o, e, a, i, p, s] = await Promise.all([
       db.from("orders")
         .select("id,created_at,total,delivery_fee,discount_amount,status,product_id,product_name,unit_price,quantity")
         .not("status", "eq", "cancelled"),
@@ -381,12 +383,14 @@ function ProfitLossPage() {
       db.from("ad_spend").select("*"),
       db.from("impact_fund_entries").select("*"),
       db.from("products").select("id,name,cost_price"),
+      db.from("impact_settings").select("contribution_percentage").limit(1).single(),
     ]);
     if (o.data) setOrders(o.data);
     if (e.data) setExpenses(e.data);
     if (a.data) setAdSpends(a.data);
     if (i.data) setImpactEntries(i.data);
     if (p.data) setProducts(p.data);
+    if (s.data?.contribution_percentage != null) setImpactPct(Number(s.data.contribution_percentage));
     setLoading(false);
     setRefreshing(false);
   };
@@ -473,11 +477,11 @@ function ProfitLossPage() {
       });
       const marketingExp = monthAds.reduce((a, ad) => a + Number(ad.amount), 0);
 
-      const impactEntry = impactEntries.find((i) => i.year === y && i.month === m);
-      const socialWork = impactEntry ? Number(impactEntry.contribution_amount ?? 0) : 0;
-
-      const totalExpenses = operatingExp + marketingExp + socialWork;
       const operatingProfit = salesRevenue - operatingExp - marketingExp;
+      // Social fund = configured % of this month's net profit (operating profit before social deduction)
+      const socialWork = operatingProfit > 0 ? operatingProfit * (impactPct / 100) : 0;
+
+      const totalExpenses = inventoryCost + operatingExp + marketingExp + socialWork;
       const netProfit = salesRevenue - totalExpenses;
 
       return {
@@ -498,7 +502,7 @@ function ProfitLossPage() {
       cumulative += r.netProfit;
       return { ...r, cashFlow: cumulative };
     });
-  }, [orders, expenses, adSpends, impactEntries, products, selectedYear]);
+  }, [orders, expenses, adSpends, impactEntries, products, selectedYear, impactPct]);
 
   // ── Totals ───────────────────────────────────────────────────────────────
 
@@ -958,7 +962,7 @@ function ProfitLossPage() {
                   <TH right tooltip="Number of completed (non-cancelled) orders">Orders</TH>
                   <TH right tooltip="Aavira's income from product sales after discounts. Delivery fees are excluded — they go to the delivery company, not Aavira.">Sales Revenue</TH>
                   <TH right tooltip="Operating costs + marketing/ads combined. The day-to-day cost of running the business.">Bus. Expenses</TH>
-                  <TH right tooltip="Amount contributed to the social impact fund this month">Social Work</TH>
+                  <TH right tooltip={`${impactPct}% of each month's operating profit, auto-calculated`}>Social Work</TH>
                   <TH right tooltip="Sales Revenue minus operating and marketing costs, before deducting social work. Shows core business profitability.">Op. Profit</TH>
                   <TH right tooltip="Final profit after ALL expenses (operating + marketing + social work). Green = profitable month. Red = loss.">Net Profit</TH>
                   <TH right tooltip="Net Profit ÷ Sales Revenue × 100. E.g., 97% means you kept 97p of every rupee of product sales.">Margin</TH>
@@ -973,7 +977,6 @@ function ProfitLossPage() {
                   const margin = r.salesRevenue > 0 ? (r.netProfit / r.salesRevenue) * 100 : 0;
                   const expCats = getMonthExpensesByCategory(r.year, r.month);
                   const adPlats = getMonthAdsByPlatform(r.year, r.month);
-                  const impactEntry = impactEntries.find((i) => i.year === r.year && i.month === r.month);
                   const busExp = r.operatingExp + r.marketingExp;
 
                   return (
@@ -1115,10 +1118,7 @@ function ProfitLossPage() {
                                   <span className="size-2 rounded-full bg-violet-400" />
                                   Social &amp; Cash Flow
                                 </p>
-                                <Row label="Impact contribution" value={r.socialWork > 0 ? `−${fmt(r.socialWork)}` : "—"} />
-                                {impactEntry && (
-                                  <Row label="Contribution status" value={impactEntry.status} />
-                                )}
+                                <Row label={`Impact fund (${impactPct}% of op. profit)`} value={r.socialWork > 0 ? `−${fmt(r.socialWork)}` : "—"} />
                                 <div className="border-t border-border/40 pt-2 mt-2">
                                   <Row
                                     label="Cumulative cash flow"
