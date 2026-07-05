@@ -17,7 +17,7 @@ export const Route = createFileRoute("/impact")({
       {
         name: "description",
         content:
-          "A percentage of every Aavira sale goes to the Aavira Impact Fund — funding vetted community projects across Nepal. Full transparency, public ledger.",
+          "5% of our monthly net profit goes to the Aavira Impact Fund — funding vetted community projects across Nepal. Full transparency, public ledger.",
       },
       { property: "og:title", content: "Aavira Impact Fund" },
       {
@@ -324,7 +324,7 @@ function ImpactPage() {
               </Reveal>
               <Reveal delay={120}>
                 <p className="mt-8 text-base md:text-lg text-muted-foreground font-light max-w-md leading-relaxed">
-                  {pct}% of every Aavira order flows into the {fundName} — funding vetted projects that create lasting change for women and communities across Nepal.
+                  {pct}% of our monthly net profit flows into the {fundName} — funding vetted projects that create lasting change for women and communities across Nepal.
                 </p>
               </Reveal>
               <Reveal delay={180}>

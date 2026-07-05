@@ -23,7 +23,7 @@ export function ImpactCtaBanner() {
     <div className="flex items-center justify-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
       <Heart className="size-4 text-rose-500 shrink-0" fill="currentColor" />
       <span>
-        <strong>{pct}%</strong> of every purchase goes to the{" "}
+        <strong>{pct}%</strong> of monthly net profit goes to the{" "}
         <strong>Aavira Impact Fund</strong> · supporting women and communities in Nepal
       </span>
       <Link
