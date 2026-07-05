@@ -392,6 +392,7 @@ function OrdersPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -509,9 +510,18 @@ function OrdersPage() {
 
   const filteredGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const now = Date.now();
+    const dateMs: Record<string, number> = {
+      "7d": 7 * 86400000,
+      "15d": 15 * 86400000,
+      "1m": 30 * 86400000,
+      "3m": 90 * 86400000,
+    };
+    const cutoff = dateFilter !== "all" ? now - dateMs[dateFilter] : null;
     return groups.filter((g) => {
       if (status !== "all" && g.status !== status) return false;
       if (sourceFilter !== "all" && g.source !== sourceFilter) return false;
+      if (cutoff !== null && new Date(g.rows[0].created_at).getTime() < cutoff) return false;
       if (!q) return true;
       return (
         g.customerName.toLowerCase().includes(q) ||
@@ -519,7 +529,7 @@ function OrdersPage() {
         g.rows.some((r) => r.product_name.toLowerCase().includes(q))
       );
     });
-  }, [groups, search, status, sourceFilter]);
+  }, [groups, search, status, sourceFilter, dateFilter]);
 
   const { paged: pagedGroups, page, setPage, totalPages, total: filteredTotal, start, end } = usePagination(filteredGroups, 20);
 
@@ -655,6 +665,17 @@ function OrdersPage() {
                   {bulkSyncing ? "Checking…" : "Sync Pathao"}
                 </button>
               )}
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="text-xs border rounded-lg px-2.5 py-2 bg-background hover:border-accent cursor-pointer transition-colors"
+              >
+                <option value="all">All time</option>
+                <option value="7d">Last 7 days</option>
+                <option value="15d">Last 15 days</option>
+                <option value="1m">Last month</option>
+                <option value="3m">Last 3 months</option>
+              </select>
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
