@@ -136,7 +136,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Eye, EyeOff, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/admin/impact")({
   ssr: false,
@@ -372,11 +372,63 @@ function FundEntriesTab({ pct }: { pct: number }) {
     load();
   };
 
+  const [syncing, setSyncing] = useState(false);
+
+  const syncFromPL = async () => {
+    setSyncing(true);
+    try {
+      const [o, e, a] = await Promise.all([
+        db.from("orders").select("id,created_at,total,delivery_fee,discount_amount,status").not("status", "eq", "cancelled"),
+        db.from("expenses").select("expense_date,amount"),
+        db.from("ad_spend").select("spend_date,amount"),
+      ]);
+      const orders = o.data ?? [];
+      const expenses = e.data ?? [];
+      const adSpends = a.data ?? [];
+
+      const keys = new Set<string>();
+      const now = new Date();
+      const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      const ym = (date: string) => { const d = new Date(date); return { year: d.getFullYear(), month: d.getMonth() + 1 }; };
+      const ymKey = (year: number, month: number) => `${year}-${String(month).padStart(2, "0")}`;
+
+      orders.forEach((ord: any) => { const { year, month } = ym(ord.created_at); keys.add(ymKey(year, month)); });
+      expenses.forEach((ex: any) => { const { year, month } = ym(ex.expense_date); keys.add(ymKey(year, month)); });
+      adSpends.forEach((ad: any) => { const { year, month } = ym(ad.spend_date); keys.add(ymKey(year, month)); });
+
+      const pastKeys = Array.from(keys).filter((k) => k < currentKey);
+
+      const upserts = pastKeys.map((key) => {
+        const [y, m] = key.split("-").map(Number);
+        const monthOrders = orders.filter((ord: any) => { const d = ym(ord.created_at); return d.year === y && d.month === m; });
+        const salesRevenue = monthOrders.reduce((acc: number, ord: any) => acc + Number(ord.total) - Number(ord.delivery_fee ?? 0), 0);
+        const operatingExp = expenses.filter((ex: any) => { const d = ym(ex.expense_date); return d.year === y && d.month === m; }).reduce((acc: number, ex: any) => acc + Number(ex.amount), 0);
+        const marketingExp = adSpends.filter((ad: any) => { const d = ym(ad.spend_date); return d.year === y && d.month === m; }).reduce((acc: number, ad: any) => acc + Number(ad.amount), 0);
+        const operatingProfit = salesRevenue - operatingExp - marketingExp;
+        const socialWork = operatingProfit > 0 ? operatingProfit * (pct / 100) : 0;
+        return { month: m, year: y, total_revenue: Math.round(salesRevenue), contribution_amount: Math.round(socialWork) };
+      });
+
+      if (upserts.length === 0) { toast.info("No completed months to sync"); setSyncing(false); return; }
+
+      const { error } = await db.from("impact_fund_entries").upsert(upserts, { onConflict: "month,year", ignoreDuplicates: false });
+      if (error) { toast.error(error.message); } else { toast.success(`Synced ${upserts.length} month(s) from P&L`); load(); }
+    } catch (err: any) {
+      toast.error(err.message ?? "Sync failed");
+    }
+    setSyncing(false);
+  };
+
   const autoContrib = (form.total_revenue * pct / 100).toFixed(2);
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end gap-2 mb-4">
+        <Button size="sm" variant="outline" onClick={syncFromPL} disabled={syncing}>
+          {syncing ? <Loader2 className="size-4 mr-2 animate-spin" /> : <RefreshCw className="size-4 mr-2" />}
+          Sync from P&L
+        </Button>
         <Button size="sm" onClick={openAdd}><Plus className="size-4 mr-2" />Add entry</Button>
       </div>
       <div className="rounded-xl border overflow-hidden">
