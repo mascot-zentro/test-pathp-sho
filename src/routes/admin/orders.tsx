@@ -521,7 +521,7 @@ function OrdersPage() {
     return groups.filter((g) => {
       if (status !== "all" && g.status !== status) return false;
       if (sourceFilter !== "all" && g.source !== sourceFilter) return false;
-      if (cutoff !== null && new Date(g.rows[0].created_at).getTime() < cutoff) return false;
+      if (cutoff !== null && new Date(g.createdAt).getTime() < cutoff) return false;
       if (!q) return true;
       return (
         g.customerName.toLowerCase().includes(q) ||
