@@ -20,7 +20,6 @@ import {
 import { Boxes, AlertTriangle, PackageX, Wallet, TrendingUp, Trash2, BellRing, Check } from "lucide-react";
 import {
   type Product,
-  type ProductColor,
   type ProductSize,
   type Expense,
   type StockAlert,
@@ -38,7 +37,7 @@ type StockRow = {
   productName: string;
   productSlug: string;
   variant: string | null;
-  axis: "color" | "size" | null;
+  axis: "size" | null;
   stock: number | null;
   threshold: number;
   price: number;
@@ -55,7 +54,6 @@ const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 
 function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [colors, setColors] = useState<ProductColor[]>([]);
   const [sizes, setSizes] = useState<ProductSize[]>([]);
   const [loadingStock, setLoadingStock] = useState(true);
   const [stockFilter, setStockFilter] = useState<"attention" | "all">("attention");
@@ -104,12 +102,10 @@ function InventoryPage() {
   useEffect(() => {
     Promise.all([
       supabase.from("products").select("*"),
-      supabase.from("product_colors").select("*"),
       supabase.from("product_sizes").select("*"),
-    ]).then(([p, c, s]) => {
+    ]).then(([p, s]) => {
       if (p.error) toast.error(`Couldn't load products: ${p.error.message}`);
       setProducts((p.data as Product[]) ?? []);
-      setColors((c.data as ProductColor[]) ?? []);
       setSizes((s.data as ProductSize[]) ?? []);
       setLoadingStock(false);
     });
@@ -140,62 +136,18 @@ function InventoryPage() {
       const effectivePrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
       const costPrice = p.cost_price ?? null;
       const threshold = p.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD;
-      const pColors = colors.filter((c) => c.product_id === p.id);
       const pSizes = sizes.filter((s) => s.product_id === p.id);
       const productSlug = slugify(p.name);
-      if (pColors.length === 0 && pSizes.length === 0) {
-        rows.push({
-          key: p.id,
-          productId: p.id,
-          productName: p.name,
-          productSlug,
-          variant: null,
-          axis: null,
-          stock: p.stock_quantity,
-          threshold,
-          price: effectivePrice,
-          costPrice,
-          imageUrl: p.image_url,
-          active: p.active,
-        });
+      if (pSizes.length === 0) {
+        rows.push({ key: p.id, productId: p.id, productName: p.name, productSlug, variant: null, axis: null, stock: p.stock_quantity, threshold, price: effectivePrice, costPrice, imageUrl: p.image_url, active: p.active });
         continue;
       }
-      for (const c of pColors) {
-        rows.push({
-          key: c.id,
-          productId: p.id,
-          productName: p.name,
-          productSlug,
-          variant: c.name,
-          axis: "color",
-          stock: c.stock_quantity,
-          threshold,
-          price: effectivePrice,
-          costPrice,
-          imageUrl: p.image_url,
-          active: p.active,
-        });
-      }
       for (const s of pSizes) {
-        rows.push({
-          key: s.id,
-          productId: p.id,
-          productName: p.name,
-          productSlug,
-          variant: s.name,
-          axis: "size",
-          stock: s.stock_quantity,
-          threshold,
-          price: effectivePrice,
-          costPrice,
-          imageUrl: p.image_url,
-          active: p.active,
-        });
+        rows.push({ key: s.id, productId: p.id, productName: p.name, productSlug, variant: s.name, axis: "size", stock: s.stock_quantity, threshold, price: effectivePrice, costPrice, imageUrl: p.image_url, active: p.active });
       }
-
     }
     return rows.sort((a, b) => (a.stock ?? Infinity) - (b.stock ?? Infinity));
-  }, [products, colors, sizes]);
+  }, [products, sizes]);
 
   const outOfStock = stockRows.filter((r) => r.stock === 0);
   const lowStock = stockRows.filter(

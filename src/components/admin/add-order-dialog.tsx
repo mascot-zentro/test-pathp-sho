@@ -15,13 +15,11 @@ import { Plus } from "lucide-react";
 import { ORDER_SOURCES } from "@/lib/admin-types";
 
 type Product = { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; weight: number; stock_quantity: number | null };
-type ColorOption = { name: string; stock_quantity: number | null };
 type SizeOption = { name: string; stock_quantity: number | null };
 
 const EMPTY_FORM = {
   productId: "" as string,
   productName: "",
-  color: "",
   size: "",
   quantity: 1,
   unitPrice: "" as string | number,
@@ -56,17 +54,9 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
   const [deliveryFee, setDeliveryFee] = useState<number | null>(null);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [skipPathao, setSkipPathao] = useState(false);
-  // DM sales (Instagram/TikTok) are quoted flat rates to the customer —
-  // NRS 100 inside Kathmandu ring road, 150-250 outside — which usually
-  // don't match Pathao's calculated price-plan fee. This lets the admin
-  // override the auto-calculated fee with what was actually quoted.
   const [manualFeeOverride, setManualFeeOverride] = useState(false);
   const [manualFee, setManualFee] = useState<string>("100");
 
-  // Live stock for the selected catalog product, so the admin picks a real
-  // color/size instead of typing free text blind. null = "no variants of
-  // this kind for this product", not "loading".
-  const [colorOptions, setColorOptions] = useState<ColorOption[] | null>(null);
   const [sizeOptions, setSizeOptions] = useState<SizeOption[] | null>(null);
   const [baseStock, setBaseStock] = useState<number | null>(null);
 
@@ -120,31 +110,20 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
     const p = products.find((x) => x.id === id);
     if (!p) return;
     const price = p.on_sale && p.sale_price ? p.sale_price : p.price;
-    setForm((f) => ({ ...f, productId: p.id, productName: p.name, unitPrice: price, weight: Number(p.weight) || 0.5, color: "", size: "" }));
+    setForm((f) => ({ ...f, productId: p.id, productName: p.name, unitPrice: price, weight: Number(p.weight) || 0.5, size: "" }));
     setBaseStock(p.stock_quantity ?? null);
 
-    const [colorsRes, sizesRes] = await Promise.all([
-      supabase.from("product_colors").select("name,stock_quantity").eq("product_id", id),
-      supabase.from("product_sizes").select("name,stock_quantity").eq("product_id", id).order("position"),
-    ]);
-    setColorOptions(colorsRes.data && colorsRes.data.length > 0 ? (colorsRes.data as ColorOption[]) : null);
+    const sizesRes = await supabase.from("product_sizes").select("name,stock_quantity").eq("product_id", id).order("position");
     setSizeOptions(sizesRes.data && sizesRes.data.length > 0 ? (sizesRes.data as SizeOption[]) : null);
   };
 
-  // The most restrictive of the chosen color's and size's stock caps —
-  // same "most restrictive wins" rule the public product page and
-  // checkout use, not "color wins" or "size wins".
   const availableStock = (() => {
     const limits: number[] = [];
-    if (colorOptions && form.color) {
-      const c = colorOptions.find((c) => c.name === form.color);
-      if (c && c.stock_quantity !== null) limits.push(c.stock_quantity);
-    }
     if (sizeOptions && form.size) {
       const s = sizeOptions.find((s) => s.name === form.size);
       if (s && s.stock_quantity !== null) limits.push(s.stock_quantity);
     }
-    if (limits.length === 0 && !colorOptions && !sizeOptions && baseStock !== null) limits.push(baseStock);
+    if (limits.length === 0 && !sizeOptions && baseStock !== null) limits.push(baseStock);
     return limits.length > 0 ? Math.min(...limits) : null;
   })();
 
@@ -153,7 +132,7 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
     setCityId(null); setZoneId(null); setAreaId(null);
     setDeliveryFee(null); setSkipPathao(false);
     setManualFeeOverride(false); setManualFee("100");
-    setColorOptions(null); setSizeOptions(null); setBaseStock(null);
+    setSizeOptions(null); setBaseStock(null);
   };
 
   const effectiveDeliveryFee = manualFeeOverride ? Number(manualFee) || 0 : deliveryFee;
@@ -172,13 +151,12 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
       return;
     }
     if (form.productId) {
-      if (colorOptions && !form.color) { toast.error("Select a color for this product."); return; }
       if (sizeOptions && !form.size) { toast.error("Select a size for this product."); return; }
       if (availableStock !== null && form.quantity > availableStock) {
         toast.error(
           availableStock === 0
-            ? "That's out of stock — pick a different color/size or adjust inventory first."
-            : `Only ${availableStock} left in stock for this color/size.`
+            ? "That's out of stock — pick a different size or adjust inventory first."
+            : `Only ${availableStock} left in stock for this size.`
         );
         return;
       }
@@ -190,7 +168,7 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
         data: {
           productId: form.productId || null,
           productName: form.productName.trim(),
-          color: form.color.trim() || null,
+          color: null,
           size: form.size.trim() || null,
           quantity: form.quantity,
           unitPrice: Number(form.unitPrice),
@@ -279,28 +257,6 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
                 />
               </div>
               <div>
-                {colorOptions ? (
-                  <>
-                    <Label>Color</Label>
-                    <Select value={form.color} onValueChange={(v) => setForm((f) => ({ ...f, color: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Select color" /></SelectTrigger>
-                      <SelectContent>
-                        {colorOptions.map((c) => (
-                          <SelectItem key={c.name} value={c.name} disabled={c.stock_quantity === 0}>
-                            {c.name}{c.stock_quantity !== null ? ` (${c.stock_quantity} left)` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
-                ) : (
-                  <>
-                    <Label>Color (optional)</Label>
-                    <Input value={form.color} onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))} disabled={!!form.productId} />
-                  </>
-                )}
-              </div>
-              <div>
                 {sizeOptions ? (
                   <>
                     <Label>Size</Label>
@@ -351,7 +307,7 @@ export function AddOrderDialog({ onCreated }: { onCreated: () => void }) {
               <p className={`text-xs ${availableStock !== null && availableStock < form.quantity ? "text-destructive" : "text-muted-foreground"}`}>
                 {availableStock !== null
                   ? availableStock < form.quantity
-                    ? `Only ${availableStock} in stock — reduce quantity or pick a different color/size.`
+                    ? `Only ${availableStock} in stock — reduce quantity or pick a different size.`
                     : `${availableStock} in stock. Stock will be reduced by ${form.quantity} when this order is saved.`
                   : `Stock isn't tracked for this product/variant — quantity won't be checked.`}
               </p>

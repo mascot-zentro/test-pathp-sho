@@ -31,7 +31,7 @@ import { ImageUpload } from "@/components/image-upload";
 import { Plus, Search, Trash2, ArrowUp, ArrowDown, ArrowUpDown, Package, AlertTriangle, PackageX, Wallet } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { Stat } from "@/components/admin/stat-card";
-import { type Category, type Product, type ProductColor, type ProductSize } from "@/lib/admin-types";
+import { type Category, type Product, type ProductSize } from "@/lib/admin-types";
 import { slugify } from "@/lib/slugify";
 
 const DEFAULT_LOW_STOCK_THRESHOLD = 5;
@@ -45,7 +45,6 @@ export const Route = createFileRoute("/admin/products/")({
 
 function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [colors, setColors] = useState<ProductColor[]>([]);
   const [sizes, setSizes] = useState<ProductSize[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
@@ -74,13 +73,8 @@ function ProductsPage() {
       .select("*")
       .order("position")
       .then(({ data }) => setCategories((data as Category[]) ?? []));
-    Promise.all([
-      supabase.from("product_colors").select("*"),
-      supabase.from("product_sizes").select("*"),
-    ]).then(([c, s]) => {
-      setColors((c.data as ProductColor[]) ?? []);
-      setSizes((s.data as ProductSize[]) ?? []);
-    });
+    supabase.from("product_sizes").select("*")
+      .then(({ data }) => setSizes((data as ProductSize[]) ?? []));
   }, []);
 
   const resetForm = () => {
@@ -152,9 +146,8 @@ function ProductsPage() {
   // silently being treated as infinite within a finite sum).
   const enriched = useMemo(() => {
     return products.map((p) => {
-      const pColors = colors.filter((c) => c.product_id === p.id);
       const pSizes = sizes.filter((s) => s.product_id === p.id);
-      const variantStocks = [...pColors, ...pSizes].map((v) => v.stock_quantity);
+      const variantStocks = pSizes.map((v) => v.stock_quantity);
       let effectiveStock: number | null;
       if (variantStocks.length === 0) {
         effectiveStock = p.stock_quantity;
@@ -169,9 +162,9 @@ function ProductsPage() {
       const effectivePrice = p.on_sale && p.sale_price ? p.sale_price : p.price;
       const margin = p.cost_price !== null ? effectivePrice - p.cost_price : null;
       const marginPct = margin !== null && effectivePrice > 0 ? (margin / effectivePrice) * 100 : null;
-      return { product: p, colors: pColors, sizes: pSizes, effectiveStock, isOutOfStock, isLowStock, margin, marginPct };
+      return { product: p, sizes: pSizes, effectiveStock, isOutOfStock, isLowStock, margin, marginPct };
     });
-  }, [products, colors, sizes]);
+  }, [products, sizes]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -267,8 +260,7 @@ function ProductsPage() {
               <DialogHeader>
                 <DialogTitle className="font-display text-xl">Add product</DialogTitle>
                 <DialogDescription>
-                  Create a new listing for your store. Colors, sizes and gallery images can be added
-                  after saving.
+                  Create a new listing for your store. Sizes and gallery images can be added after saving.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={create} className="space-y-3">
@@ -439,30 +431,12 @@ function ProductsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{p.category ?? "—"}</TableCell>
                   <TableCell>
-                    {r.colors.length === 0 && r.sizes.length === 0 ? (
+                    {r.sizes.length === 0 ? (
                       <span className="text-muted-foreground text-xs">—</span>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        {r.colors.length > 0 && (
-                          <div className="flex items-center -space-x-1" title={r.colors.map((c) => c.name).join(", ")}>
-                            {r.colors.slice(0, 4).map((c) => (
-                              <span
-                                key={c.id}
-                                className="size-4 rounded-full border-2 border-card shrink-0"
-                                style={{ background: c.hex }}
-                              />
-                            ))}
-                            {r.colors.length > 4 && (
-                              <span className="text-[10px] text-muted-foreground pl-1.5">+{r.colors.length - 4}</span>
-                            )}
-                          </div>
-                        )}
-                        {r.sizes.length > 0 && (
-                          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                            {r.sizes.length} size{r.sizes.length === 1 ? "" : "s"}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                        {r.sizes.length} size{r.sizes.length === 1 ? "" : "s"}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">

@@ -183,7 +183,6 @@ type Product = {
   sale_price: number | null; on_sale: boolean; image_url: string | null;
   whatsapp_number: string | null; stock_quantity: number | null; category: string | null; weight: number;
 };
-type Color = { id: string; name: string; hex: string; stock_quantity: number | null };
 type Size = { id: string; name: string; stock_quantity: number | null };
 type RelatedProduct = {
   id: string; name: string; price: number; sale_price: number | null;
@@ -197,11 +196,9 @@ function ProductPage() {
   const [product, setProduct] = useState<Product | null>(null);
   useProductSEO(product);
   const [notFound, setNotFound] = useState(false);
-  const [colors, setColors] = useState<Color[]>([]);
   const [sizes, setSizes] = useState<Size[]>([]);
   const [gallery, setGallery] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [defaultWa, setDefaultWa] = useState("");
   const [related, setRelated] = useState<RelatedProduct[]>([]);
@@ -244,13 +241,9 @@ function ProductPage() {
       const id = match.id;
       // Batch all variant queries in parallel
       Promise.all([
-        supabase.from("product_colors").select("*").eq("product_id", id),
         supabase.from("product_sizes").select("*").eq("product_id", id).order("position"),
         supabase.from("product_images").select("image_url").eq("product_id", id).order("position"),
-      ]).then(([{ data: cd }, { data: sd }, { data: gd }]) => {
-        const colorList = (cd as Color[]) ?? [];
-        setColors(colorList);
-        setSelected((colorList.find((c) => c.stock_quantity !== 0) ?? colorList[0])?.name ?? null);
+      ]).then(([{ data: sd }, { data: gd }]) => {
         const sizeList = (sd as Size[]) ?? [];
         setSizes(sizeList);
         setSelectedSize((sizeList.find((s) => s.stock_quantity !== 0) ?? sizeList[0])?.name ?? null);
@@ -359,14 +352,12 @@ function ProductPage() {
   // A product's available stock is the most restrictive of its tracked
   // attributes — if either the selected color or selected size has a cap,
   // that cap applies. Untracked (null) axes don't constrain anything.
-  const colorLimit = colors.length > 0 ? (colors.find((c) => c.name === selected)?.stock_quantity ?? null) : null;
   const sizeLimit = sizes.length > 0 ? (sizes.find((s) => s.name === selectedSize)?.stock_quantity ?? null) : null;
-  const trackedLimits = [colorLimit, sizeLimit].filter((v): v is number => v !== null);
-  const availableStock = colors.length === 0 && sizes.length === 0 ? product.stock_quantity : trackedLimits.length > 0 ? Math.min(...trackedLimits) : null;
+  const availableStock = sizes.length === 0 ? product.stock_quantity : sizeLimit !== null ? sizeLimit : null;
   const outOfStock = availableStock === 0;
   const lowStock = availableStock !== null && availableStock > 0 && availableStock <= 5;
   const waNumber = (product.whatsapp_number || defaultWa).replace(/\D/g, "");
-  const variantLabel = [selected, selectedSize].filter(Boolean).join(", ");
+  const variantLabel = selectedSize ?? "";
   const waMessage = `Hi! I want to order: ${product.name}${variantLabel ? ` (${variantLabel})` : ""} — NRS ${price}`;
   const waLink = !outOfStock && waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}` : null;
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -544,32 +535,6 @@ function ProductPage() {
           {/* Divider */}
           <div className="my-8 h-px bg-border/60" />
 
-          {colors.length > 0 && (
-            <div className="mb-6">
-              <div className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground mb-3">
-                Colour — <span className="text-foreground">{selected}</span>
-              </div>
-              <div className="flex flex-wrap gap-2.5">
-                {colors.map((c) => {
-                  const colorOut = c.stock_quantity === 0;
-                  return (
-                    <Tooltip key={c.id}>
-                      <TooltipTrigger asChild>
-                        <button type="button" onClick={() => !colorOut && setSelected(c.name)}
-                          disabled={colorOut}
-                          className={`relative size-11 rounded-full border-2 transition-all duration-200 ${selected === c.name ? "border-accent scale-110 ring-2 ring-accent/25" : "border-border hover:scale-110"} ${colorOut ? "opacity-25 cursor-not-allowed" : ""}`}
-                          style={{ background: c.hex }}>
-                          {colorOut && <span className="absolute inset-0 flex items-center justify-center text-[10px] text-white/90">✕</span>}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>{colorOut ? `${c.name} — out of stock` : c.name}</TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {sizes.length > 0 && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
@@ -737,7 +702,7 @@ function ProductPage() {
           {/* CTA buttons */}
             <div className="mt-8 flex flex-col gap-3">
               <Button size="lg" className="w-full rounded-full text-sm tracking-wide transition-all duration-300 hover:shadow-[0_8px_25px_oklch(0.62_0.14_358/0.35)] hover:scale-[1.01] btn-press" disabled={outOfStock}
-                onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: selected ?? "", size: selectedSize ?? "" } })}>
+                onClick={() => navigate({ to: "/checkout/$productId", params: { productId: product.id }, search: { color: "", size: selectedSize ?? "" } })}>
                 {outOfStock ? "Sold out" : "Buy now — Cash on delivery"}
               </Button>
               <div className="flex gap-3">
@@ -745,7 +710,7 @@ function ProductPage() {
                   <TooltipTrigger asChild>
                     <Button size="lg" variant="outline" className="flex-1 rounded-full text-sm tracking-wide hover:border-accent hover:text-accent transition-all duration-200" disabled={outOfStock}
                       onClick={() => {
-                        addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: selected ?? null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
+                        addToCart({ productId: product.id, productName: product.name, image: product.image_url, color: null, size: selectedSize ?? null, unitPrice: price, weight: Number(product.weight) || 0.5 }, 1);
                         trackAddToCart({ id: product.id, name: product.name, price, quantity: 1 });
                         toast.success("Added to cart");
                       }}>

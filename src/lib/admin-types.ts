@@ -16,13 +16,6 @@ export type Product = {
   created_at: string;
 };
 
-export type ProductColor = {
-  id: string;
-  product_id: string;
-  name: string;
-  hex: string;
-  stock_quantity: number | null;
-};
 export type ProductSize = {
   id: string;
   product_id: string;

@@ -75,7 +75,6 @@ export const askAIChat = createServerFn()
 
     const [
       { data: products },
-      { data: allColors },
       { data: allSizes },
       { data: settings },
       { data: faqs },
@@ -84,7 +83,6 @@ export const askAIChat = createServerFn()
       orderResult,
     ] = await Promise.all([
       db.from("products").select("id,name,price,sale_price,on_sale,category,description,stock_quantity").eq("active", true).order("name"),
-      db.from("product_colors").select("product_id,name,stock_quantity"),
       db.from("product_sizes").select("product_id,name,stock_quantity").order("position"),
       db.from("app_settings").select("key,value").in("key", ["store_name", "whatsapp_number", "delivery_fee", "store_location", "return_policy", "site_description"]),
       db.from("faqs").select("question,answer").eq("active", true).order("position"),
@@ -95,7 +93,7 @@ export const askAIChat = createServerFn()
         : Promise.resolve({ data: null }),
     ]);
 
-    const foundOrder = orderResult.data as { id: string; product_name: string; status: string; pathao_status: string | null; created_at: string; customer_name: string; quantity: number; total: number; size: string | null; color: string | null } | null;
+    const foundOrder = orderResult.data as { id: string; product_name: string; status: string; pathao_status: string | null; created_at: string; customer_name: string; quantity: number; total: number; size: string | null } | null;
 
     const statusLabels: Record<string, string> = {
       pending: "Pending — not yet dispatched",
@@ -110,20 +108,13 @@ export const askAIChat = createServerFn()
       ? `═══ ORDER LOOKUP RESULT ═══
 Order ID: ${foundOrder.id}
 Customer: ${foundOrder.customer_name}
-Product: ${foundOrder.product_name}${foundOrder.size ? ` | Size: ${foundOrder.size}` : ""}${foundOrder.color ? ` | Color: ${foundOrder.color}` : ""}
+Product: ${foundOrder.product_name}${foundOrder.size ? ` | Size: ${foundOrder.size}` : ""}
 Quantity: ${foundOrder.quantity} | Total: NRS ${foundOrder.total}
 Status: ${statusLabels[foundOrder.status] ?? foundOrder.status}${foundOrder.pathao_status ? `\nPathao courier status: ${foundOrder.pathao_status}` : ""}
 Ordered on: ${new Date(foundOrder.created_at).toLocaleDateString("en-NP", { timeZone: "Asia/Kathmandu", dateStyle: "medium" })}`
       : mentionedOrderId
         ? `═══ ORDER LOOKUP ═══\nNo order found with ID containing "${mentionedOrderId}". Tell the customer the ID may be incorrect and suggest they visit /track or WhatsApp us.`
         : "";
-
-    const colorsByProduct: Record<string, string[]> = {};
-    for (const c of (allColors ?? []) as { product_id: string; name: string; stock_quantity: number | null }[]) {
-      if (!colorsByProduct[c.product_id]) colorsByProduct[c.product_id] = [];
-      const label = c.stock_quantity === 0 ? `${c.name}(OOS)` : c.name;
-      colorsByProduct[c.product_id].push(label);
-    }
 
     const sizesByProduct: Record<string, string[]> = {};
     for (const s of (allSizes ?? []) as { product_id: string; name: string; stock_quantity: number | null }[]) {
@@ -135,12 +126,10 @@ Ordered on: ${new Date(foundOrder.created_at).toLocaleDateString("en-NP", { time
     const productList = (products ?? []).map((p: { id: string; name: string; price: number; sale_price: number | null; on_sale: boolean; category: string | null; description: string | null; stock_quantity: number | null }) => {
       const price = p.on_sale && p.sale_price ? `NRS ${p.sale_price} (on sale, was NRS ${p.price})` : `NRS ${p.price}`;
       const stockStatus = p.stock_quantity === 0 ? "OUT OF STOCK" : "in stock";
-      const colors = colorsByProduct[p.id]?.join(", ") ?? "";
       const sizes = sizesByProduct[p.id]?.join(", ") ?? "";
       const desc = p.description ? ` | "${p.description.slice(0, 80)}"` : "";
       return [
         `• ${p.name} | ${p.category ?? "fashion"} | ${price} | ${stockStatus}`,
-        colors ? `  Colors: ${colors}` : "",
         sizes ? `  Sizes: ${sizes}` : "",
         desc ? `  Desc: ${desc}` : "",
       ].filter(Boolean).join("\n");
@@ -255,7 +244,6 @@ export const generateProductDescription = createServerFn()
     name: z.string(),
     category: z.string().nullable(),
     price: z.number(),
-    colors: z.array(z.string()).optional(),
     sizes: z.array(z.string()).optional(),
   }))
   .handler(async ({ data }) => {
@@ -263,7 +251,6 @@ export const generateProductDescription = createServerFn()
     const prompt = `Product: "${data.name}"
 Category: ${data.category ?? "women's fashion"}
 Price: NRS ${data.price}
-${data.colors?.length ? `Colors: ${data.colors.join(", ")}` : ""}
 ${data.sizes?.length ? `Sizes: ${data.sizes.join(", ")}` : ""}
 Write a 2-3 sentence product description.`;
     return groq(prompt, system, 150);

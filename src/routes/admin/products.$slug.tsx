@@ -21,7 +21,6 @@ import { ExternalLink, Trash2, Sparkles } from "lucide-react";
 import {
   type Category,
   type Product,
-  type ProductColor,
   type ProductImage,
   type ProductSize,
   STANDARD_SIZES,
@@ -42,7 +41,6 @@ function ProductEditPage() {
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [colors, setColors] = useState<ProductColor[]>([]);
   const [sizes, setSizes] = useState<ProductSize[]>([]);
   const [gallery, setGallery] = useState<ProductImage[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -93,16 +91,9 @@ function ProductEditPage() {
       .eq("product_id", productId)
       .order("position")
       .then(({ data }) => setSizes((data as ProductSize[]) ?? []));
-  const loadColors = (productId: string) =>
-    supabase
-      .from("product_colors")
-      .select("*")
-      .eq("product_id", productId)
-      .then(({ data }) => setColors((data as ProductColor[]) ?? []));
 
   useEffect(() => {
     if (!product) return;
-    loadColors(product.id);
     loadSizes(product.id);
     loadGallery(product.id);
   }, [product?.id]);
@@ -183,39 +174,6 @@ function ProductEditPage() {
     await supabase.from("product_images").update({ position: b.position }).eq("id", a.id);
     await supabase.from("product_images").update({ position: a.position }).eq("id", b.id);
     loadGallery(product.id);
-  };
-
-  const addColor = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!product) return;
-    const f = new FormData(e.currentTarget);
-    const stock = f.get("stock");
-    const { error } = await supabase.from("product_colors").insert({
-      product_id: product.id,
-      name: String(f.get("cname")),
-      hex: String(f.get("hex")),
-      stock_quantity: stock ? Number(stock) : null,
-    });
-    if (error) return toast.error(error.message);
-    (e.currentTarget as HTMLFormElement).reset();
-    loadColors(product.id);
-  };
-  const setColorStockLocal = (id: string, value: string) => {
-    setColors((cs) =>
-      cs.map((c) =>
-        c.id === id ? { ...c, stock_quantity: value === "" ? null : Number(value) } : c,
-      ),
-    );
-  };
-  const saveColorStock = async (id: string, value: string) => {
-    await supabase
-      .from("product_colors")
-      .update({ stock_quantity: value === "" ? null : Number(value) })
-      .eq("id", id);
-  };
-  const delColor = async (id: string) => {
-    await supabase.from("product_colors").delete().eq("id", id);
-    if (product) loadColors(product.id);
   };
 
   const addSize = async (name: string, stock: string) => {
@@ -337,7 +295,6 @@ function ProductEditPage() {
                             name: product.name,
                             category: product.category,
                             price: product.price,
-                            colors: colors.map((c) => c.name),
                             sizes: sizes.map((s) => s.name),
                           },
                         });
@@ -442,8 +399,7 @@ function ProductEditPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground -mt-2">
-                If this product has colors or sizes, each variant's own stock is used instead of
-                stock quantity above — but they all share this alert threshold.
+                If this product has sizes, each size's own stock is used instead of stock quantity above — but they share this alert threshold.
               </p>
               <div className="flex items-center gap-2">
                 <Switch checked={onSale} onCheckedChange={setOnSale} id="on_sale" />
@@ -534,69 +490,6 @@ function ProductEditPage() {
 
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="font-display text-lg">Colors</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mb-3">
-                {colors.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center gap-2 border rounded-md px-3 py-2 text-sm"
-                  >
-                    <span
-                      className="size-5 rounded-full border shrink-0"
-                      style={{ background: c.hex }}
-                    />
-                    <span className="flex-1 truncate">{c.name}</span>
-                    <Label className="text-xs text-muted-foreground">Stock</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="∞"
-                      value={c.stock_quantity ?? ""}
-                      onChange={(e) => setColorStockLocal(c.id, e.target.value)}
-                      onBlur={(e) => saveColorStock(c.id, e.target.value)}
-                      className="w-20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => delColor(c.id)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-                {colors.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No colors yet</span>
-                )}
-              </div>
-              <form onSubmit={addColor} className="flex gap-2">
-                <Input
-                  name="cname"
-                  placeholder="Color name (e.g. Sand)"
-                  required
-                  className="flex-1"
-                />
-                <Input name="hex" type="color" defaultValue="#d4a574" className="w-16" />
-                <Input
-                  name="stock"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Stock (∞)"
-                  className="w-28"
-                />
-                <Button type="submit" variant="outline">
-                  Add
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
               <CardTitle className="font-display text-lg">Sizes</CardTitle>
             </CardHeader>
             <CardContent>
@@ -667,8 +560,7 @@ function ProductEditPage() {
                 </Button>
               </form>
               <p className="text-xs text-muted-foreground mt-2">
-                Sizes and colors are tracked as independent stock pools. If a product has colors,
-                color stock governs checkout; otherwise size stock does.
+                Each size has its own stock count. If no sizes are set, the product-level stock quantity is used.
               </p>
             </CardContent>
           </Card>

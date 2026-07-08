@@ -521,39 +521,6 @@ function AuditPage() {
     </table>
   </div>
 
-  <!-- 2a. Inventory Schedule -->
-  <div class="section">
-    <div class="section-head">2a. Inventory Schedule (Closing Stock Detail)</div>
-    <table class="data">
-      <tr style="background:#f0f0f0;">
-        <td style="font-weight:bold;font-size:9pt;">Product</td>
-        <td style="font-weight:bold;font-size:9pt;">Date Added</td>
-        <td class="val" style="font-weight:bold;font-size:9pt;">Cost/Unit</td>
-        <td class="val" style="font-weight:bold;font-size:9pt;">Stock (units)</td>
-        <td class="val" style="font-weight:bold;font-size:9pt;">Stock Value</td>
-      </tr>
-      ${products.map((p) => {
-        const sizeQty = stockByProduct[p.id];
-        const qty = sizeQty !== undefined ? sizeQty : p.stock_quantity;
-        const cost = p.cost_price ?? 0;
-        const tracked = qty !== null && qty !== undefined;
-        const val = (qty ?? 0) * cost;
-        const addedBS = adToBS(new Date("2026-01-17"));
-        return `<tr>
-          <td style="font-size:9.5pt;">${p.name}</td>
-          <td style="font-size:9pt;color:#555;">${addedBS}</td>
-          <td class="val" style="font-size:9.5pt;">${cost > 0 ? fmt(cost) : "—"}</td>
-          <td class="val" style="font-size:9.5pt;">${tracked ? qty : "—"}</td>
-          <td class="val" style="font-size:9.5pt;">${tracked && cost > 0 ? fmt(val) : "—"}</td>
-        </tr>`;
-      }).join("")}
-      <tr class="highlight">
-        <td colspan="4">Total Closing Stock Value</td>
-        <td class="val">${fmt(closingStock)}</td>
-      </tr>
-    </table>
-  </div>
-
   <!-- 3. Operating Expenditure -->
   <div class="section">
     <div class="section-head">3. Operating Expenditure</div>
@@ -614,6 +581,52 @@ function AuditPage() {
   <div class="page-footer">
     <div>The Aavira &mdash; Annual Audit Report FY ${fy} BS &mdash; CONFIDENTIAL</div>
     <div>All figures in NRS &bull; Nepali Fiscal Year (Shrawan 1 &ndash; Ashadh end)</div>
+  </div>
+
+  <!-- Schedule 2a — new page, like a real balance sheet annexure -->
+  <div class="page-break"></div>
+  <div class="report-header" style="margin-bottom:18px;">
+    <div class="rh-left">
+      <div class="rh-entity">THE AAVIRA</div>
+      <div class="rh-title">Schedule 2a &mdash; Inventory Schedule (Closing Stock Detail)</div>
+    </div>
+    <div class="rh-right">
+      FY ${fy} BS<br/>${bsStart} &mdash; ${bsEnd}
+    </div>
+  </div>
+  <div class="section">
+    <table class="data">
+      <tr style="background:#f0f0f0;">
+        <td style="font-weight:bold;font-size:9pt;">Product</td>
+        <td style="font-weight:bold;font-size:9pt;">Date Added</td>
+        <td class="val" style="font-weight:bold;font-size:9pt;">Cost/Unit</td>
+        <td class="val" style="font-weight:bold;font-size:9pt;">Stock (units)</td>
+        <td class="val" style="font-weight:bold;font-size:9pt;">Stock Value</td>
+      </tr>
+      ${products.map((p) => {
+        const sizeQty = stockByProduct[p.id];
+        const qty = sizeQty !== undefined ? sizeQty : p.stock_quantity;
+        const cost = p.cost_price ?? 0;
+        const tracked = qty !== null && qty !== undefined;
+        const val = (qty ?? 0) * cost;
+        const addedBS = adToBS(new Date("2026-01-17"));
+        return `<tr>
+          <td style="font-size:9.5pt;">${p.name}</td>
+          <td style="font-size:9pt;color:#555;">${addedBS}</td>
+          <td class="val" style="font-size:9.5pt;">${cost > 0 ? fmt(cost) : "—"}</td>
+          <td class="val" style="font-size:9.5pt;">${tracked ? qty : "—"}</td>
+          <td class="val" style="font-size:9.5pt;">${tracked && cost > 0 ? fmt(val) : "—"}</td>
+        </tr>`;
+      }).join("")}
+      <tr class="highlight">
+        <td colspan="4">Total Closing Stock Value</td>
+        <td class="val">${fmt(closingStock)}</td>
+      </tr>
+    </table>
+  </div>
+  <div class="page-footer">
+    <div>The Aavira &mdash; Schedule 2a: Inventory &mdash; FY ${fy} BS &mdash; CONFIDENTIAL</div>
+    <div>Refer to main report for full context</div>
   </div>
 </div>
 
