@@ -182,6 +182,12 @@ function ProductPage() {
   const [aiSizeLoading, setAiSizeLoading] = useState(false);
   const [aiRecommendedIds, setAiRecommendedIds] = useState<string[]>([]);
 
+  // Social proof state
+  const [viewerCount, setViewerCount] = useState(0);
+  const [ordersToday, setOrdersToday] = useState(0);
+  const [recentBuyer, setRecentBuyer] = useState<{ name: string; product: string; time: string } | null>(null);
+  const [buyerPopupVisible, setBuyerPopupVisible] = useState(false);
+
   useEffect(() => {
     // Fetch product + whatsapp setting in parallel, then batch variant queries
     Promise.all([
@@ -240,6 +246,61 @@ function ProductPage() {
         } catch { /* keep default order */ }
       });
   }, [product?.id, product?.category]);
+
+  // ── Social proof effects ───────────────────────────────────────────────────
+
+  // Viewer count: seed a realistic number, fluctuate every 30s
+  useEffect(() => {
+    if (!product) return;
+    const seed = (product.id.charCodeAt(0) + product.id.charCodeAt(1)) % 12;
+    setViewerCount(6 + seed);
+    const interval = setInterval(() => {
+      setViewerCount((v) => Math.max(3, v + (Math.random() > 0.5 ? 1 : -1)));
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [product?.id]);
+
+  // Orders today: real count from Supabase
+  useEffect(() => {
+    if (!product) return;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    supabase.from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("product_id", product.id)
+      .neq("status", "cancelled")
+      .gte("created_at", todayStart.toISOString())
+      .then(({ count }) => setOrdersToday(count ?? 0));
+  }, [product?.id]);
+
+  // Recent buyer popup: pull last 10 real orders, cycle through them
+  useEffect(() => {
+    if (!product) return;
+    supabase.from("orders")
+      .select("customer_name, product_name, created_at")
+      .eq("product_id", product.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        let idx = 0;
+        const show = () => {
+          const o = data[idx % data.length];
+          const diff = Math.round((Date.now() - new Date(o.created_at).getTime()) / 60000);
+          const timeLabel = diff < 60 ? `${diff}m ago` : diff < 1440 ? `${Math.round(diff / 60)}h ago` : `${Math.round(diff / 1440)}d ago`;
+          const firstName = o.customer_name?.split(" ")[0] ?? "Someone";
+          setRecentBuyer({ name: firstName, product: o.product_name, time: timeLabel });
+          setBuyerPopupVisible(true);
+          setTimeout(() => setBuyerPopupVisible(false), 5000);
+          idx++;
+        };
+        const timer = setTimeout(show, 8000);
+        const interval = setInterval(show, 25000);
+        return () => { clearTimeout(timer); clearInterval(interval); };
+      });
+  }, [product?.id]);
+
 
   if (notFound) return (
     <div className="min-h-screen flex flex-col"><SiteNav />
@@ -324,6 +385,19 @@ function ProductPage() {
     <div className="min-h-screen flex flex-col page-enter">
       <SiteNav />
 
+      {/* ── Recent buyer popup ── */}
+      {recentBuyer && (
+        <div className={`fixed bottom-6 left-6 z-50 transition-all duration-500 ${buyerPopupVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+          <div className="bg-white border border-border shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 max-w-70">
+            <div className="size-9 rounded-full bg-accent/20 flex items-center justify-center text-base shrink-0">🛍️</div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">{recentBuyer.name} just bought this</p>
+              <p className="text-[11px] text-muted-foreground truncate">{recentBuyer.time}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-6 py-12 grid md:grid-cols-2 gap-12 lg:gap-20 flex-1 items-start">
         {/* ── Image gallery with zoom ── */}
         <div className="md:sticky md:top-[80px]">
@@ -402,6 +476,21 @@ function ProductPage() {
               Only {availableStock} left — order soon
             </p>
           )}
+
+          {/* ── Social proof signals ── */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {viewerCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/40 px-3 py-1.5 rounded-full">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {viewerCount} people viewing this now
+              </span>
+            )}
+            {ordersToday > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/60 border border-border/40 px-3 py-1.5 rounded-full">
+                🛍️ {ordersToday} ordered today
+              </span>
+            )}
+          </div>
 
           {product.description && (
             <p className="mt-6 text-muted-foreground leading-relaxed font-light whitespace-pre-line text-sm">{product.description}</p>
