@@ -271,9 +271,10 @@ function AuditPage() {
     return m;
   }, [productColors]);
 
-  // Closing stock = current stock × cost_price (color stock takes precedence)
+  // Closing stock = current stock × cost_price (color stock takes precedence only if > 0)
   const closingStock = useMemo(() => products.reduce((s, p) => {
-    const qty = p.id in colorStockByProduct ? colorStockByProduct[p.id] : (p.stock_quantity ?? 0);
+    const colorQty = colorStockByProduct[p.id] ?? 0;
+    const qty = colorQty > 0 ? colorQty : (p.stock_quantity ?? 0);
     const cost = p.cost_price ?? 0;
     return s + qty * cost;
   }, 0), [products, colorStockByProduct]);
@@ -290,7 +291,8 @@ function AuditPage() {
   // Opening stock = closing stock + units sold during FY (reverse from current)
   const openingStock = useMemo(() => products.reduce((s, p) => {
     const soldQty = unitsSoldInFY[p.id] ?? 0;
-    const currentQty = p.id in colorStockByProduct ? colorStockByProduct[p.id] : (p.stock_quantity ?? 0);
+    const colorQty = colorStockByProduct[p.id] ?? 0;
+    const currentQty = colorQty > 0 ? colorQty : (p.stock_quantity ?? 0);
     const cost = p.cost_price ?? 0;
     return s + (currentQty + soldQty) * cost;
   }, 0), [products, unitsSoldInFY, colorStockByProduct]);
@@ -531,7 +533,8 @@ function AuditPage() {
         <td class="val" style="font-weight:bold;font-size:9pt;">Stock Value</td>
       </tr>
       ${products.map((p) => {
-        const qty = p.id in colorStockByProduct ? colorStockByProduct[p.id] : (p.stock_quantity ?? 0);
+        const colorQty = colorStockByProduct[p.id] ?? 0;
+        const qty = colorQty > 0 ? colorQty : (p.stock_quantity ?? 0);
         const cost = p.cost_price ?? 0;
         const val = qty * cost;
         const addedBS = adToBS(new Date(p.created_at));
