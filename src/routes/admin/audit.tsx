@@ -77,6 +77,11 @@ interface PromoCode {
   used_count: number;
 }
 
+interface ProductColor {
+  product_id: string;
+  stock_quantity: number | null;
+}
+
 // ─── Nepali fiscal year helpers ───────────────────────────────────────────────
 
 // Exact Gregorian date of Shrawan 1 for each BS year.
@@ -187,6 +192,7 @@ function AuditPage() {
   const [adSpends, setAdSpends] = useState<AdSpend[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [productColors, setProductColors] = useState<ProductColor[]>([]);
   const [impactPct, setImpactPct] = useState(5);
   const [loading, setLoading] = useState(true);
   const [selectedFY, setSelectedFY] = useState<number>(currentFiscalYear());
@@ -194,13 +200,14 @@ function AuditPage() {
 
   const load = async () => {
     const db = supabase as any;
-    const [o, e, a, p, pr, s] = await Promise.all([
+    const [o, e, a, p, pr, s, pc] = await Promise.all([
       db.from("orders").select("id,created_at,total,delivery_fee,discount_amount,vat_amount,status,pathao_status,product_id,product_name,unit_price,quantity,source,promo_code"),
       db.from("expenses").select("*"),
       db.from("ad_spend").select("*"),
       db.from("products").select("id,name,cost_price,stock_quantity"),
       db.from("promo_codes").select("code,discount_percent,used_count"),
       db.from("impact_settings").select("contribution_percentage").limit(1).single(),
+      db.from("product_colors").select("product_id,stock_quantity"),
     ]);
     if (o.data) setOrders(o.data);
     if (e.data) setExpenses(e.data);
@@ -208,6 +215,7 @@ function AuditPage() {
     if (p.data) setProducts(p.data);
     if (pr.data) setPromoCodes(pr.data);
     if (s.data?.contribution_percentage != null) setImpactPct(Number(s.data.contribution_percentage));
+    if (pc.data) setProductColors(pc.data);
     setLoading(false);
   };
 
@@ -253,12 +261,21 @@ function AuditPage() {
   const netProductRevenue = grossRevenue - totalDelivery - totalVat;
 
   // ── COGS ──────────────────────────────────────────────────────────────────
-  // Closing stock = current stock_quantity × cost_price
+  // Sum color-variant stock per product (if colors exist, use that; else fall back to product.stock_quantity)
+  const colorStockByProduct = useMemo(() => {
+    const m: Record<string, number> = {};
+    productColors.forEach((pc) => {
+      m[pc.product_id] = (m[pc.product_id] ?? 0) + (pc.stock_quantity ?? 0);
+    });
+    return m;
+  }, [productColors]);
+
+  // Closing stock = current stock × cost_price (color stock takes precedence)
   const closingStock = useMemo(() => products.reduce((s, p) => {
-    const qty = p.stock_quantity ?? 0;
+    const qty = p.id in colorStockByProduct ? colorStockByProduct[p.id] : (p.stock_quantity ?? 0);
     const cost = p.cost_price ?? 0;
     return s + qty * cost;
-  }, 0), [products]);
+  }, 0), [products, colorStockByProduct]);
 
   // Units sold during FY per product
   const unitsSoldInFY = useMemo(() => {
@@ -269,13 +286,13 @@ function AuditPage() {
     return m;
   }, [activeOrders]);
 
-  // Opening stock = closing stock + units sold (reverse from current)
+  // Opening stock = closing stock + units sold during FY (reverse from current)
   const openingStock = useMemo(() => products.reduce((s, p) => {
     const soldQty = unitsSoldInFY[p.id] ?? 0;
-    const currentQty = p.stock_quantity ?? 0;
+    const currentQty = p.id in colorStockByProduct ? colorStockByProduct[p.id] : (p.stock_quantity ?? 0);
     const cost = p.cost_price ?? 0;
     return s + (currentQty + soldQty) * cost;
-  }, 0), [products, unitsSoldInFY]);
+  }, 0), [products, unitsSoldInFY, colorStockByProduct]);
 
   // COGS = Opening Stock − Closing Stock
   const cogs = openingStock - closingStock;
