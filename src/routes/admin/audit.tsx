@@ -67,6 +67,7 @@ interface Product {
   id: string;
   name: string;
   cost_price: number | null;
+  stock_quantity: number | null;
 }
 
 interface PromoCode {
@@ -196,7 +197,7 @@ function AuditPage() {
       db.from("orders").select("id,created_at,total,delivery_fee,discount_amount,vat_amount,status,pathao_status,product_id,product_name,unit_price,quantity,source,promo_code"),
       db.from("expenses").select("*"),
       db.from("ad_spend").select("*"),
-      db.from("products").select("id,name,cost_price"),
+      db.from("products").select("id,name,cost_price,stock_quantity"),
       db.from("promo_codes").select("code,discount_percent,used_count"),
       db.from("impact_settings").select("contribution_percentage").limit(1).single(),
     ]);
@@ -251,10 +252,32 @@ function AuditPage() {
   const netProductRevenue = grossRevenue - totalDelivery - totalVat;
 
   // ── COGS ──────────────────────────────────────────────────────────────────
-  const cogs = useMemo(() => activeOrders.reduce((s, o) => {
-    const cost = o.product_id ? (productCostMap[o.product_id] ?? 0) : 0;
-    return s + cost * Number(o.quantity);
-  }, 0), [activeOrders, productCostMap]);
+  // Closing stock = current stock_quantity × cost_price
+  const closingStock = useMemo(() => products.reduce((s, p) => {
+    const qty = p.stock_quantity ?? 0;
+    const cost = p.cost_price ?? 0;
+    return s + qty * cost;
+  }, 0), [products]);
+
+  // Units sold during FY per product
+  const unitsSoldInFY = useMemo(() => {
+    const m: Record<string, number> = {};
+    activeOrders.forEach((o) => {
+      if (o.product_id) m[o.product_id] = (m[o.product_id] ?? 0) + Number(o.quantity);
+    });
+    return m;
+  }, [activeOrders]);
+
+  // Opening stock = closing stock + units sold (reverse from current)
+  const openingStock = useMemo(() => products.reduce((s, p) => {
+    const soldQty = unitsSoldInFY[p.id] ?? 0;
+    const currentQty = p.stock_quantity ?? 0;
+    const cost = p.cost_price ?? 0;
+    return s + (currentQty + soldQty) * cost;
+  }, 0), [products, unitsSoldInFY]);
+
+  // COGS = Opening Stock − Closing Stock
+  const cogs = openingStock - closingStock;
 
   const grossProfit = netProductRevenue - cogs;
 
@@ -321,6 +344,32 @@ function AuditPage() {
     ].join("") + `<tr><td colspan="2" class="note">VAT applied to product subtotal only. Delivery fees are VAT-exempt.</td></tr>`) : "";
 
     const dateStr = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+    // Convert AD date → BS date string using the fiscal year lookup table
+    // Works for dates within known SHRAWAN_1 range; falls back to approximate otherwise
+    const adToBS = (d: Date): string => {
+      const bsYear = getFiscalYear(d);
+      const { start: fyStart } = fiscalYearRange(bsYear);
+      // BS months (Shrawan=4, Bhadra=5, ... Ashadh=3 of next year)
+      // Simple approach: compute day offset from Shrawan 1 of that BS year
+      const BS_MONTHS = ["बैशाख","जेठ","आषाढ","श्रावण","भाद्र","आश्विन","कार्तिक","मंसिर","पुष","माघ","फाल्गुन","चैत्र"];
+      const BS_MONTH_DAYS = [31,31,31,32,31,31,30,29,30,29,30,30]; // approximate
+      // Shrawan 1 is month index 3 (0-based: Baisakh=0)
+      let dayOffset = Math.floor((d.getTime() - fyStart.getTime()) / (1000 * 60 * 60 * 24));
+      let monthIdx = 3; // Shrawan (month 4, 0-based=3)
+      while (dayOffset >= BS_MONTH_DAYS[monthIdx]) {
+        dayOffset -= BS_MONTH_DAYS[monthIdx];
+        monthIdx = (monthIdx + 1) % 12;
+      }
+      const bsDay = dayOffset + 1;
+      // if month wrapped past Chaitra, increment BS year
+      const displayYear = monthIdx < 3 ? bsYear + 1 : bsYear;
+      return `${bsDay} ${BS_MONTHS[monthIdx]} ${displayYear} BS`;
+    };
+
+    const todayBS = adToBS(new Date());
+    const endBS = adToBS(end);
+
     // Nepali (BS) period label — Shrawan 1 to Ashadh end
     const bsStart = `१ श्रावण ${selectedFY} BS`;
     const bsEnd   = `आषाढ अन्त ${selectedFY + 1} BS`;
@@ -336,7 +385,8 @@ function AuditPage() {
     body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #000; background: #fff; }
 
     /* ── Page layout ── */
-    .page { padding: 18mm 20mm 16mm; min-height: 297mm; position: relative; }
+    .page { padding: 18mm 20mm 16mm; position: relative; }
+    .cover-page { height: 297mm; overflow: hidden; page-break-after: always; }
     .page-break { page-break-before: always; }
 
     /* ── Cover ── */
@@ -396,7 +446,7 @@ function AuditPage() {
 <body>
 
 <!-- ═══════════════════════ COVER PAGE ═══════════════════════ -->
-<div class="page" style="display:flex;flex-direction:column;align-items:center;">
+<div class="page cover-page" style="display:flex;flex-direction:column;align-items:center;">
   <div class="cover">
     <img src="${logoUrl}" alt="Aavira" onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='block'"/>
     <div id="logo-fallback" style="display:none;font-size:26pt;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;">AAVIRA</div>
@@ -415,7 +465,7 @@ function AuditPage() {
     <table class="meta">
       <tr><td>Report No.</td><td>AUD-${fy.replace("/", "")}-001</td></tr>
       <tr><td>Prepared by</td><td>The Aavira Management System</td></tr>
-      <tr><td>Date Issued</td><td>${dateStr(new Date())}</td></tr>
+      <tr><td>Date Issued</td><td>${dateStr(new Date())} (${todayBS})</td></tr>
       <tr><td>Currency</td><td>Nepalese Rupee (NRS)</td></tr>
       <tr><td>Fiscal Standard</td><td>Nepali Calendar (BS)</td></tr>
     </table>
@@ -425,7 +475,7 @@ function AuditPage() {
 </div>
 
 <!-- ═══════════════════════ REPORT PAGES ═══════════════════════ -->
-<div class="page page-break">
+<div class="page">
 
   <div class="report-header">
     <div class="rh-left">
@@ -434,7 +484,7 @@ function AuditPage() {
     </div>
     <div class="rh-right">
       Report No.: AUD-${fy.replace("/", "")}-001<br/>
-      Issued: ${dateStr(new Date())}<br/>
+      Issued: ${dateStr(new Date())} (${todayBS})<br/>
       Period: ${dateStr(start)} &mdash; ${dateStr(end)}<br/>
       (${bsStart} &mdash; ${bsEnd})
     </div>
@@ -456,7 +506,10 @@ function AuditPage() {
   <div class="section">
     <div class="section-head">2. Cost of Goods Sold</div>
     <table class="data">
-      <tr><td>Opening inventory cost of goods sold</td><td class="val">${fmt(cogs)}</td></tr>
+      <tr><td>Opening Stock (at cost)</td><td class="val">${fmt(openingStock)}</td></tr>
+      <tr class="indent"><td>Less: Closing Stock (at cost)</td><td class="val">(${fmt(closingStock)})</td></tr>
+      <tr class="spacer"><td colspan="2"></td></tr>
+      <tr class="bold"><td>Cost of Goods Sold</td><td class="val">${fmt(cogs)}</td></tr>
       <tr class="spacer"><td colspan="2"></td></tr>
       <tr class="highlight"><td>Gross Profit</td><td class="val">${fmt(grossProfit)}</td></tr>
     </table>
@@ -501,7 +554,7 @@ function AuditPage() {
   <div class="sig-section">
     <div class="sig-title">Declaration &amp; Authorisation</div>
     <p style="font-size:9.5pt;margin-bottom:18px;color:#333;">
-      We, the undersigned, confirm that the financial statements and figures contained in this report are, to the best of our knowledge, accurate and complete for the fiscal year ending ${dateStr(end)}.
+      We, the undersigned, confirm that the financial statements and figures contained in this report are, to the best of our knowledge, accurate and complete for the fiscal year ending ${dateStr(end)} (${endBS}).
     </p>
     <div class="sig-grid">
       <div class="sig-box">
