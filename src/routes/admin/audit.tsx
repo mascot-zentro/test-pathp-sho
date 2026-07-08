@@ -321,6 +321,9 @@ function AuditPage() {
     ].join("") + `<tr><td colspan="2" class="note">VAT applied to product subtotal only. Delivery fees are VAT-exempt.</td></tr>`) : "";
 
     const dateStr = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    // Nepali (BS) period label — Shrawan 1 to Ashadh end
+    const bsStart = `१ श्रावण ${selectedFY} BS`;
+    const bsEnd   = `आषाढ अन्त ${selectedFY + 1} BS`;
     const logoUrl = `${window.location.origin}/Aavira-logo.png`;
 
     return `<!DOCTYPE html>
@@ -395,7 +398,8 @@ function AuditPage() {
 <!-- ═══════════════════════ COVER PAGE ═══════════════════════ -->
 <div class="page" style="display:flex;flex-direction:column;align-items:center;">
   <div class="cover">
-    <img src="${logoUrl}" alt="Aavira"/>
+    <img src="${logoUrl}" alt="Aavira" onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='block'"/>
+    <div id="logo-fallback" style="display:none;font-size:26pt;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;">AAVIRA</div>
     <div class="jurisdiction">Nepal &mdash; Private Business Entity</div>
     <div class="entity-type">Retail &amp; E-Commerce</div>
 
@@ -406,6 +410,7 @@ function AuditPage() {
 
     <div class="fy-label">Fiscal Year ${fy} BS</div>
     <div class="period">${dateStr(start)} &mdash; ${dateStr(end)}</div>
+    <div class="period-np" style="font-size:10pt;color:#555;margin-top:2px;">(${bsStart} &mdash; ${bsEnd})</div>
 
     <table class="meta">
       <tr><td>Report No.</td><td>AUD-${fy.replace("/", "")}-001</td></tr>
@@ -430,7 +435,8 @@ function AuditPage() {
     <div class="rh-right">
       Report No.: AUD-${fy.replace("/", "")}-001<br/>
       Issued: ${dateStr(new Date())}<br/>
-      Period: ${dateStr(start)} &mdash; ${dateStr(end)}
+      Period: ${dateStr(start)} &mdash; ${dateStr(end)}<br/>
+      (${bsStart} &mdash; ${bsEnd})
     </div>
   </div>
 
