@@ -78,7 +78,8 @@ interface PromoCode {
   used_count: number;
 }
 
-interface ProductColor {
+
+interface ProductSize {
   product_id: string;
   stock_quantity: number | null;
 }
@@ -193,7 +194,7 @@ function AuditPage() {
   const [adSpends, setAdSpends] = useState<AdSpend[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-  const [productColors, setProductColors] = useState<ProductColor[]>([]);
+  const [productSizes, setProductSizes] = useState<ProductSize[]>([]);
   const [impactPct, setImpactPct] = useState(5);
   const [loading, setLoading] = useState(true);
   const [selectedFY, setSelectedFY] = useState<number>(currentFiscalYear());
@@ -201,14 +202,14 @@ function AuditPage() {
 
   const load = async () => {
     const db = supabase as any;
-    const [o, e, a, p, pr, s, pc] = await Promise.all([
+    const [o, e, a, p, pr, s, ps] = await Promise.all([
       db.from("orders").select("id,created_at,total,delivery_fee,discount_amount,vat_amount,status,pathao_status,product_id,product_name,unit_price,quantity,source,promo_code"),
       db.from("expenses").select("*"),
       db.from("ad_spend").select("*"),
       db.from("products").select("id,name,cost_price,stock_quantity,created_at"),
       db.from("promo_codes").select("code,discount_percent,used_count"),
       db.from("impact_settings").select("contribution_percentage").limit(1).single(),
-      db.from("product_colors").select("product_id,stock_quantity"),
+      db.from("product_sizes").select("product_id,stock_quantity"),
     ]);
     if (o.data) setOrders(o.data);
     if (e.data) setExpenses(e.data);
@@ -216,7 +217,7 @@ function AuditPage() {
     if (p.data) setProducts(p.data);
     if (pr.data) setPromoCodes(pr.data);
     if (s.data?.contribution_percentage != null) setImpactPct(Number(s.data.contribution_percentage));
-    if (pc.data) setProductColors(pc.data);
+    if (ps.data) setProductSizes(ps.data);
     setLoading(false);
   };
 
@@ -262,22 +263,22 @@ function AuditPage() {
   const netProductRevenue = grossRevenue - totalDelivery - totalVat;
 
   // ── COGS ──────────────────────────────────────────────────────────────────
-  // Sum color-variant stock per product (if colors exist, use that; else fall back to product.stock_quantity)
-  const colorStockByProduct = useMemo(() => {
+  const stockByProduct = useMemo(() => {
     const m: Record<string, number> = {};
-    productColors.forEach((pc) => {
-      m[pc.product_id] = (m[pc.product_id] ?? 0) + (pc.stock_quantity ?? 0);
+    productSizes.forEach((ps) => {
+      m[ps.product_id] = (m[ps.product_id] ?? 0) + (ps.stock_quantity ?? 0);
     });
     return m;
-  }, [productColors]);
+  }, [productSizes]);
 
-  // Closing stock = current stock × cost_price (color stock takes precedence only if > 0)
+  const getStock = (p: Product) => {
+    const sizeQty = stockByProduct[p.id];
+    return sizeQty !== undefined ? sizeQty : (p.stock_quantity ?? 0);
+  };
+
   const closingStock = useMemo(() => products.reduce((s, p) => {
-    const colorQty = colorStockByProduct[p.id] ?? 0;
-    const qty = colorQty > 0 ? colorQty : (p.stock_quantity ?? 0);
-    const cost = p.cost_price ?? 0;
-    return s + qty * cost;
-  }, 0), [products, colorStockByProduct]);
+    return s + getStock(p) * (p.cost_price ?? 0);
+  }, 0), [products, stockByProduct]);
 
   // Units sold during FY per product
   const unitsSoldInFY = useMemo(() => {
@@ -291,11 +292,10 @@ function AuditPage() {
   // Opening stock = closing stock + units sold during FY (reverse from current)
   const openingStock = useMemo(() => products.reduce((s, p) => {
     const soldQty = unitsSoldInFY[p.id] ?? 0;
-    const colorQty = colorStockByProduct[p.id] ?? 0;
-    const currentQty = colorQty > 0 ? colorQty : (p.stock_quantity ?? 0);
+    const currentQty = getStock(p);
     const cost = p.cost_price ?? 0;
     return s + (currentQty + soldQty) * cost;
-  }, 0), [products, unitsSoldInFY, colorStockByProduct]);
+  }, 0), [products, unitsSoldInFY, stockByProduct]);
 
   // COGS = Opening Stock − Closing Stock
   const cogs = openingStock - closingStock;
@@ -533,17 +533,18 @@ function AuditPage() {
         <td class="val" style="font-weight:bold;font-size:9pt;">Stock Value</td>
       </tr>
       ${products.map((p) => {
-        const colorQty = colorStockByProduct[p.id] ?? 0;
-        const qty = colorQty > 0 ? colorQty : (p.stock_quantity ?? 0);
+        const sizeQty = stockByProduct[p.id];
+        const qty = sizeQty !== undefined ? sizeQty : p.stock_quantity;
         const cost = p.cost_price ?? 0;
-        const val = qty * cost;
-        const addedBS = adToBS(new Date(p.created_at));
+        const tracked = qty !== null && qty !== undefined;
+        const val = (qty ?? 0) * cost;
+        const addedBS = adToBS(new Date("2026-01-17"));
         return `<tr>
           <td style="font-size:9.5pt;">${p.name}</td>
           <td style="font-size:9pt;color:#555;">${addedBS}</td>
           <td class="val" style="font-size:9.5pt;">${cost > 0 ? fmt(cost) : "—"}</td>
-          <td class="val" style="font-size:9.5pt;">${qty}</td>
-          <td class="val" style="font-size:9.5pt;">${cost > 0 ? fmt(val) : "—"}</td>
+          <td class="val" style="font-size:9.5pt;">${tracked ? qty : "—"}</td>
+          <td class="val" style="font-size:9.5pt;">${tracked && cost > 0 ? fmt(val) : "—"}</td>
         </tr>`;
       }).join("")}
       <tr class="highlight">
