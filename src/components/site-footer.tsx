@@ -49,7 +49,7 @@ export function SiteFooter() {
       {/* Accent gradient line */}
       <div className="h-px w-full bg-linear-to-r from-transparent via-accent/60 to-transparent" />
 
-      <div className="container mx-auto px-6 pt-16 pb-10 grid gap-12 md:grid-cols-[1.6fr_1fr_1fr]">
+      <div className="container mx-auto px-6 pt-16 pb-10 grid gap-12 md:grid-cols-[1.6fr_1fr_1fr_1fr]">
 
         {/* Brand column */}
         <div>
@@ -79,12 +79,23 @@ export function SiteFooter() {
           </nav>
         </div>
 
+        {/* Policies */}
+        <div>
+          <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-[oklch(0.55_0.008_60)] mb-5">Policies</h3>
+          <nav className="flex flex-col gap-3 text-sm font-light">
+            <Link to="/refund-policy" className="transition-colors duration-200 hover:text-accent">Refund &amp; Returns</Link>
+            <Link to="/shipping-policy" className="transition-colors duration-200 hover:text-accent">Shipping</Link>
+            <Link to="/privacy" className="transition-colors duration-200 hover:text-accent">Privacy Policy</Link>
+            <Link to="/terms" className="transition-colors duration-200 hover:text-accent">Terms &amp; Conditions</Link>
+          </nav>
+        </div>
+
         {/* Help / contact */}
         <div>
           <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-[oklch(0.55_0.008_60)] mb-5">Support</h3>
           <nav className="flex flex-col gap-3 text-sm font-light">
             <Link to="/faq" className="transition-colors duration-200 hover:text-accent">FAQ</Link>
-            <Link to="/terms" className="transition-colors duration-200 hover:text-accent">Terms</Link>
+            <Link to="/track" className="transition-colors duration-200 hover:text-accent">Track order</Link>
             {vals.contact_email && (
               <a href={`mailto:${vals.contact_email}`} className="flex items-center gap-2 transition-colors duration-200 hover:text-accent">
                 <Mail className="size-3.5 shrink-0" /> {vals.contact_email}

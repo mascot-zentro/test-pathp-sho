@@ -267,7 +267,9 @@ function Checkout() {
           <p className="text-xs text-muted-foreground">No account required. You'll get a call to confirm.</p>
           <p className="text-xs text-muted-foreground">
             By placing this order, you agree to our{" "}
-            <Link to="/terms" target="_blank" className="text-accent hover:underline">Terms &amp; Conditions</Link>.
+            <Link to="/terms" target="_blank" className="text-accent hover:underline">Terms &amp; Conditions</Link>,{" "}
+            <Link to="/refund-policy" target="_blank" className="text-accent hover:underline">Refund Policy</Link>, and{" "}
+            <Link to="/shipping-policy" target="_blank" className="text-accent hover:underline">Shipping Policy</Link>.
           </p>
         </form>
 

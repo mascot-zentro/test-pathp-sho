@@ -246,6 +246,52 @@ function AuditPage() {
     return m;
   }, [products]);
 
+  // ── Helper: compute all financial figures for a given FY ──────────────────
+  const computeFY = (fy: number) => {
+    const fyO   = orders.filter((o) => inFiscalYear(o.created_at, fy));
+    const fyE   = expenses.filter((e) => inFiscalYear(e.expense_date, fy));
+    const fyA   = adSpends.filter((a) => inFiscalYear(a.spend_date, fy));
+    const active   = fyO.filter((o) => !isCancelled(o));
+    const hasData  = active.length > 0 || fyE.length > 0 || fyA.length > 0;
+
+    const discounts   = active.reduce((s, o) => s + Number(o.discount_amount ?? 0), 0);
+    // order.total is already post-discount; add back discounts to get pre-discount gross
+    const grossRev    = active.reduce((s, o) => s + Number(o.total), 0) + discounts;
+    const vat         = active.reduce((s, o) => s + Number(o.vat_amount ?? 0), 0);
+    const delivery    = active.reduce((s, o) => s + Number(o.delivery_fee ?? 0), 0);
+    const netRev      = grossRev - delivery - vat - discounts;
+
+    const unitsSold: Record<string, number> = {};
+    active.forEach((o) => {
+      if (o.product_id) unitsSold[o.product_id] = (unitsSold[o.product_id] ?? 0) + Number(o.quantity);
+    });
+
+    const closing  = products.reduce((s, p) => {
+      const sizeQty = stockByProductRef[p.id];
+      const qty = sizeQty !== undefined ? sizeQty : (p.stock_quantity ?? 0);
+      return s + qty * (p.cost_price ?? 0);
+    }, 0);
+    const opening  = products.reduce((s, p) => {
+      const sizeQty = stockByProductRef[p.id];
+      const qty = sizeQty !== undefined ? sizeQty : (p.stock_quantity ?? 0);
+      const soldQty = unitsSold[p.id] ?? 0;
+      return s + (qty + soldQty) * (p.cost_price ?? 0);
+    }, 0);
+    const cogsV     = opening - closing;
+    const gp        = netRev - cogsV;
+
+    const opExp     = fyE.reduce((s, e) => s + Number(e.amount), 0);
+    const adExp     = fyA.reduce((s, a) => s + Number(a.amount), 0);
+    const sc        = Math.round((gp - opExp - adExp) * (impactPct / 100) * 100) / 100;
+    const totalExp  = cogsV + opExp + adExp + Math.max(0, sc);
+    const netProf   = netRev - totalExp;
+
+    const expByCat: Record<string, number> = {};
+    fyE.forEach((e) => { expByCat[e.category] = (expByCat[e.category] ?? 0) + Number(e.amount); });
+
+    return { hasData, grossRev, vat, delivery, discounts, netRev, closing, opening, cogsV, gp, opExp, adExp, sc, totalExp, netProf, expByCat, active, cancelled: fyO.filter(isCancelled) };
+  };
+
   // ── Filter to selected FY ──────────────────────────────────────────────────
   const fyOrders = useMemo(() => orders.filter((o) => inFiscalYear(o.created_at, selectedFY)), [orders, selectedFY]);
   const fyExpenses = useMemo(() => expenses.filter((e) => inFiscalYear(e.expense_date, selectedFY)), [expenses, selectedFY]);
@@ -255,12 +301,13 @@ function AuditPage() {
   const cancelledOrders = useMemo(() => fyOrders.filter(isCancelled), [fyOrders]);
 
   // ── Revenue ───────────────────────────────────────────────────────────────
-  const grossRevenue = useMemo(() => activeOrders.reduce((s, o) => s + Number(o.total), 0), [activeOrders]);
+  // order.total is already post-discount; add back discounts to show pre-discount gross
+  const totalDiscounts = useMemo(() => activeOrders.reduce((s, o) => s + Number(o.discount_amount ?? 0), 0), [activeOrders]);
+  const grossRevenue = useMemo(() => activeOrders.reduce((s, o) => s + Number(o.total), 0) + totalDiscounts, [activeOrders, totalDiscounts]);
   const totalVat = useMemo(() => activeOrders.reduce((s, o) => s + Number(o.vat_amount ?? 0), 0), [activeOrders]);
   const totalDelivery = useMemo(() => activeOrders.reduce((s, o) => s + Number(o.delivery_fee ?? 0), 0), [activeOrders]);
-  const totalDiscounts = useMemo(() => activeOrders.reduce((s, o) => s + Number(o.discount_amount ?? 0), 0), [activeOrders]);
-  // Net product revenue = gross - delivery - VAT (VAT is collected on behalf of govt)
-  const netProductRevenue = grossRevenue - totalDelivery - totalVat;
+  // Net product revenue = gross - delivery - VAT - discounts
+  const netProductRevenue = grossRevenue - totalDelivery - totalVat - totalDiscounts;
 
   // ── COGS ──────────────────────────────────────────────────────────────────
   const stockByProduct = useMemo(() => {
@@ -270,6 +317,10 @@ function AuditPage() {
     });
     return m;
   }, [productSizes]);
+
+  // Ref-style alias used inside computeFY (called during render, needs stable ref)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stockByProductRef = stockByProduct;
 
   const getStock = (p: Product) => {
     const sizeQty = stockByProduct[p.id];
@@ -305,9 +356,12 @@ function AuditPage() {
   // ── Expenses ──────────────────────────────────────────────────────────────
   const opExpenses = useMemo(() => fyExpenses.reduce((s, e) => s + Number(e.amount), 0), [fyExpenses]);
   const adExpenses = useMemo(() => fyAdSpends.reduce((s, a) => s + Number(a.amount), 0), [fyAdSpends]);
+
+  // ── Previous year figures (for year-over-year comparison) ─────────────────
+  const prevFY = useMemo(() => computeFY(selectedFY - 1), [orders, expenses, adSpends, products, stockByProduct, impactPct, selectedFY]);
   const socialContrib = Math.round((grossProfit - opExpenses - adExpenses) * (impactPct / 100) * 100) / 100;
   const totalExpenses = cogs + opExpenses + adExpenses + Math.max(0, socialContrib);
-  const netProfit = grossRevenue - totalDelivery - totalVat - totalExpenses;
+  const netProfit = netProductRevenue - totalExpenses;
 
   // ── Expense breakdown by category ─────────────────────────────────────────
   const expenseByCategory = useMemo(() => {
@@ -349,20 +403,26 @@ function AuditPage() {
 
   // ── PDF export ────────────────────────────────────────────────────────────
   const buildPrintHTML = (autoprint: boolean): string => {
-    const fy = fiscalYearLabel(selectedFY);
+    const fy  = fiscalYearLabel(selectedFY);
+    const pfy = fiscalYearLabel(selectedFY - 1);
     const filename = `Aavira-Audit-FY${fy.replace("/", "-")}-BS`;
 
-    const row = (label: string, value: string, opts: { bold?: boolean; indent?: boolean; highlight?: boolean } = {}) =>
-      `<tr class="${[opts.bold ? "bold" : "", opts.indent ? "indent" : "", opts.highlight ? "highlight" : ""].filter(Boolean).join(" ")}">
-        <td>${label}</td><td class="val">${value}</td>
+    // 3-column row: label | current year | previous year
+    const row = (label: string, value: string, prev: string | null, opts: { bold?: boolean; indent?: boolean; highlight?: boolean } = {}) => {
+      const prevCell = prev !== null ? prev : (prevFY.hasData ? "—" : "");
+      return `<tr class="${[opts.bold ? "bold" : "", opts.indent ? "indent" : "", opts.highlight ? "highlight" : ""].filter(Boolean).join(" ")}">
+        <td>${label}</td><td class="val">${value}</td>${prevFY.hasData || prev !== null ? `<td class="val prev">${prevCell}</td>` : ""}
       </tr>`;
+    };
+
+    const colHead = () => prevFY.hasData
+      ? `<tr class="col-head"><td></td><td class="val">FY ${fy}</td><td class="val prev">FY ${pfy}</td></tr>`
+      : "";
 
     const section = (title: string, rows: string) =>
       `<div class="section"><div class="section-title">${title}</div><table>${rows}</table></div>`;
 
-    const vatSection = totalVat > 0 ? section("7. VAT Statement", [
-      row("Total VAT collected from customers", fmt(totalVat), { bold: true }),
-    ].join("") + `<tr><td colspan="2" class="note">VAT applied to product subtotal only. Delivery fees are VAT-exempt.</td></tr>`) : "";
+    const vatSection = "";
 
     const dateStr = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -423,7 +483,10 @@ function AuditPage() {
     table.data { width: 100%; border-collapse: collapse; border: 1px solid #aaa; border-top: none; }
     table.data tr td { padding: 4px 8px; font-size: 10pt; border-bottom: 1px solid #ddd; vertical-align: top; }
     table.data tr:last-child td { border-bottom: none; }
-    table.data td.val { text-align: right; white-space: nowrap; min-width: 130px; font-variant-numeric: tabular-nums; }
+    table.data td.val { text-align: right; white-space: nowrap; min-width: 120px; font-variant-numeric: tabular-nums; }
+    table.data td.prev { color: #777; font-size: 9.5pt; }
+    table.data tr.col-head td { font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1.5px solid #000; padding-bottom: 5px; color: #444; }
+    table.data tr.col-head td.prev { color: #888; }
     table.data tr.bold td { font-weight: bold; }
     table.data tr.indent td:first-child { padding-left: 22px; font-style: italic; color: #333; }
     table.data tr.highlight { background: #efefef; }
@@ -500,11 +563,12 @@ function AuditPage() {
   <div class="section">
     <div class="section-head">1. Income Statement</div>
     <table class="data">
-      <tr class="bold"><td>Gross Revenue</td><td class="val">${fmt(grossRevenue)}</td></tr>
-      <tr class="indent"><td>Less: Delivery fees</td><td class="val">(${fmt(totalDelivery)})</td></tr>
-      <tr class="indent"><td>Less: Discounts allowed</td><td class="val">(${fmt(totalDiscounts)})</td></tr>
-      <tr class="spacer"><td colspan="2"></td></tr>
-      <tr class="highlight"><td>Net Revenue</td><td class="val">${fmt(netProductRevenue)}</td></tr>
+      ${colHead()}
+      ${row("Gross Revenue", fmt(grossRevenue), prevFY.hasData ? fmt(prevFY.grossRev) : null, { bold: true })}
+      ${row("Less: Delivery fees", `(${fmt(totalDelivery)})`, prevFY.hasData ? `(${fmt(prevFY.delivery)})` : null, { indent: true })}
+      ${row("Less: Discounts allowed", `(${fmt(totalDiscounts)})`, prevFY.hasData ? `(${fmt(prevFY.discounts)})` : null, { indent: true })}
+      <tr class="spacer"><td colspan="${prevFY.hasData ? 3 : 2}"></td></tr>
+      ${row("Net Revenue", fmt(netProductRevenue), prevFY.hasData ? fmt(prevFY.netRev) : null, { highlight: true })}
     </table>
   </div>
 
@@ -512,12 +576,13 @@ function AuditPage() {
   <div class="section">
     <div class="section-head">2. Cost of Goods Sold</div>
     <table class="data">
-      <tr><td>Opening Stock (at cost)</td><td class="val">${fmt(openingStock)}</td></tr>
-      <tr class="indent"><td>Less: Closing Stock (at cost) <span style="font-size:8pt;color:#888;font-style:italic;">(refer Schedule 2a)</span></td><td class="val">(${fmt(closingStock)})</td></tr>
-      <tr class="spacer"><td colspan="2"></td></tr>
-      <tr class="bold"><td>Cost of Goods Sold</td><td class="val">${fmt(cogs)}</td></tr>
-      <tr class="spacer"><td colspan="2"></td></tr>
-      <tr class="highlight"><td>Gross Profit</td><td class="val">${fmt(grossProfit)}</td></tr>
+      ${colHead()}
+      ${row("Opening Stock (at cost)", fmt(openingStock), prevFY.hasData ? fmt(prevFY.opening) : null)}
+      ${row("Less: Closing Stock (at cost) <span style=\"font-size:8pt;color:#888;font-style:italic;\">(refer Schedule 2a)</span>", `(${fmt(closingStock)})`, prevFY.hasData ? `(${fmt(prevFY.closing)})` : null, { indent: true })}
+      <tr class="spacer"><td colspan="${prevFY.hasData ? 3 : 2}"></td></tr>
+      ${row("Cost of Goods Sold", fmt(cogs), prevFY.hasData ? fmt(prevFY.cogsV) : null, { bold: true })}
+      <tr class="spacer"><td colspan="${prevFY.hasData ? 3 : 2}"></td></tr>
+      ${row("Gross Profit", fmt(grossProfit), prevFY.hasData ? fmt(prevFY.gp) : null, { highlight: true })}
     </table>
   </div>
 
@@ -525,13 +590,14 @@ function AuditPage() {
   <div class="section">
     <div class="section-head">3. Operating Expenditure</div>
     <table class="data">
+      ${colHead()}
       ${expenseByCategory.length === 0
-        ? `<tr><td colspan="2" class="note">Nil — no operating expenses recorded for this period.</td></tr>`
-        : expenseByCategory.map(([cat, amt]) => `<tr><td>${cat}</td><td class="val">${fmt(amt)}</td></tr>`).join("")
+        ? `<tr><td colspan="${prevFY.hasData ? 3 : 2}" class="note">Nil — no operating expenses recorded for this period.</td></tr>`
+        : expenseByCategory.map(([cat, amt]) => row(cat, fmt(amt), prevFY.hasData ? (prevFY.expByCat[cat] != null ? fmt(prevFY.expByCat[cat]) : "—") : null)).join("")
       }
-      <tr class="indent"><td>Marketing &amp; advertising</td><td class="val">${fmt(adExpenses)}</td></tr>
-      <tr class="spacer"><td colspan="2"></td></tr>
-      <tr class="highlight"><td>Total Expenditure</td><td class="val">${fmt(opExpenses + adExpenses)}</td></tr>
+      ${row("Marketing &amp; advertising", fmt(adExpenses), prevFY.hasData ? fmt(prevFY.adExp) : null, { indent: true })}
+      <tr class="spacer"><td colspan="${prevFY.hasData ? 3 : 2}"></td></tr>
+      ${row("Total Expenditure", fmt(opExpenses + adExpenses), prevFY.hasData ? fmt(prevFY.opExp + prevFY.adExp) : null, { highlight: true })}
     </table>
   </div>
 
@@ -539,10 +605,11 @@ function AuditPage() {
   <div class="section">
     <div class="section-head">4. Profit &amp; Loss Account</div>
     <table class="data">
-      <tr><td>Gross Profit</td><td class="val">${fmt(grossProfit)}</td></tr>
-      <tr class="indent"><td>Less: Total Operating Expenditure</td><td class="val">(${fmt(opExpenses + adExpenses)})</td></tr>
-      <tr class="spacer"><td colspan="2"></td></tr>
-      <tr class="highlight"><td>Net Profit / (Net Loss)</td><td class="val">${fmt(netProfit)}</td></tr>
+      ${colHead()}
+      ${row("Gross Profit", fmt(grossProfit), prevFY.hasData ? fmt(prevFY.gp) : null)}
+      ${row("Less: Total Operating Expenditure", `(${fmt(opExpenses + adExpenses)})`, prevFY.hasData ? `(${fmt(prevFY.opExp + prevFY.adExp)})` : null, { indent: true })}
+      <tr class="spacer"><td colspan="${prevFY.hasData ? 3 : 2}"></td></tr>
+      ${row("Net Profit / (Net Loss)", fmt(netProfit), prevFY.hasData ? fmt(prevFY.netProf) : null, { highlight: true })}
     </table>
   </div>
 
@@ -551,8 +618,9 @@ function AuditPage() {
   <div class="section">
     <div class="section-head">5. Value Added Tax (VAT) Account</div>
     <table class="data">
-      <tr><td>VAT collected from customers during the period</td><td class="val">${fmt(totalVat)}</td></tr>
-      <tr><td colspan="2" class="note">VAT is levied on product value only. Delivery charges are exempt. Full amount is payable to the Inland Revenue Department, Government of Nepal.</td></tr>
+      ${colHead()}
+      ${row("VAT collected from customers during the period", fmt(totalVat), prevFY.hasData ? fmt(prevFY.vat) : null)}
+      <tr><td colspan="${prevFY.hasData ? 3 : 2}" class="note">VAT is levied on product value only. Delivery charges are exempt. Full amount is payable to the Inland Revenue Department, Government of Nepal.</td></tr>
     </table>
   </div>` : ""}
 
@@ -646,7 +714,8 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
   const handlePDF = () => openPrintWindow(true);
 
   const buildPLHTML = (): string => {
-    const fy = fiscalYearLabel(selectedFY);
+    const fy  = fiscalYearLabel(selectedFY);
+    const pfy = fiscalYearLabel(selectedFY - 1);
     const { start, end } = fiscalYearRange(selectedFY);
     const adToBS = (d: Date): string => {
       const adStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -663,6 +732,7 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
     const money = (v: number) => rnd(v).toLocaleString("en-IN");
     const neg   = (v: number) => v === 0 ? "—" : `(${money(Math.abs(v))})`;
     const pct   = (num: number, den: number) => den === 0 ? "—" : `${((num / den) * 100).toFixed(1)}%`;
+    const P = prevFY; // alias for brevity
 
     // Classify expenses
     const sellingCats = ["marketing", "packaging", "shipping"];
@@ -688,26 +758,37 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
     const sc           = Math.max(0, rnd(socialContrib));
     const retained     = pat - sc;
 
-    // Row builders — 4-column CA style: particulars | note | sub-amount | total
+    // Previous year P&L figures
+    const hasPrev = P.hasData;
+    const pSellingExp = P.adExp + Object.entries(P.expByCat).filter(([c]) => sellingCats.some((s) => c.toLowerCase().includes(s))).reduce((a, [, v]) => a + v, 0);
+    const pGaExp = Object.entries(P.expByCat).filter(([c]) => !sellingCats.some((s) => c.toLowerCase().includes(s))).reduce((a, [, v]) => a + v, 0);
+    const pTotalOpEx = pSellingExp + pGaExp;
+    const pEbit = P.gp - pTotalOpEx;
+    const pTaxProv = Math.max(0, rnd(pEbit * 0.25));
+    const pPat = pEbit - pTaxProv;
+
+    // Row builders — 5-column CA style: particulars | note | sub-amount | total | prev-year total
+    const COLS = hasPrev ? 5 : 4;
     const td = (txt: string, opts: { right?: boolean; bold?: boolean; italic?: boolean; pad?: string; border?: string; bg?: string; size?: string; color?: string } = {}) =>
       `<td style="padding:${opts.pad ?? "4px 6px"};${opts.right ? "text-align:right;" : ""}${opts.bold ? "font-weight:bold;" : ""}${opts.italic ? "font-style:italic;" : ""}${opts.border ? `border-${opts.border}:1px solid #aaa;` : ""}${opts.bg ? `background:${opts.bg};` : ""}${opts.color ? `color:${opts.color};` : ""}font-size:${opts.size ?? "9.5pt"};">${txt}</td>`;
 
-    // particulars | note# | sub | total
-    const row = (part: string, noteN: string, sub: string, total: string, opts: { bold?: boolean; italic?: boolean; bg?: string; topBorder?: boolean; doubleUnder?: boolean } = {}) =>
+    // particulars | note# | sub | total | [prev]
+    const row = (part: string, noteN: string, sub: string, total: string, prevTotal: string | null, opts: { bold?: boolean; italic?: boolean; bg?: string; topBorder?: boolean; doubleUnder?: boolean } = {}) =>
       `<tr style="${opts.bg ? `background:${opts.bg};` : ""}${opts.topBorder ? "border-top:1px solid #999;" : ""}">
         ${td(part, { bold: opts.bold, italic: opts.italic, pad: "4px 6px 4px 8px" })}
         ${td(noteN, { italic: true, color: "#888", size: "8pt", right: true })}
-        ${td(sub,   { right: true, bold: opts.bold, border: sub && sub !== "&nbsp;" ? undefined : undefined })}
+        ${td(sub,   { right: true, bold: opts.bold })}
         ${td(total, { right: true, bold: opts.bold, border: opts.doubleUnder ? "bottom" : undefined, bg: opts.bg })}
+        ${hasPrev ? td(prevTotal ?? "—", { right: true, color: "#777", size: "9pt" }) : ""}
       </tr>`;
 
-    const blank = () => `<tr><td colspan="4" style="padding:2px 0;"></td></tr>`;
-    const rule  = (thick = false) => `<tr><td colspan="4" style="padding:0;border-top:${thick ? "1.5px solid #000" : "1px solid #ccc"};"></td></tr>`;
+    const blank = () => `<tr><td colspan="${COLS}" style="padding:2px 0;"></td></tr>`;
+    const rule  = (thick = false) => `<tr><td colspan="${COLS}" style="padding:0;border-top:${thick ? "1.5px solid #000" : "1px solid #ccc"};"></td></tr>`;
     const head  = (label: string) => `<tr style="background:#111;">
-      <td colspan="4" style="padding:5px 8px;font-size:8pt;font-weight:bold;letter-spacing:0.1em;text-transform:uppercase;color:#fff;">${label}</td>
+      <td colspan="${COLS}" style="padding:5px 8px;font-size:8pt;font-weight:bold;letter-spacing:0.1em;text-transform:uppercase;color:#fff;">${label}</td>
     </tr>`;
-    const colrow = (part: string, noteN: string, sub: string, total: string, bold = false, bg = "") =>
-      row(part, noteN, sub, total, { bold, bg });
+    const colrow = (part: string, noteN: string, sub: string, total: string, prevTotal: string | null = null, bold = false, bg = "") =>
+      row(part, noteN, sub, total, prevTotal, { bold, bg });
 
     return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"/>
@@ -717,10 +798,11 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Times New Roman', Times, serif; font-size: 9.5pt; color: #111; background: #fff; line-height: 1.45; }
   table { width: 100%; border-collapse: collapse; }
-  col.part  { width: 54%; }
+  col.part  { width: ${hasPrev ? "45%" : "54%"}; }
   col.note  { width: 8%; }
-  col.sub   { width: 19%; }
-  col.total { width: 19%; }
+  col.sub   { width: ${hasPrev ? "16%" : "19%"}; }
+  col.total { width: ${hasPrev ? "16%" : "19%"}; }
+  col.prev  { width: 15%; }
   .kpi-table td { padding: 8px 12px; border: 1px solid #ddd; text-align: center; }
   .kpi-label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: #777; }
   .kpi-value { font-size: 12pt; font-weight: bold; margin-top: 2px; }
@@ -766,76 +848,77 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
 
 <!-- ── COLUMN HEADERS ─────────────────────────────────── -->
 <table>
-  <colgroup><col class="part"/><col class="note"/><col class="sub"/><col class="total"/></colgroup>
+  <colgroup><col class="part"/><col class="note"/><col class="sub"/><col class="total"/>${hasPrev ? `<col class="prev"/>` : ""}</colgroup>
   <tr style="border-bottom:1.5px solid #000;border-top:1px solid #000;">
     ${td("Particulars", { bold: true, pad: "4px 6px 4px 8px", size: "8.5pt" })}
     ${td("Note", { bold: true, right: true, size: "8.5pt" })}
     ${td("NRS", { bold: true, right: true, size: "8.5pt" })}
-    ${td("NRS", { bold: true, right: true, size: "8.5pt" })}
+    ${td(`FY ${fy} NRS`, { bold: true, right: true, size: "8.5pt" })}
+    ${hasPrev ? td(`FY ${pfy} NRS`, { bold: true, right: true, size: "8.5pt", color: "#777" }) : ""}
   </tr>
 
   <!-- I. REVENUE -->
   ${blank()}
   ${head("I.  Revenue from Operations")}
-  ${colrow("Gross Revenue from Operations", "1", money(grossRevenue), "")}
-  ${colrow("Less: Delivery charges (pass-through)", "", neg(totalDelivery), "", false)}
-  ${colrow("Less: Discounts &amp; promotional allowances", "", neg(totalDiscounts), "", false)}
-  ${totalVat > 0 ? colrow("Less: Output VAT collected (payable to IRD)", "2", neg(totalVat), "", false) : ""}
+  ${colrow("Gross Revenue from Operations", "1", money(grossRevenue), "", hasPrev ? money(P.grossRev) : null)}
+  ${colrow("Less: Delivery charges (pass-through)", "", neg(totalDelivery), "", hasPrev ? neg(P.delivery) : null)}
+  ${colrow("Less: Discounts &amp; promotional allowances", "", neg(totalDiscounts), "", hasPrev ? neg(P.discounts) : null)}
+  ${totalVat > 0 ? colrow("Less: Output VAT collected (payable to IRD)", "2", neg(totalVat), "", hasPrev ? neg(P.vat) : null) : ""}
   ${rule(true)}
-  ${colrow("Net Revenue from Operations", "", "", money(netProductRevenue), true, "#f2f2f2")}
+  ${colrow("Net Revenue from Operations", "", "", money(netProductRevenue), hasPrev ? money(P.netRev) : null, true, "#f2f2f2")}
 
   <!-- II. COGS -->
   ${blank()}
   ${head("II.  Cost of Goods Sold")}
-  ${colrow("Opening Stock — at cost", "3", money(openingStock), "")}
-  ${colrow("Less: Closing Stock — at cost", "3", neg(closingStock), "")}
+  ${colrow("Opening Stock — at cost", "3", money(openingStock), "", hasPrev ? money(P.opening) : null)}
+  ${colrow("Less: Closing Stock — at cost", "3", neg(closingStock), "", hasPrev ? neg(P.closing) : null)}
   ${rule(true)}
-  ${colrow("Cost of Goods Sold", "", "", money(cogs), true, "#f2f2f2")}
+  ${colrow("Cost of Goods Sold", "", "", money(cogs), hasPrev ? money(P.cogsV) : null, true, "#f2f2f2")}
   ${blank()}
   ${rule(true)}
-  ${colrow("Gross Profit", "", "", money(grossProfit), true, "#e6e6e6")}
+  ${colrow("Gross Profit", "", "", money(grossProfit), hasPrev ? money(P.gp) : null, true, "#e6e6e6")}
   ${rule(true)}
 
   <!-- III. OPERATING EXPENSES -->
   ${blank()}
   ${head("III.  Operating Expenses")}
-  ${colrow("A.  Selling &amp; Distribution Expenses", "", "", "")}
-  ${sellingLines.map(([cat, amt]) => colrow(`&nbsp;&nbsp;&nbsp;&nbsp;${cat}`, "", money(amt), "")).join("")}
-  ${colrow("&nbsp;&nbsp;&nbsp;&nbsp;Sub-total — Selling", "", "", money(sellingExp), false, "#f9f9f9")}
+  ${colrow("A.  Selling &amp; Distribution Expenses", "", "", "", null)}
+  ${sellingLines.map(([cat, amt]) => colrow(`&nbsp;&nbsp;&nbsp;&nbsp;${cat}`, "", money(amt), "", hasPrev ? (cat === "Marketing & Advertising" ? money(P.adExp) : (P.expByCat[cat] != null ? money(P.expByCat[cat]) : "—")) : null)).join("")}
+  ${colrow("&nbsp;&nbsp;&nbsp;&nbsp;Sub-total — Selling", "", "", money(sellingExp), hasPrev ? money(pSellingExp) : null, false, "#f9f9f9")}
   ${blank()}
-  ${colrow("B.  General &amp; Administrative Expenses", "", "", "")}
+  ${colrow("B.  General &amp; Administrative Expenses", "", "", "", null)}
   ${gaLines.length > 0
-    ? gaLines.map(([cat, amt]) => colrow(`&nbsp;&nbsp;&nbsp;&nbsp;${cat}`, "", money(amt), "")).join("")
-    : colrow("&nbsp;&nbsp;&nbsp;&nbsp;Nil recorded for this period", "", "—", "")}
-  ${colrow("&nbsp;&nbsp;&nbsp;&nbsp;Sub-total — G&amp;A", "", "", money(gaExp), false, "#f9f9f9")}
+    ? gaLines.map(([cat, amt]) => colrow(`&nbsp;&nbsp;&nbsp;&nbsp;${cat}`, "", money(amt), "", hasPrev ? (P.expByCat[cat] != null ? money(P.expByCat[cat]) : "—") : null)).join("")
+    : colrow("&nbsp;&nbsp;&nbsp;&nbsp;Nil recorded for this period", "", "—", "", hasPrev ? "—" : null)}
+  ${colrow("&nbsp;&nbsp;&nbsp;&nbsp;Sub-total — G&amp;A", "", "", money(gaExp), hasPrev ? money(pGaExp) : null, false, "#f9f9f9")}
   ${blank()}
-  ${colrow("C.  Depreciation &amp; Amortisation", "4", "", "—")}
+  ${colrow("C.  Depreciation &amp; Amortisation", "4", "", "—", hasPrev ? "—" : null)}
   ${rule(true)}
-  ${colrow("Total Operating Expenses", "", "", money(totalOpEx), true, "#f2f2f2")}
+  ${colrow("Total Operating Expenses", "", "", money(totalOpEx), hasPrev ? money(pTotalOpEx) : null, true, "#f2f2f2")}
 
   <!-- EBITDA / EBIT / EBT -->
   ${blank()}
   ${rule(true)}
-  ${colrow("EBITDA  (Earnings Before Interest, Tax, D&A)", "", "", money(ebitda), true, "#eef3ee")}
-  ${colrow("Less: Depreciation &amp; Amortisation", "4", "", "—")}
+  ${colrow("EBITDA  (Earnings Before Interest, Tax, D&A)", "", "", money(ebitda), hasPrev ? money(pEbit) : null, true, "#eef3ee")}
+  ${colrow("Less: Depreciation &amp; Amortisation", "4", "", "—", hasPrev ? "—" : null)}
   ${rule()}
-  ${colrow("EBIT  (Earnings Before Interest &amp; Tax)", "", "", money(ebit), true, "#eef3ee")}
-  ${colrow("Less: Finance Costs / Interest Expense", "5", "", "—")}
+  ${colrow("EBIT  (Earnings Before Interest &amp; Tax)", "", "", money(ebit), hasPrev ? money(pEbit) : null, true, "#eef3ee")}
+  ${colrow("Less: Finance Costs / Interest Expense", "5", "", "—", hasPrev ? "—" : null)}
   ${rule()}
-  ${colrow("EBT  (Profit Before Tax)", "", "", money(ebt), true, "#f2f2f2")}
-  ${colrow("Less: Income Tax Provision @ 25%", "6", "", taxProvision > 0 ? neg(taxProvision) : "—")}
+  ${colrow("EBT  (Profit Before Tax)", "", "", money(ebt), hasPrev ? money(pEbit) : null, true, "#f2f2f2")}
+  ${colrow("Less: Income Tax Provision @ 25%", "6", "", taxProvision > 0 ? neg(taxProvision) : "—", hasPrev ? (pTaxProv > 0 ? neg(pTaxProv) : "—") : null)}
   ${rule(true)}
-  ${row(pat >= 0 ? "Net Profit for the Year (PAT)" : "Net Loss for the Year", "", "", money(pat), { bold: true, bg: "#111", doubleUnder: false })}
+  ${row(pat >= 0 ? "Net Profit for the Year (PAT)" : "Net Loss for the Year", "", "", money(pat), hasPrev ? money(pPat) : null, { bold: true, bg: "#111", doubleUnder: false })}
   ${rule(true)}
 
   <!-- APPROPRIATION -->
   ${sc > 0 ? `
   ${blank()}
   ${head("IV.  Appropriation of Profit")}
-  ${colrow("Net Profit After Tax (brought forward)", "", money(pat), "")}
-  ${colrow(`Less: Social Impact Contribution (${impactPct}%)`, "7", neg(sc), "")}
+  ${colrow("Net Profit After Tax (brought forward)", "", money(pat), "", hasPrev ? money(pPat) : null)}
+  ${colrow(`Less: Social Impact Contribution (${impactPct}%)`, "7", neg(sc), "", hasPrev ? neg(Math.max(0, rnd(P.sc))) : null)}
   ${rule(true)}
-  ${colrow("Retained Profit transferred to Capital Account", "", "", money(retained), true, "#f2f2f2")}
+  ${colrow("Retained Profit transferred to Capital Account", "", "", money(retained), hasPrev ? money(pPat - Math.max(0, rnd(P.sc))) : null, true, "#f2f2f2")}
   ` : ""}
 
 </table>

@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as TrackRouteImport } from './routes/track'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ShippingPolicyRouteImport } from './routes/shipping-policy'
+import { Route as RefundPolicyRouteImport } from './routes/refund-policy'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SaleRouteImport } from './routes/sale'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as FaqRouteImport } from './routes/faq'
@@ -50,6 +53,21 @@ const TrackRoute = TrackRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShippingPolicyRoute = ShippingPolicyRouteImport.update({
+  id: '/shipping-policy',
+  path: '/shipping-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundPolicyRoute = RefundPolicyRouteImport.update({
+  id: '/refund-policy',
+  path: '/refund-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SaleRoute = SaleRouteImport.update({
@@ -181,7 +199,10 @@ export interface FileRoutesByFullPath {
   '/cart': typeof CartRoute
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/sale': typeof SaleRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
   '/wishlist': typeof WishlistRoute
@@ -209,7 +230,10 @@ export interface FileRoutesByTo {
   '/cart': typeof CartRoute
   '/faq': typeof FaqRoute
   '/order-confirmed': typeof OrderConfirmedRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund-policy': typeof RefundPolicyRoute
   '/sale': typeof SaleRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
   '/terms': typeof TermsRoute
   '/track': typeof TrackRoute
   '/wishlist': typeof WishlistRoute
@@ -237,6 +261,9 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/faq': typeof FaqRoute
+  '/privacy': typeof PrivacyRoute
+  '/refund-policy': typeof RefundPolicyRoute
+  '/shipping-policy': typeof ShippingPolicyRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/sale': typeof SaleRoute
   '/terms': typeof TermsRoute
@@ -269,7 +296,10 @@ export interface FileRouteTypes {
     | '/cart'
     | '/faq'
     | '/order-confirmed'
+    | '/privacy'
+    | '/refund-policy'
     | '/sale'
+    | '/shipping-policy'
     | '/terms'
     | '/track'
     | '/wishlist'
@@ -297,7 +327,10 @@ export interface FileRouteTypes {
     | '/cart'
     | '/faq'
     | '/order-confirmed'
+    | '/privacy'
+    | '/refund-policy'
     | '/sale'
+    | '/shipping-policy'
     | '/terms'
     | '/track'
     | '/wishlist'
@@ -325,7 +358,10 @@ export interface FileRouteTypes {
     | '/cart'
     | '/faq'
     | '/order-confirmed'
+    | '/privacy'
+    | '/refund-policy'
     | '/sale'
+    | '/shipping-policy'
     | '/terms'
     | '/track'
     | '/wishlist'
@@ -355,7 +391,10 @@ export interface RootRouteChildren {
   CartRoute: typeof CartRoute
   FaqRoute: typeof FaqRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
+  PrivacyRoute: typeof PrivacyRoute
+  RefundPolicyRoute: typeof RefundPolicyRoute
   SaleRoute: typeof SaleRoute
+  ShippingPolicyRoute: typeof ShippingPolicyRoute
   TermsRoute: typeof TermsRoute
   TrackRoute: typeof TrackRoute
   WishlistRoute: typeof WishlistRoute
@@ -384,6 +423,27 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shipping-policy': {
+      id: '/shipping-policy'
+      path: '/shipping-policy'
+      fullPath: '/shipping-policy'
+      preLoaderRoute: typeof ShippingPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund-policy': {
+      id: '/refund-policy'
+      path: '/refund-policy'
+      fullPath: '/refund-policy'
+      preLoaderRoute: typeof RefundPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sale': {
@@ -611,7 +671,10 @@ const rootRouteChildren: RootRouteChildren = {
   CartRoute: CartRoute,
   FaqRoute: FaqRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
+  PrivacyRoute: PrivacyRoute,
+  RefundPolicyRoute: RefundPolicyRoute,
   SaleRoute: SaleRoute,
+  ShippingPolicyRoute: ShippingPolicyRoute,
   TermsRoute: TermsRoute,
   TrackRoute: TrackRoute,
   WishlistRoute: WishlistRoute,
