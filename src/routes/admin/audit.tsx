@@ -308,26 +308,13 @@ function AuditPage() {
     window.print();
   };
 
-  const handlePDF = async () => {
-    if (!printRef.current) return;
-    const toastId = toast.loading("Generating PDF…");
-    try {
-      const { default: html2pdf } = await import("html2pdf.js");
-      await html2pdf()
-        .set({
-          margin: [10, 10, 10, 10],
-          filename: `Aavira-Audit-FY${fiscalYearLabel(selectedFY).replace("/", "-")}-BS.pdf`,
-          image: { type: "jpeg", quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        })
-        .from(printRef.current)
-        .save();
-      toast.success("PDF saved.", { id: toastId });
-    } catch (err) {
-      console.error("PDF error:", err);
-      toast.error("PDF generation failed — check console for details.", { id: toastId });
-    }
+  const handlePDF = () => {
+    // Use browser print dialog — choose "Save as PDF" for best results.
+    // html2canvas cannot handle modern CSS color functions (lab/oklch) used by Tailwind v4/shadcn.
+    const prevTitle = document.title;
+    document.title = `Aavira-Audit-FY${fiscalYearLabel(selectedFY).replace("/", "-")}-BS`;
+    window.print();
+    document.title = prevTitle;
   };
 
   const { start, end } = selectedFY ? fiscalYearRange(selectedFY) : { start: new Date(), end: new Date() };
