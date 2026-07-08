@@ -304,18 +304,48 @@ function AuditPage() {
   }, [activeOrders]);
 
   // ── PDF export ────────────────────────────────────────────────────────────
-  const handlePrint = () => {
-    window.print();
+  const openPrintWindow = (saveAsPdf: boolean) => {
+    if (!printRef.current) return;
+    const html = printRef.current.innerHTML;
+    const filename = `Aavira-Audit-FY${fiscalYearLabel(selectedFY).replace("/", "-")}-BS`;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) { toast.error("Pop-up blocked — allow pop-ups for this site."); return; }
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>${filename}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Merriweather', Georgia, serif; font-size: 13px; color: #111; background: #fff; padding: 15mm; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 8px; margin-top: 24px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+    .cover { text-align: center; margin-bottom: 32px; }
+    .cover img { width: 72px; height: 72px; object-fit: contain; margin-bottom: 10px; }
+    .cover p { color: #555; font-size: 12px; margin-top: 4px; }
+    .cover .fy { font-size: 17px; font-weight: 700; margin-top: 8px; }
+    .divider { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+    .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #ddd; font-size: 12px; }
+    .row:last-child { border-bottom: none; }
+    .row.bold span { font-weight: 700; color: #000; }
+    .row.indent { padding-left: 16px; }
+    .row.highlight { background: #f5f5f5; padding-left: 6px; padding-right: 6px; border-radius: 3px; }
+    .section { margin-bottom: 24px; }
+    .footer { border-top: 1px solid #ddd; margin-top: 32px; padding-top: 12px; text-align: center; font-size: 11px; color: #777; }
+    @media print { body { padding: 0; } @page { margin: 15mm; } }
+  </style>
+</head>
+<body>
+  ${html}
+  ${saveAsPdf ? `<script>window.onload=function(){window.print();}<\/script>` : ""}
+</body>
+</html>`);
+    win.document.close();
   };
 
-  const handlePDF = () => {
-    // Use browser print dialog — choose "Save as PDF" for best results.
-    // html2canvas cannot handle modern CSS color functions (lab/oklch) used by Tailwind v4/shadcn.
-    const prevTitle = document.title;
-    document.title = `Aavira-Audit-FY${fiscalYearLabel(selectedFY).replace("/", "-")}-BS`;
-    window.print();
-    document.title = prevTitle;
-  };
+  const handlePrint = () => openPrintWindow(false);
+  const handlePDF = () => openPrintWindow(true);
 
   const { start, end } = selectedFY ? fiscalYearRange(selectedFY) : { start: new Date(), end: new Date() };
 
@@ -483,13 +513,6 @@ function AuditPage() {
         </div>
       </div>
 
-      {/* Print styles */}
-      <style>{`
-        @media print {
-          body > *:not(#audit-print-root) { display: none; }
-          @page { margin: 15mm; }
-        }
-      `}</style>
     </div>
   );
 }
