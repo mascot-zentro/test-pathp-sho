@@ -152,6 +152,7 @@ export type Database = {
           customer_phone: string
           delivery_fee: number
           discount_amount: number
+          vat_amount: number
           id: string
           order_group_id: string | null
           pathao_consignment_id: string | null
@@ -181,6 +182,7 @@ export type Database = {
           customer_phone: string
           delivery_fee?: number
           discount_amount?: number
+          vat_amount?: number
           id?: string
           order_group_id?: string | null
           pathao_consignment_id?: string | null
@@ -210,6 +212,7 @@ export type Database = {
           customer_phone?: string
           delivery_fee?: number
           discount_amount?: number
+          vat_amount?: number
           id?: string
           order_group_id?: string | null
           pathao_consignment_id?: string | null

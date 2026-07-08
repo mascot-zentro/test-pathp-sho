@@ -91,11 +91,11 @@ function slipCard(group: OrderGroup, storeName: string, compact = false, phone =
   const total = group.groupTotal;
 
   const deliveryFeeTotal = group.rows.reduce((s, r) => s + Number(r.delivery_fee ?? 0), 0);
+  const vatTotal = group.rows.reduce((s, r) => s + Number((r as { vat_amount?: number }).vat_amount ?? 0), 0);
 
   const items = group.rows.map((r) => {
     const variant = [r.color, r.size].filter(Boolean).join(", ");
-    // Show unit price × quantity — the pure product cost, no delivery
-    const lineTotal = Number(r.total) - Number(r.delivery_fee ?? 0);
+    const lineTotal = Number(r.total) - Number(r.delivery_fee ?? 0) - Number((r as { vat_amount?: number }).vat_amount ?? 0);
     return `<tr>
       <td class="td-product">
         <div class="item-name">${r.product_name}</div>
@@ -156,14 +156,18 @@ function slipCard(group: OrderGroup, storeName: string, compact = false, phone =
 
     <div class="divider"></div>
 
-    ${deliveryFeeTotal > 0 ? `<div class="subtotal-row">
+    ${deliveryFeeTotal > 0 || vatTotal > 0 ? `<div class="subtotal-row">
       <span class="subtotal-label">Products</span>
-      <span class="subtotal-value">NRS ${(total - deliveryFeeTotal).toLocaleString()}</span>
+      <span class="subtotal-value">NRS ${(total - deliveryFeeTotal - vatTotal).toLocaleString()}</span>
     </div>
-    <div class="subtotal-row">
+    ${vatTotal > 0 ? `<div class="subtotal-row">
+      <span class="subtotal-label">VAT</span>
+      <span class="subtotal-value">NRS ${vatTotal.toLocaleString()}</span>
+    </div>` : ""}
+    ${deliveryFeeTotal > 0 ? `<div class="subtotal-row">
       <span class="subtotal-label">Delivery</span>
       <span class="subtotal-value">NRS ${deliveryFeeTotal.toLocaleString()}</span>
-    </div>` : ""}
+    </div>` : ""}` : ""}
     <div class="total-row">
       <span class="total-label">Total due</span>
       <span class="total-amount">NRS ${total.toLocaleString()}</span>

@@ -280,6 +280,7 @@ async function insertOrderAndSubmitToPathao(
     deliveryFee: number;
     promoCode?: string | null;
     discountAmount?: number;
+    vatAmount?: number;
     total: number;
     customerName: string;
     customerPhone: string;
@@ -305,6 +306,7 @@ async function insertOrderAndSubmitToPathao(
       delivery_fee: args.deliveryFee,
       promo_code: args.promoCode ?? null,
       discount_amount: args.discountAmount ?? 0,
+      vat_amount: args.vatAmount ?? 0,
       total: args.total,
       customer_name: args.customerName,
       customer_phone: args.customerPhone,
@@ -522,6 +524,7 @@ export const createOrder = createServerFn({ method: "POST" })
       deliveryFee: data.deliveryFee,
       promoCode: data.promoCode ?? null,
       discountAmount,
+      vatAmount,
       total,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -574,7 +577,15 @@ export const createManualOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const subtotal = data.unitPrice * data.quantity;
     const skipPathao = data.skipPathao || !data.cityId || !data.zoneId;
-    const total = subtotal + data.deliveryFee;
+
+    const { data: vatSettings } = await supabaseAdmin.from("app_settings").select("key,value").in("key", ["vat_enabled", "vat_percentage"]);
+    const vatMap: Record<string, string> = {};
+    (vatSettings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) vatMap[r.key] = r.value; });
+    const manualVatEnabled = vatMap.vat_enabled === "true";
+    const manualVatPct = manualVatEnabled ? Number(vatMap.vat_percentage ?? "13") : 0;
+    const manualVatAmount = manualVatEnabled ? Math.round(subtotal * (manualVatPct / 100) * 100) / 100 : 0;
+
+    const total = subtotal + manualVatAmount + data.deliveryFee;
 
     if (data.productId && !data.skipStockCheck) {
       const { data: stockOk, error: stockErr } = await supabaseAdmin.rpc("decrement_stock", {
@@ -599,6 +610,7 @@ export const createManualOrder = createServerFn({ method: "POST" })
           quantity: data.quantity,
           unit_price: data.unitPrice,
           delivery_fee: data.deliveryFee,
+          vat_amount: manualVatAmount,
           total,
           customer_name: data.customerName,
           customer_phone: data.customerPhone,
@@ -624,6 +636,7 @@ export const createManualOrder = createServerFn({ method: "POST" })
       quantity: data.quantity,
       unitPrice: data.unitPrice,
       deliveryFee: data.deliveryFee,
+      vatAmount: manualVatAmount,
       total,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -701,7 +714,16 @@ export const createCartOrder = createServerFn({ method: "POST" })
       if (discountPercent === null) throw new Error("That promo code isn't valid, or has expired or been used up.");
       discountAmount = Math.round(subtotal * (Number(discountPercent) / 100) * 100) / 100;
     }
-    const total = subtotal - discountAmount + data.deliveryFee;
+    const cartDiscountedSubtotal = subtotal - discountAmount;
+
+    const { data: cartVatSettings } = await supabaseAdmin.from("app_settings").select("key,value").in("key", ["vat_enabled", "vat_percentage"]);
+    const cartVatMap: Record<string, string> = {};
+    (cartVatSettings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) cartVatMap[r.key] = r.value; });
+    const cartVatEnabled = cartVatMap.vat_enabled === "true";
+    const cartVatPct = cartVatEnabled ? Number(cartVatMap.vat_percentage ?? "13") : 0;
+    const cartVatAmount = cartVatEnabled ? Math.round(cartDiscountedSubtotal * (cartVatPct / 100) * 100) / 100 : 0;
+
+    const total = cartDiscountedSubtotal + cartVatAmount + data.deliveryFee;
 
     const RATE_LIMIT_WINDOW_MIN = 10;
     const RATE_LIMIT_MAX_ORDERS = 3;
@@ -738,14 +760,17 @@ export const createCartOrder = createServerFn({ method: "POST" })
     const groupId = crypto.randomUUID();
     let discountLeft = discountAmount;
     let deliveryLeft = data.deliveryFee;
+    let vatLeft = cartVatAmount;
     const rows = data.items.map((item, idx) => {
       const itemSubtotal = item.unitPrice * item.quantity;
       const isLast = idx === data.items.length - 1;
       const share = subtotal > 0 ? itemSubtotal / subtotal : 0;
       const rowDiscount = isLast ? discountLeft : Math.round(discountAmount * share * 100) / 100;
       const rowDelivery = isLast ? deliveryLeft : Math.round(data.deliveryFee * share * 100) / 100;
+      const rowVat = isLast ? vatLeft : Math.round(cartVatAmount * share * 100) / 100;
       discountLeft -= rowDiscount;
       deliveryLeft -= rowDelivery;
+      vatLeft -= rowVat;
       return {
         product_id: item.productId,
         product_name: item.productName,
@@ -756,7 +781,8 @@ export const createCartOrder = createServerFn({ method: "POST" })
         delivery_fee: rowDelivery,
         promo_code: data.promoCode ?? null,
         discount_amount: rowDiscount,
-        total: Math.round((itemSubtotal - rowDiscount + rowDelivery) * 100) / 100,
+        vat_amount: rowVat,
+        total: Math.round((itemSubtotal - rowDiscount + rowVat + rowDelivery) * 100) / 100,
         customer_name: data.customerName,
         customer_phone: data.customerPhone,
         customer_address: data.customerAddress,
