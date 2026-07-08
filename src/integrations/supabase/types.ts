@@ -153,6 +153,7 @@ export type Database = {
           delivery_fee: number
           discount_amount: number
           vat_amount: number
+          vat_enabled: boolean
           id: string
           order_group_id: string | null
           pathao_consignment_id: string | null
@@ -183,6 +184,7 @@ export type Database = {
           delivery_fee?: number
           discount_amount?: number
           vat_amount?: number
+          vat_enabled?: boolean
           id?: string
           order_group_id?: string | null
           pathao_consignment_id?: string | null
@@ -213,6 +215,7 @@ export type Database = {
           delivery_fee?: number
           discount_amount?: number
           vat_amount?: number
+          vat_enabled?: boolean
           id?: string
           order_group_id?: string | null
           pathao_consignment_id?: string | null

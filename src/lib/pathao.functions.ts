@@ -281,6 +281,7 @@ async function insertOrderAndSubmitToPathao(
     promoCode?: string | null;
     discountAmount?: number;
     vatAmount?: number;
+    vatEnabled?: boolean;
     total: number;
     customerName: string;
     customerPhone: string;
@@ -307,6 +308,7 @@ async function insertOrderAndSubmitToPathao(
       promo_code: args.promoCode ?? null,
       discount_amount: args.discountAmount ?? 0,
       vat_amount: args.vatAmount ?? 0,
+      vat_enabled: args.vatEnabled ?? false,
       total: args.total,
       customer_name: args.customerName,
       customer_phone: args.customerPhone,
@@ -525,6 +527,7 @@ export const createOrder = createServerFn({ method: "POST" })
       promoCode: data.promoCode ?? null,
       discountAmount,
       vatAmount,
+      vatEnabled,
       total,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -611,6 +614,7 @@ export const createManualOrder = createServerFn({ method: "POST" })
           unit_price: data.unitPrice,
           delivery_fee: data.deliveryFee,
           vat_amount: manualVatAmount,
+          vat_enabled: manualVatEnabled,
           total,
           customer_name: data.customerName,
           customer_phone: data.customerPhone,
@@ -637,6 +641,7 @@ export const createManualOrder = createServerFn({ method: "POST" })
       unitPrice: data.unitPrice,
       deliveryFee: data.deliveryFee,
       vatAmount: manualVatAmount,
+      vatEnabled: manualVatEnabled,
       total,
       customerName: data.customerName,
       customerPhone: data.customerPhone,
@@ -782,6 +787,7 @@ export const createCartOrder = createServerFn({ method: "POST" })
         promo_code: data.promoCode ?? null,
         discount_amount: rowDiscount,
         vat_amount: rowVat,
+        vat_enabled: cartVatEnabled,
         total: Math.round((itemSubtotal - rowDiscount + rowVat + rowDelivery) * 100) / 100,
         customer_name: data.customerName,
         customer_phone: data.customerPhone,
