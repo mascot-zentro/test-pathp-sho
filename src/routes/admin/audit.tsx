@@ -1,20 +1,19 @@
 /**
  * Fiscal Year Audit Report
  *
- * Nepali fiscal year runs Shrawan 1 → Ashadh end (≈ mid-July → mid-July).
- * We approximate with Gregorian dates:
- *   FY 2081/82 → 2024-07-17 … 2025-07-16  (Shrawan 1, 2081 BS)
- *   FY 2082/83 → 2025-07-17 … 2026-07-16
- *
- * The exact Gregorian start of Shrawan 1 shifts by ±1 day each year.
- * We use July 17 as a consistent approximation — accurate for audit purposes.
+ * Nepali fiscal year: Shrawan 1 → Ashadh end (exact Gregorian dates per BS calendar).
+ * Shrawan 1 exact dates sourced from NepaliPatro / GoN calendar:
+ *   2079 BS → 2022-07-17   2080 BS → 2023-07-17
+ *   2081 BS → 2024-07-16   2082 BS → 2025-07-17
+ *   2083 BS → 2026-07-17   2084 BS → 2027-07-17
+ *   2085 BS → 2028-07-16   2086 BS → 2029-07-17
  *
  * Data pulled:
- *   orders        → revenue, VAT, discounts, delivery, by source
- *   expenses      → operating costs
- *   ad_spend      → marketing costs
- *   products      → cost_price for COGS
- *   promo_codes   → usage summary
+ *   orders          → revenue, VAT, discounts, delivery, by source
+ *   expenses        → operating costs
+ *   ad_spend        → marketing costs
+ *   products        → cost_price for COGS
+ *   promo_codes     → usage summary
  *   impact_settings → social contribution %
  */
 
@@ -78,38 +77,65 @@ interface PromoCode {
 
 // ─── Nepali fiscal year helpers ───────────────────────────────────────────────
 
-// Shrawan 1 in Gregorian is consistently July 17 (±1 day, acceptable for accounting)
-const SHRAWAN_MONTH = 6; // July (0-indexed)
-const SHRAWAN_DAY = 17;
+// Exact Gregorian date of Shrawan 1 for each BS year.
+// Format: "YYYY-MM-DD" (local date, time treated as midnight).
+const SHRAWAN_1: Record<number, string> = {
+  2079: "2022-07-17",
+  2080: "2023-07-17",
+  2081: "2024-07-16",
+  2082: "2025-07-17",
+  2083: "2026-07-17",
+  2084: "2027-07-17",
+  2085: "2028-07-16",
+  2086: "2029-07-17",
+};
 
-function getFiscalYear(date: Date): number {
-  // Returns the BS fiscal year start (e.g. 2081 for FY 2081/82)
-  const y = date.getFullYear();
-  const m = date.getMonth();
-  const d = date.getDate();
-  // Before Shrawan 17 → still in previous FY
-  if (m < SHRAWAN_MONTH || (m === SHRAWAN_MONTH && d < SHRAWAN_DAY)) {
-    return y - 1 - 56; // convert AD→BS approx (BS = AD + 56 or 57)
+function shrawan1(bsYear: number): Date {
+  const iso = SHRAWAN_1[bsYear];
+  if (iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
   }
-  return y - 56;
+  // Fallback for years outside the table: July 17 ± correction
+  return new Date(bsYear + 56, 6, 17, 0, 0, 0, 0);
 }
 
-function fiscalYearRange(fyStart: number): { start: Date; end: Date } {
-  // fyStart is BS year e.g. 2081
-  const adStart = fyStart + 56;
-  const start = new Date(adStart, SHRAWAN_MONTH, SHRAWAN_DAY, 0, 0, 0, 0);
-  const end = new Date(adStart + 1, SHRAWAN_MONTH, SHRAWAN_DAY - 1, 23, 59, 59, 999);
+function fiscalYearRange(bsYear: number): { start: Date; end: Date } {
+  const start = shrawan1(bsYear);
+  const nextStart = shrawan1(bsYear + 1);
+  const end = new Date(nextStart.getTime() - 1); // 1 ms before next Shrawan 1
   return { start, end };
 }
 
-function inFiscalYear(dateStr: string, fyStart: number): boolean {
+function getFiscalYear(date: Date): number {
+  // Walk known years (and ±2 beyond) to find which FY this date falls in
+  const approxBS = date.getFullYear() - 56;
+  for (const candidate of [approxBS - 1, approxBS, approxBS + 1]) {
+    const { start, end } = fiscalYearRange(candidate);
+    if (date >= start && date <= end) return candidate;
+  }
+  return approxBS;
+}
+
+function inFiscalYear(dateStr: string, bsYear: number): boolean {
   const d = new Date(dateStr);
-  const { start, end } = fiscalYearRange(fyStart);
+  const { start, end } = fiscalYearRange(bsYear);
   return d >= start && d <= end;
 }
 
-function fiscalYearLabel(fyStart: number): string {
-  return `${fyStart}/${String(fyStart + 1).slice(2)} BS`;
+// "आर्थिक वर्ष २०८२/८३" style — returns "2082/83"
+function fiscalYearLabel(bsYear: number): string {
+  return `${bsYear}/${String(bsYear + 1).slice(2)}`;
+}
+
+// Full audit report title e.g. "आर्थिक वर्ष २०८२/८३ को वार्षिक लेखापरीक्षण प्रतिवेदन"
+// In English: "Annual Audit Report — Fiscal Year 2082/83 BS"
+function auditTitle(bsYear: number): string {
+  return `Annual Audit Report — FY ${fiscalYearLabel(bsYear)} BS`;
+}
+
+function currentFiscalYear(): number {
+  return getFiscalYear(new Date());
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -157,7 +183,7 @@ function AuditPage() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [impactPct, setImpactPct] = useState(5);
   const [loading, setLoading] = useState(true);
-  const [selectedFY, setSelectedFY] = useState<number>(0);
+  const [selectedFY, setSelectedFY] = useState<number>(currentFiscalYear());
   const printRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
@@ -191,8 +217,11 @@ function AuditPage() {
     return sorted;
   }, [orders, expenses, adSpends]);
 
+  // If current FY has no data yet, fall back to most recent FY that does
   useEffect(() => {
-    if (availableFYs.length > 0 && selectedFY === 0) setSelectedFY(availableFYs[0]);
+    if (availableFYs.length > 0 && !availableFYs.includes(selectedFY)) {
+      setSelectedFY(availableFYs[0]);
+    }
   }, [availableFYs]);
 
   const productCostMap = useMemo(() => {
@@ -283,7 +312,7 @@ function AuditPage() {
       html2pdf()
         .set({
           margin: [10, 10, 10, 10],
-          filename: `Aavira-Audit-FY${selectedFY}-${selectedFY + 1}.pdf`,
+          filename: `Aavira-Audit-FY${fiscalYearLabel(selectedFY).replace("/", "-")}-BS.pdf`,
           image: { type: "jpeg", quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -312,8 +341,8 @@ function AuditPage() {
       {/* Header — hidden when printing */}
       <div className="print:hidden">
         <AdminPageHeader
-          title="Fiscal Year Audit"
-          description="Auto-generated financial audit report by Nepali fiscal year (Shrawan–Ashadh)."
+          title={auditTitle(selectedFY)}
+          description="Auto-generated audit report per Nepali fiscal year — Shrawan 1 to Ashadh end."
         />
 
         <div className="flex flex-wrap items-center gap-3 mt-4 mb-8">
@@ -323,7 +352,9 @@ function AuditPage() {
             onChange={(e) => setSelectedFY(Number(e.target.value))}
           >
             {availableFYs.map((fy) => (
-              <option key={fy} value={fy}>FY {fiscalYearLabel(fy)}</option>
+              <option key={fy} value={fy}>
+                आर्थिक वर्ष {fiscalYearLabel(fy)} BS{fy === currentFiscalYear() ? " (current)" : ""}
+              </option>
             ))}
           </select>
 
@@ -351,7 +382,7 @@ function AuditPage() {
           <img src="/Aavira.png" alt="The Aavira" className="w-20 h-20 object-contain mx-auto mb-3" />
           <h1 className="text-2xl font-bold tracking-tight">The Aavira</h1>
           <p className="text-sm text-muted-foreground mt-1">Annual Financial Audit Report</p>
-          <p className="text-lg font-semibold mt-2">Fiscal Year {fiscalYearLabel(selectedFY)}</p>
+          <p className="text-lg font-semibold mt-2">आर्थिक वर्ष {fiscalYearLabel(selectedFY)} BS</p>
           <p className="text-xs text-muted-foreground mt-1">
             {start.toLocaleDateString("en-NP", { day: "numeric", month: "long", year: "numeric" })} —{" "}
             {end.toLocaleDateString("en-NP", { day: "numeric", month: "long", year: "numeric" })}
