@@ -16,6 +16,7 @@ import {
   Tag,
   Users,
   LineChart,
+  ScrollText,
   ChevronRight,
   AlertTriangle,
   X,
@@ -63,6 +64,7 @@ const NAV_GROUPS = [
       { to: "/admin/sales-report", label: "Sales report", icon: FileBarChart },
       { to: "/admin/profit-loss", label: "Profit & Loss", icon: LineChart },
       { to: "/admin/ad-spending", label: "Ad spending", icon: Megaphone },
+      { to: "/admin/audit", label: "Fiscal Audit", icon: ScrollText },
     ],
   },
   {
