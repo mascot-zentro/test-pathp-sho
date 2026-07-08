@@ -69,6 +69,7 @@ interface Product {
   name: string;
   cost_price: number | null;
   stock_quantity: number | null;
+  created_at: string;
 }
 
 interface PromoCode {
@@ -204,7 +205,7 @@ function AuditPage() {
       db.from("orders").select("id,created_at,total,delivery_fee,discount_amount,vat_amount,status,pathao_status,product_id,product_name,unit_price,quantity,source,promo_code"),
       db.from("expenses").select("*"),
       db.from("ad_spend").select("*"),
-      db.from("products").select("id,name,cost_price,stock_quantity"),
+      db.from("products").select("id,name,cost_price,stock_quantity,created_at"),
       db.from("promo_codes").select("code,discount_percent,used_count"),
       db.from("impact_settings").select("contribution_percentage").limit(1).single(),
       db.from("product_colors").select("product_id,stock_quantity"),
@@ -425,6 +426,7 @@ function AuditPage() {
     table.data tr.indent td:first-child { padding-left: 22px; font-style: italic; color: #333; }
     table.data tr.highlight { background: #efefef; }
     table.data tr.highlight td { font-weight: bold; border-top: 1px solid #999; border-bottom: 1px solid #999; }
+    table.data td[colspan] { font-weight: bold; }
     table.data tr.spacer td { padding: 2px; border: none; background: transparent; }
     td.note { font-size: 9pt; color: #666; font-style: italic; background: #fafafa; }
 
@@ -514,6 +516,37 @@ function AuditPage() {
       <tr class="bold"><td>Cost of Goods Sold</td><td class="val">${fmt(cogs)}</td></tr>
       <tr class="spacer"><td colspan="2"></td></tr>
       <tr class="highlight"><td>Gross Profit</td><td class="val">${fmt(grossProfit)}</td></tr>
+    </table>
+  </div>
+
+  <!-- 2a. Inventory Schedule -->
+  <div class="section">
+    <div class="section-head">2a. Inventory Schedule (Closing Stock Detail)</div>
+    <table class="data">
+      <tr style="background:#f0f0f0;">
+        <td style="font-weight:bold;font-size:9pt;">Product</td>
+        <td style="font-weight:bold;font-size:9pt;">Date Added</td>
+        <td class="val" style="font-weight:bold;font-size:9pt;">Cost/Unit</td>
+        <td class="val" style="font-weight:bold;font-size:9pt;">Stock (units)</td>
+        <td class="val" style="font-weight:bold;font-size:9pt;">Stock Value</td>
+      </tr>
+      ${products.map((p) => {
+        const qty = p.id in colorStockByProduct ? colorStockByProduct[p.id] : (p.stock_quantity ?? 0);
+        const cost = p.cost_price ?? 0;
+        const val = qty * cost;
+        const addedBS = adToBS(new Date(p.created_at));
+        return `<tr>
+          <td style="font-size:9.5pt;">${p.name}</td>
+          <td style="font-size:9pt;color:#555;">${addedBS}</td>
+          <td class="val" style="font-size:9.5pt;">${cost > 0 ? fmt(cost) : "—"}</td>
+          <td class="val" style="font-size:9.5pt;">${qty}</td>
+          <td class="val" style="font-size:9.5pt;">${cost > 0 ? fmt(val) : "—"}</td>
+        </tr>`;
+      }).join("")}
+      <tr class="highlight">
+        <td colspan="4">Total Closing Stock Value</td>
+        <td class="val">${fmt(closingStock)}</td>
+      </tr>
     </table>
   </div>
 
