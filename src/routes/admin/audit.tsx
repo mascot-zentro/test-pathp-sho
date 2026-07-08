@@ -305,24 +305,24 @@ function AuditPage() {
   };
 
   const handlePDF = async () => {
+    if (!printRef.current) return;
+    const toastId = toast.loading("Generating PDF…");
     try {
       const { default: html2pdf } = await import("html2pdf.js");
-      if (!printRef.current) return;
-      toast.info("Generating PDF…");
-      html2pdf()
+      await html2pdf()
         .set({
           margin: [10, 10, 10, 10],
           filename: `Aavira-Audit-FY${fiscalYearLabel(selectedFY).replace("/", "-")}-BS.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          image: { type: "jpeg", quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
         .from(printRef.current)
-        .save()
-        .then(() => toast.success("PDF saved."))
-        .catch(() => toast.error("PDF generation failed."));
-    } catch {
-      toast.error("html2pdf.js not installed. Run: npm install html2pdf.js");
+        .save();
+      toast.success("PDF saved.", { id: toastId });
+    } catch (err) {
+      console.error("PDF error:", err);
+      toast.error("PDF generation failed — check console for details.", { id: toastId });
     }
   };
 
