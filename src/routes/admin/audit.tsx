@@ -320,108 +320,204 @@ function AuditPage() {
       row("Total VAT collected from customers", fmt(totalVat), { bold: true }),
     ].join("") + `<tr><td colspan="2" class="note">VAT applied to product subtotal only. Delivery fees are VAT-exempt.</td></tr>`) : "";
 
-    const sectionNum = (n: number) => totalVat > 0 ? n : n - 1;
+    const dateStr = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <title>${filename}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Georgia, 'Times New Roman', serif; font-size: 12px; color: #111; background: #fff; padding: 20mm 18mm; }
-    .cover { text-align: center; margin-bottom: 28px; }
-.cover h1 { font-size: 20px; font-weight: bold; }
-    .cover .sub { font-size: 11px; color: #555; margin-top: 3px; }
-    .cover .fy { font-size: 15px; font-weight: bold; margin-top: 8px; }
-    .cover .dates { font-size: 10px; color: #777; margin-top: 4px; }
-    hr { border: none; border-top: 1px solid #ccc; margin: 20px 0; }
-    .section { margin-bottom: 20px; }
-    .section-title { font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; color: #666; border-bottom: 1px solid #ddd; padding-bottom: 3px; margin-bottom: 6px; }
-    table { width: 100%; border-collapse: collapse; }
-    tr td { padding: 4px 2px; border-bottom: 1px dashed #e0e0e0; font-size: 11.5px; vertical-align: top; }
-    tr:last-child td { border-bottom: none; }
-    td.val { text-align: right; white-space: nowrap; padding-left: 12px; }
-    tr.bold td { font-weight: bold; }
-    tr.indent td:first-child { padding-left: 14px; color: #444; }
-    tr.highlight { background: #f7f7f7; }
-    tr.highlight td { font-weight: bold; }
-    td.note { font-size: 10px; color: #777; padding-top: 4px; font-style: italic; }
-    .footer { border-top: 1px solid #ccc; margin-top: 28px; padding-top: 10px; text-align: center; font-size: 10px; color: #888; }
-    @page { margin: 15mm; }
-    @media print { body { padding: 0; } }
+    body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #000; background: #fff; }
+
+    /* ── Page layout ── */
+    .page { padding: 18mm 20mm 16mm; min-height: 297mm; position: relative; }
+    .page-break { page-break-before: always; }
+
+    /* ── Cover ── */
+    .cover { text-align: center; padding: 40mm 0 0; }
+    .cover .jurisdiction { font-size: 9pt; letter-spacing: 0.2em; text-transform: uppercase; color: #555; margin-bottom: 6px; }
+    .cover .entity-name { font-size: 28pt; font-weight: bold; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 2px; }
+    .cover .entity-type { font-size: 10pt; color: #444; margin-bottom: 32px; }
+    .cover .doc-title-box { border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 10px 0; margin-bottom: 28px; }
+    .cover .doc-title { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em; }
+    .cover .doc-subtitle { font-size: 10pt; color: #444; margin-top: 4px; }
+    .cover .fy-label { font-size: 16pt; font-weight: bold; margin-bottom: 6px; }
+    .cover .period { font-size: 10pt; color: #333; margin-bottom: 40px; }
+    .cover .meta { width: 260px; margin: 0 auto; text-align: left; border: 1px solid #999; }
+    .cover .meta tr td { padding: 5px 10px; font-size: 9.5pt; border-bottom: 1px solid #ddd; }
+    .cover .meta tr:last-child td { border-bottom: none; }
+    .cover .meta td:first-child { font-weight: bold; color: #444; width: 110px; background: #f5f5f5; }
+    .cover .confidential { margin-top: 48px; font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: #888; border: 1px solid #ccc; display: inline-block; padding: 4px 14px; }
+
+    /* ── Report header (non-cover pages) ── */
+    .report-header { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .report-header .rh-left .rh-entity { font-size: 13pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; }
+    .report-header .rh-left .rh-title { font-size: 9pt; color: #555; }
+    .report-header .rh-right { text-align: right; font-size: 9pt; color: #555; line-height: 1.6; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 18px; page-break-inside: avoid; }
+    .section-head { background: #000; color: #fff; padding: 4px 8px; font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.07em; }
+    table.data { width: 100%; border-collapse: collapse; border: 1px solid #aaa; border-top: none; }
+    table.data tr td { padding: 4px 8px; font-size: 10pt; border-bottom: 1px solid #ddd; vertical-align: top; }
+    table.data tr:last-child td { border-bottom: none; }
+    table.data td.val { text-align: right; white-space: nowrap; min-width: 130px; font-variant-numeric: tabular-nums; }
+    table.data tr.bold td { font-weight: bold; }
+    table.data tr.indent td:first-child { padding-left: 22px; font-style: italic; color: #333; }
+    table.data tr.highlight { background: #efefef; }
+    table.data tr.highlight td { font-weight: bold; border-top: 1px solid #999; border-bottom: 1px solid #999; }
+    table.data tr.spacer td { padding: 2px; border: none; background: transparent; }
+    td.note { font-size: 9pt; color: #666; font-style: italic; background: #fafafa; }
+
+    /* ── Signature ── */
+    .sig-section { margin-top: 32px; }
+    .sig-title { font-size: 9pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #000; padding-bottom: 3px; margin-bottom: 20px; }
+    .sig-grid { display: flex; gap: 40px; }
+    .sig-box { flex: 1; }
+    .sig-line { border-bottom: 1px solid #000; margin-bottom: 5px; height: 28px; }
+    .sig-name { font-size: 9.5pt; font-weight: bold; }
+    .sig-role { font-size: 8.5pt; color: #555; }
+    .sig-date { font-size: 8.5pt; color: #555; margin-top: 2px; }
+
+    /* ── Footer ── */
+    .page-footer { margin-top: 24px; border-top: 1px solid #999; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8pt; color: #777; }
+
+    @page { size: A4; margin: 0; }
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
 <body>
+
+<!-- ═══════════════════════ COVER PAGE ═══════════════════════ -->
+<div class="page" style="display:flex;flex-direction:column;align-items:center;">
   <div class="cover">
-    <h1>The Aavira</h1>
-    <div class="sub">Annual Financial Audit Report</div>
-    <div class="fy">आर्थिक वर्ष ${fy} BS</div>
-    <div class="dates">${start.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })} — ${end.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
-    <div class="dates">Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
+    <div class="jurisdiction">Nepal &mdash; Private Business Entity</div>
+    <div class="entity-name">The Aavira</div>
+    <div class="entity-type">Retail &amp; E-Commerce</div>
+
+    <div class="doc-title-box">
+      <div class="doc-title">Annual Internal Financial Audit Report</div>
+      <div class="doc-subtitle">Statement of Accounts &amp; Financial Review</div>
+    </div>
+
+    <div class="fy-label">Fiscal Year ${fy} BS</div>
+    <div class="period">${dateStr(start)} &mdash; ${dateStr(end)}</div>
+
+    <table class="meta">
+      <tr><td>Report No.</td><td>AUD-${fy.replace("/", "")}-001</td></tr>
+      <tr><td>Prepared by</td><td>The Aavira Management System</td></tr>
+      <tr><td>Date Issued</td><td>${dateStr(new Date())}</td></tr>
+      <tr><td>Currency</td><td>Nepalese Rupee (NRS)</td></tr>
+      <tr><td>Fiscal Standard</td><td>Nepali Calendar (BS)</td></tr>
+    </table>
+
+    <div class="confidential">Confidential &mdash; Internal Use Only</div>
   </div>
-  <hr/>
+</div>
 
-  ${section("1. Revenue Summary", [
-    row("Gross revenue (all orders)", fmt(grossRevenue)),
-    row("— Delivery fees collected", fmt(totalDelivery), { indent: true }),
-    row("— VAT collected", fmt(totalVat), { indent: true }),
-    row("— Discounts given", fmt(totalDiscounts), { indent: true }),
-    row("Net product revenue", fmt(netProductRevenue), { bold: true, highlight: true }),
-    row("Total orders", activeOrders.length.toString()),
-    row("Cancelled / returned orders", cancelledOrders.length.toString()),
-    row("Total units sold", activeOrders.reduce((s, o) => s + Number(o.quantity), 0).toString()),
-  ].join(""))}
+<!-- ═══════════════════════ REPORT PAGES ═══════════════════════ -->
+<div class="page page-break">
 
-  ${section("2. Cost of Goods Sold (COGS)", [
-    row("Inventory cost of items sold", fmt(cogs)),
-    row("Gross profit", fmt(grossProfit), { bold: true, highlight: true }),
-    row("Gross margin", pct(grossProfit, netProductRevenue)),
-  ].join(""))}
-
-  ${section("3. Operating Expenses", [
-    ...(expenseByCategory.length === 0
-      ? [`<tr><td colspan="2" class="note">No expenses recorded for this period.</td></tr>`]
-      : expenseByCategory.map(([cat, amt]) => row(cat, fmt(amt), { indent: true }))),
-    row("Total operating expenses", fmt(opExpenses), { bold: true }),
-  ].join(""))}
-
-  ${section("4. Marketing / Ad Spend", [
-    row("Total ad spend", fmt(adExpenses), { bold: true }),
-  ].join(""))}
-
-  ${section(`5. Social Contribution (${impactPct}% of operating profit)`, [
-    row("Calculated contribution", fmt(Math.max(0, socialContrib)), { bold: true }),
-  ].join(""))}
-
-  ${section("6. Profit Summary", [
-    row("Net product revenue", fmt(netProductRevenue)),
-    row("Total expenses (COGS + ops + ads + social)", fmt(totalExpenses)),
-    row("Net profit / (loss)", fmt(netProfit), { bold: true, highlight: true }),
-    row("Net margin", pct(netProfit, netProductRevenue)),
-  ].join(""))}
-
-  ${vatSection}
-
-  ${section(`${sectionNum(8)}. Orders by Sales Channel`, ordersBySource.map(([src, { count, revenue }]) =>
-    row(src.charAt(0).toUpperCase() + src.slice(1), `${count} orders · ${fmt(revenue)}`, { indent: true })
-  ).join(""))}
-
-  ${section(`${sectionNum(9)}. Top Products by Revenue`, topProducts.map((p, i) =>
-    row(`${i + 1}. ${p.name}`, `${p.units} units · ${fmt(p.revenue)}`, { indent: true })
-  ).join(""))}
-
-  ${promoUsageInFY.length > 0 ? section(`${sectionNum(10)}. Promo Code Usage`, promoUsageInFY.map(([code, count]) => {
-    const info = promoCodes.find((p) => p.code === code);
-    return row(`${code}${info ? ` (${info.discount_percent}% off)` : ""}`, `${count} use${count !== 1 ? "s" : ""} this FY`, { indent: true });
-  }).join("")) : ""}
-
-  <div class="footer">
-    <p>This report is auto-generated from The Aavira's order management system.</p>
-    <p>All figures in Nepalese Rupees (NRS). Fiscal year follows the Nepali calendar (Shrawan 1 – Ashadh end).</p>
-    <p style="margin-top:4px">Confidential — for internal use only.</p>
+  <div class="report-header">
+    <div class="rh-left">
+      <div class="rh-entity">The Aavira</div>
+      <div class="rh-title">Annual Financial Audit &mdash; FY ${fy} BS</div>
+    </div>
+    <div class="rh-right">
+      Report No.: AUD-${fy.replace("/", "")}-001<br/>
+      Issued: ${dateStr(new Date())}<br/>
+      Period: ${dateStr(start)} &mdash; ${dateStr(end)}
+    </div>
   </div>
-  ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 400); });<\/script>` : ""}
+
+  <!-- 1. Income Statement -->
+  <div class="section">
+    <div class="section-head">1. Income Statement</div>
+    <table class="data">
+      <tr class="bold"><td>Gross Revenue</td><td class="val">${fmt(grossRevenue)}</td></tr>
+      <tr class="indent"><td>Less: Delivery fees</td><td class="val">(${fmt(totalDelivery)})</td></tr>
+      <tr class="indent"><td>Less: Discounts allowed</td><td class="val">(${fmt(totalDiscounts)})</td></tr>
+      <tr class="spacer"><td colspan="2"></td></tr>
+      <tr class="highlight"><td>Net Revenue</td><td class="val">${fmt(netProductRevenue)}</td></tr>
+    </table>
+  </div>
+
+  <!-- 2. Cost of Goods Sold -->
+  <div class="section">
+    <div class="section-head">2. Cost of Goods Sold</div>
+    <table class="data">
+      <tr><td>Opening inventory cost of goods sold</td><td class="val">${fmt(cogs)}</td></tr>
+      <tr class="spacer"><td colspan="2"></td></tr>
+      <tr class="highlight"><td>Gross Profit</td><td class="val">${fmt(grossProfit)}</td></tr>
+    </table>
+  </div>
+
+  <!-- 3. Operating Expenditure -->
+  <div class="section">
+    <div class="section-head">3. Operating Expenditure</div>
+    <table class="data">
+      ${expenseByCategory.length === 0
+        ? `<tr><td colspan="2" class="note">Nil — no operating expenses recorded for this period.</td></tr>`
+        : expenseByCategory.map(([cat, amt]) => `<tr><td>${cat}</td><td class="val">${fmt(amt)}</td></tr>`).join("")
+      }
+      <tr class="indent"><td>Marketing &amp; advertising</td><td class="val">${fmt(adExpenses)}</td></tr>
+      <tr class="spacer"><td colspan="2"></td></tr>
+      <tr class="highlight"><td>Total Expenditure</td><td class="val">${fmt(opExpenses + adExpenses)}</td></tr>
+    </table>
+  </div>
+
+  <!-- 4. Profit & Loss -->
+  <div class="section">
+    <div class="section-head">4. Profit &amp; Loss Account</div>
+    <table class="data">
+      <tr><td>Gross Profit</td><td class="val">${fmt(grossProfit)}</td></tr>
+      <tr class="indent"><td>Less: Total Operating Expenditure</td><td class="val">(${fmt(opExpenses + adExpenses)})</td></tr>
+      <tr class="spacer"><td colspan="2"></td></tr>
+      <tr class="highlight"><td>Net Profit / (Net Loss)</td><td class="val">${fmt(netProfit)}</td></tr>
+    </table>
+  </div>
+
+  ${totalVat > 0 ? `
+  <!-- 5. VAT Account -->
+  <div class="section">
+    <div class="section-head">5. Value Added Tax (VAT) Account</div>
+    <table class="data">
+      <tr><td>VAT collected from customers during the period</td><td class="val">${fmt(totalVat)}</td></tr>
+      <tr><td colspan="2" class="note">VAT is levied on product value only. Delivery charges are exempt. Full amount is payable to the Inland Revenue Department, Government of Nepal.</td></tr>
+    </table>
+  </div>` : ""}
+
+  <!-- Signature Block -->
+  <div class="sig-section">
+    <div class="sig-title">Declaration &amp; Authorisation</div>
+    <p style="font-size:9.5pt;margin-bottom:18px;color:#333;">
+      We, the undersigned, confirm that the financial statements and figures contained in this report are, to the best of our knowledge, accurate and complete for the fiscal year ending ${dateStr(end)}.
+    </p>
+    <div class="sig-grid">
+      <div class="sig-box">
+        <div class="sig-line"></div>
+        <div class="sig-name">Authorised Signatory</div>
+        <div class="sig-role">Business Owner / Director</div>
+        <div class="sig-date">Date: ___________________</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line"></div>
+        <div class="sig-name">Prepared By</div>
+        <div class="sig-role">The Aavira Management System</div>
+        <div class="sig-date">Date: ${dateStr(new Date())}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div>The Aavira &mdash; Annual Audit Report FY ${fy} BS &mdash; CONFIDENTIAL</div>
+    <div>All figures in NRS &bull; Nepali Fiscal Year (Shrawan 1 &ndash; Ashadh end)</div>
+  </div>
+</div>
+
+${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(function(){ window.print(); }, 500); });<\/script>` : ""}
 </body>
 </html>`;
   };
