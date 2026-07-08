@@ -110,7 +110,7 @@ function slipCard(group: OrderGroup, storeName: string, compact = false, phone =
 
   return `<div class="slip${compact ? " compact" : ""}">
     <div class="slip-header">
-      <img class="logo" src="/Aavira.png" alt="${storeName}" />
+      <img class="logo" src="/Aavira-logo.png" alt="${storeName}" />
       <div class="slip-title">ORDER CONFIRMATION</div>
     </div>
 
@@ -187,7 +187,7 @@ const SLIP_STYLES = `
   body{font-family:'Georgia',serif;font-size:13px;color:#1a1a1a;background:#f5f5f0}
   .slip{background:#fff;border:1px solid #e8e3d8;border-radius:4px;overflow:hidden;margin:24px auto;max-width:540px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
   .slip-header{text-align:center;padding:24px 24px 16px;background:#fff}
-  .logo{width:90px;height:90px;object-fit:contain;margin-bottom:8px}
+  .logo{width:180px;height:auto;object-fit:contain;margin-bottom:8px}
   .slip-title{font-size:9px;font-weight:400;letter-spacing:0.3em;color:#8a7d65;text-transform:uppercase}
   .divider{height:1px;background:#e8e3d8;margin:0 24px}
   .meta-row{display:flex;justify-content:space-between;padding:14px 24px}
@@ -223,7 +223,7 @@ const SLIP_STYLES = `
 
 const SLIP_STYLES_COMPACT = `
   .slip.compact .slip-header{padding:10px 10px 8px}
-  .slip.compact .logo{width:52px;height:52px;margin-bottom:5px}
+  .slip.compact .logo{width:110px;height:auto;margin-bottom:5px}
   .slip.compact .slip-title{font-size:6px;letter-spacing:0.2em}
   .slip.compact .divider{margin:0 10px}
   .slip.compact .meta-row{padding:7px 10px}

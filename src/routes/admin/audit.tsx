@@ -321,6 +321,7 @@ function AuditPage() {
     ].join("") + `<tr><td colspan="2" class="note">VAT applied to product subtotal only. Delivery fees are VAT-exempt.</td></tr>`) : "";
 
     const dateStr = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const logoUrl = `${window.location.origin}/Aavira-logo.png`;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -349,6 +350,7 @@ function AuditPage() {
     .cover .meta tr td { padding: 5px 10px; font-size: 9.5pt; border-bottom: 1px solid #ddd; }
     .cover .meta tr:last-child td { border-bottom: none; }
     .cover .meta td:first-child { font-weight: bold; color: #444; width: 110px; background: #f5f5f5; }
+    .cover img { max-width: 220px; height: auto; display: block; margin: 0 auto 18px; object-fit: contain; object-position: center top; }
     .cover .confidential { margin-top: 48px; font-size: 9pt; letter-spacing: 0.15em; text-transform: uppercase; color: #888; border: 1px solid #ccc; display: inline-block; padding: 4px 14px; }
 
     /* ── Report header (non-cover pages) ── */
@@ -393,8 +395,8 @@ function AuditPage() {
 <!-- ═══════════════════════ COVER PAGE ═══════════════════════ -->
 <div class="page" style="display:flex;flex-direction:column;align-items:center;">
   <div class="cover">
+    <img src="${logoUrl}" alt="Aavira"/>
     <div class="jurisdiction">Nepal &mdash; Private Business Entity</div>
-    <div class="entity-name">The Aavira</div>
     <div class="entity-type">Retail &amp; E-Commerce</div>
 
     <div class="doc-title-box">
@@ -499,14 +501,14 @@ function AuditPage() {
       <div class="sig-box">
         <div class="sig-line"></div>
         <div class="sig-name">Authorised Signatory</div>
-        <div class="sig-role">Business Owner / Director</div>
+        <div class="sig-role">Business Owner / Director, The Aavira</div>
         <div class="sig-date">Date: ___________________</div>
       </div>
       <div class="sig-box">
         <div class="sig-line"></div>
-        <div class="sig-name">Prepared By</div>
-        <div class="sig-role">The Aavira Management System</div>
-        <div class="sig-date">Date: ${dateStr(new Date())}</div>
+        <div class="sig-name">Accountant / Auditor</div>
+        <div class="sig-role">Name: ___________________</div>
+        <div class="sig-date">Date: ___________________</div>
       </div>
     </div>
   </div>
