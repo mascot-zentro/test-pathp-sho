@@ -645,6 +645,207 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
   const handlePrint = () => openPrintWindow(false);
   const handlePDF = () => openPrintWindow(true);
 
+  const buildPLHTML = (): string => {
+    const fy = fiscalYearLabel(selectedFY);
+    const { start, end } = fiscalYearRange(selectedFY);
+    const adToBS = (d: Date): string => {
+      const adStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const bs = toBS(adStr);
+      const ndStr = `${bs.year}-${String(bs.month + 1).padStart(2, "0")}-${String(bs.date).padStart(2, "0")}`;
+      return new NepaliDate(ndStr).format("MMMM D, YYYY", "np");
+    };
+    const bsStart = adToBS(start);
+    const bsEnd = adToBS(end);
+    const dateStr = (d: Date) => d.toLocaleDateString("en-NP", { day: "2-digit", month: "long", year: "numeric" });
+
+    const n = (v: number) => Math.round(v);
+    const fmt  = (v: number) => v < 0
+      ? `<span style="color:#c00;">(${Math.abs(n(v)).toLocaleString()})</span>`
+      : n(v).toLocaleString();
+    const pct  = (num: number, den: number) => den === 0 ? "—" : `${((num / den) * 100).toFixed(1)}%`;
+
+    // Classify operating expenses: separate selling (marketing/packaging/shipping)
+    // from general & admin (everything else) for a proper multi-step P&L
+    const sellingCats = ["marketing", "packaging", "shipping"];
+    let sellingExp = adExpenses; // ad spend always goes to selling
+    let gaExp = 0;
+    expenseByCategory.forEach(([cat, amt]) => {
+      if (sellingCats.some((s) => cat.toLowerCase().includes(s))) sellingExp += amt;
+      else gaExp += amt;
+    });
+    const totalOpEx = sellingExp + gaExp;
+
+    // EBIT = Gross Profit − Operating Expenses (no interest/tax for sole trader)
+    const ebit = grossProfit - totalOpEx;
+    // D&A: not tracked separately — disclose as nil
+    const depreciation = 0;
+    const ebitda = ebit + depreciation;
+    // Interest: no debt assumed
+    const interest = 0;
+    // EBT = EBIT − Interest
+    const ebt = ebit - interest;
+    // Nepal income tax: 25% flat on net profit for business (simplified disclosure)
+    const taxRate = 0.25;
+    const taxProvision = Math.max(0, Math.round(ebt * taxRate));
+    const profitAfterTax = ebt - taxProvision;
+    // Social contribution (already in netProfit but show explicitly)
+    const sc = Math.max(0, socialContrib);
+
+    const R = (label: string, value: string, note = "", indent = false, bold = false, bg = "") =>
+      `<tr style="background:${bg};">
+        <td style="padding:5px 8px 5px ${indent ? "28px" : "8px"};border-bottom:1px solid #eee;${bold ? "font-weight:bold;" : ""}font-size:10pt;">
+          ${label}${note ? `<span style="font-size:7.5pt;color:#888;font-style:italic;margin-left:6px;">${note}</span>` : ""}
+        </td>
+        <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-variant-numeric:tabular-nums;${bold ? "font-weight:bold;" : ""}font-size:10pt;">${value}</td>
+      </tr>`;
+    const KPI = (label: string, value: string, sub = "") =>
+      `<div style="flex:1;border:1px solid #ddd;border-radius:6px;padding:10px 14px;min-width:100px;">
+        <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:0.1em;color:#888;margin-bottom:3px;">${label}</div>
+        <div style="font-size:13pt;font-weight:bold;">${value}</div>
+        ${sub ? `<div style="font-size:8pt;color:#888;margin-top:2px;">${sub}</div>` : ""}
+      </div>`;
+    const HR = (thick = false) => `<tr><td colspan="2" style="padding:0;"><div style="border-top:${thick ? "2px solid #000" : "1px solid #ccc"};margin:4px 0;"></div></td></tr>`;
+    const SP = `<tr><td colspan="2" style="padding:3px 0;"></td></tr>`;
+    const HEAD = (label: string) =>
+      `<tr><td colspan="2" style="padding:10px 8px 3px;font-size:7.5pt;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:#555;border-bottom:2px solid #000;">${label}</td></tr>`;
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<title>Aavira — Statement of Profit and Loss FY ${fy} BS</title>
+<style>
+  @page { size: A4 portrait; margin: 18mm 20mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #111; background: #fff; margin: 0; line-height: 1.4; }
+  table { width: 100%; border-collapse: collapse; }
+  .kpi-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+  .footer { margin-top: 28px; border-top: 1px solid #bbb; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #888; }
+  .sig-grid { display: flex; gap: 48px; margin-top: 36px; }
+  .sig-box { flex: 1; }
+  .sig-line { border-bottom: 1px solid #000; height: 26px; margin-bottom: 4px; }
+  .sig-name { font-size: 9pt; font-weight: bold; }
+  .sig-role { font-size: 8pt; color: #555; margin-top: 1px; }
+  .notes { font-size: 8pt; color: #555; margin-top: 14px; border-top: 1px solid #eee; padding-top: 8px; }
+  .notes p { margin: 3px 0; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>
+
+<!-- Header -->
+<table style="margin-bottom:6px;">
+  <tr>
+    <td style="vertical-align:top;">
+      <div style="font-size:15pt;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;">The Aavira</div>
+      <div style="font-size:9pt;color:#555;margin-top:1px;">Fashion Retail &mdash; Sole Proprietorship &mdash; Nepal</div>
+    </td>
+    <td style="text-align:right;vertical-align:top;font-size:8.5pt;color:#555;line-height:1.6;">
+      <strong style="font-size:10pt;color:#000;">Statement of Profit &amp; Loss</strong><br/>
+      Fiscal Year ${fy} BS<br/>
+      ${bsStart} &mdash; ${bsEnd}<br/>
+      (${dateStr(start)} &mdash; ${dateStr(end)})
+    </td>
+  </tr>
+</table>
+<div style="border-top:3px solid #000;border-bottom:1px solid #000;padding:2px 0;margin-bottom:10px;"></div>
+
+<!-- KPI Summary Bar -->
+<div class="kpi-row">
+  ${KPI("Net Revenue", n(netProductRevenue).toLocaleString(), "NRS")}
+  ${KPI("Gross Profit", n(grossProfit).toLocaleString(), `Margin: ${pct(grossProfit, netProductRevenue)}`)}
+  ${KPI("EBITDA", n(ebitda).toLocaleString(), `Margin: ${pct(ebitda, netProductRevenue)}`)}
+  ${KPI("EBIT", n(ebit).toLocaleString(), `Margin: ${pct(ebit, netProductRevenue)}`)}
+  ${KPI("Net Profit", n(profitAfterTax).toLocaleString(), `Margin: ${pct(profitAfterTax, netProductRevenue)}`)}
+</div>
+
+<!-- P&L Table -->
+<table>
+  ${HEAD("I. Revenue")}
+  ${R("Gross Revenue from Operations", n(grossRevenue).toLocaleString(), "sales + delivery + VAT collected")}
+  ${R("Less: Delivery charges (pass-through)", `(${n(totalDelivery).toLocaleString()})`, "", true)}
+  ${R("Less: Discounts &amp; promotional allowances", `(${n(totalDiscounts).toLocaleString()})`, "", true)}
+  ${totalVat > 0 ? R("Less: VAT collected (payable to IRD)", `(${n(totalVat).toLocaleString()})`, "excluded from income", true) : ""}
+  ${HR(true)}
+  ${R("Net Revenue", n(netProductRevenue).toLocaleString(), "", false, true, "#f5f5f5")}
+
+  ${SP}
+  ${HEAD("II. Cost of Goods Sold")}
+  ${R("Opening Stock (at cost)", n(openingStock).toLocaleString())}
+  ${R("Less: Closing Stock (at cost)", `(${n(closingStock).toLocaleString()})`, "refer Schedule 2a", true)}
+  ${HR(true)}
+  ${R("Cost of Goods Sold", n(cogs).toLocaleString(), "", false, true, "#f5f5f5")}
+
+  ${SP}
+  ${HR(true)}
+  ${R("Gross Profit", fmt(grossProfit), `Margin: ${pct(grossProfit, netProductRevenue)}`, false, true, "#f0f0f0")}
+  ${HR(true)}
+
+  ${SP}
+  ${HEAD("III. Operating Expenses")}
+  ${R("Selling &amp; Distribution Expenses", "")}
+  ${R("— Marketing &amp; Advertising", n(adExpenses).toLocaleString(), "", true)}
+  ${expenseByCategory.filter(([cat]) => sellingCats.some((s) => cat.toLowerCase().includes(s))).map(([cat, amt]) => R(`— ${cat}`, n(amt).toLocaleString(), "", true)).join("")}
+  ${R("General &amp; Administrative Expenses", "")}
+  ${expenseByCategory.filter(([cat]) => !sellingCats.some((s) => cat.toLowerCase().includes(s))).map(([cat, amt]) => R(`— ${cat}`, n(amt).toLocaleString(), "", true)).join("")}
+  ${R("Depreciation &amp; Amortisation", "—", "no fixed assets recorded", true)}
+  ${HR(true)}
+  ${R("Total Operating Expenses", n(totalOpEx).toLocaleString(), "", false, true, "#f5f5f5")}
+
+  ${SP}
+  ${HR(true)}
+  ${R("EBITDA", fmt(ebitda), `Earnings before interest, tax, D&amp;A &mdash; margin ${pct(ebitda, netProductRevenue)}`, false, true, "#e8f0e8")}
+  ${R("Less: Depreciation &amp; Amortisation", "—", "", true)}
+  ${HR()}
+  ${R("EBIT", fmt(ebit), `Earnings before interest &amp; tax &mdash; margin ${pct(ebit, netProductRevenue)}`, false, true, "#e8f0e8")}
+  ${R("Less: Finance Costs / Interest", "—", "no external debt", true)}
+  ${HR()}
+  ${R("EBT (Profit Before Tax)", fmt(ebt), `Earnings before tax`, false, true, "#f5f5f5")}
+  ${R("Less: Income Tax Provision (25%)", taxProvision > 0 ? `(${n(taxProvision).toLocaleString()})` : "—", "estimated; subject to IRD assessment", true)}
+  ${HR(true)}
+  ${R(profitAfterTax >= 0 ? "Net Profit After Tax" : "Net Loss After Tax", fmt(profitAfterTax), `Margin: ${pct(profitAfterTax, netProductRevenue)}`, false, true, "#000")}
+  ${HR(true)}
+  ${sc > 0 ? `${SP}${R("Social Impact Contribution (${impactPct}%)", `(${n(sc).toLocaleString()})`, "transferred to social fund", true)}${HR()}${R("Retained Profit", fmt(profitAfterTax - sc), "", false, true, "#f5f5f5")}` : ""}
+</table>
+
+<!-- Notes -->
+<div class="notes">
+  <p><strong>Notes to the Statement:</strong></p>
+  <p>1. This statement is prepared on a cash/accrual basis for the Nepali fiscal year (Shrawan 1 &ndash; Ashadh end) under ${fy} BS.</p>
+  <p>2. The business is a sole proprietorship registered in Nepal. No corporate income tax applies; tax provision shown is indicative at 25% per Nepal Income Tax Act 2058.</p>
+  <p>3. VAT of NRS ${n(totalVat).toLocaleString()} collected from customers is excluded from revenue and is a liability payable in full to the Inland Revenue Department.</p>
+  <p>4. No depreciation or amortisation has been recorded as no fixed assets are currently capitalised on the books.</p>
+  <p>5. No external debt or finance costs exist. EBIT = EBITDA for this period.</p>
+  <p>6. Closing stock valuation is at cost price (refer Schedule 2a of the Annual Audit Report for full inventory breakdown).</p>
+</div>
+
+<!-- Signatures -->
+<div class="sig-grid">
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div class="sig-name">Proprietor / Authorised Signatory</div>
+    <div class="sig-role">The Aavira &mdash; Fashion Retail, Nepal</div>
+    <div class="sig-role">Date: ___________________</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div class="sig-name">Accountant / Auditor</div>
+    <div class="sig-role">Name &amp; Designation: ___________________</div>
+    <div class="sig-role">Date: ___________________</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>The Aavira &mdash; Statement of Profit &amp; Loss &mdash; FY ${fy} BS &mdash; CONFIDENTIAL</span>
+  <span>Prepared: ${new Date().toLocaleDateString("en-NP", { dateStyle: "medium" })} &nbsp;|&nbsp; All figures in NRS</span>
+</div>
+
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+  };
+
+  const handlePL = () => {
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) { toast.error("Pop-up blocked — allow pop-ups for this site."); return; }
+    win.document.write(buildPLHTML());
+    win.document.close();
+  };
+
   const { start, end } = selectedFY ? fiscalYearRange(selectedFY) : { start: new Date(), end: new Date() };
 
   if (loading) {
@@ -689,6 +890,11 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
           <Button size="sm" onClick={handlePDF}>
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Download PDF
+          </Button>
+
+          <Button variant="outline" size="sm" onClick={handlePL}>
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            P&amp;L Statement
           </Button>
         </div>
       </div>
