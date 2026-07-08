@@ -96,8 +96,8 @@ function shrawan1(bsYear: number): Date {
     const [y, m, d] = iso.split("-").map(Number);
     return new Date(y, m - 1, d, 0, 0, 0, 0);
   }
-  // Fallback for years outside the table: July 17 ± correction
-  return new Date(bsYear + 56, 6, 17, 0, 0, 0, 0);
+  // Fallback for years outside the table: approximate as BS - 57 + July 17
+  return new Date(bsYear - 57, 6, 17, 0, 0, 0, 0);
 }
 
 function fiscalYearRange(bsYear: number): { start: Date; end: Date } {
@@ -108,8 +108,12 @@ function fiscalYearRange(bsYear: number): { start: Date; end: Date } {
 }
 
 function getFiscalYear(date: Date): number {
-  // Walk known years (and ±2 beyond) to find which FY this date falls in
-  const approxBS = date.getFullYear() - 56;
+  // AD year maps to BS year ≈ AD + 56 or AD + 57 depending on month.
+  // BS new year (Baisakh 1) is mid-April; fiscal year starts Shrawan 1 (mid-July).
+  // Estimate: dates Jan–Jun are still in the BS year that started last April (AD+56),
+  // dates Jul–Dec are in the BS year that started this April (AD+57).
+  const adYear = date.getFullYear();
+  const approxBS = date.getMonth() >= 6 ? adYear + 57 : adYear + 56;
   for (const candidate of [approxBS - 1, approxBS, approxBS + 1]) {
     const { start, end } = fiscalYearRange(candidate);
     if (date >= start && date <= end) return candidate;
