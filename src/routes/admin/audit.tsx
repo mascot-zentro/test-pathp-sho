@@ -655,187 +655,232 @@ ${autoprint ? `<script>window.addEventListener('load', function(){ setTimeout(fu
       return new NepaliDate(ndStr).format("MMMM D, YYYY", "np");
     };
     const bsStart = adToBS(start);
-    const bsEnd = adToBS(end);
-    const dateStr = (d: Date) => d.toLocaleDateString("en-NP", { day: "2-digit", month: "long", year: "numeric" });
+    const bsEnd   = adToBS(end);
+    const adStart = start.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+    const adEnd   = end.toLocaleDateString("en-GB",   { day: "2-digit", month: "long", year: "numeric" });
 
-    const n = (v: number) => Math.round(v);
-    const fmt  = (v: number) => v < 0
-      ? `<span style="color:#c00;">(${Math.abs(n(v)).toLocaleString()})</span>`
-      : n(v).toLocaleString();
-    const pct  = (num: number, den: number) => den === 0 ? "—" : `${((num / den) * 100).toFixed(1)}%`;
+    const rnd = (v: number) => Math.round(v);
+    const money = (v: number) => rnd(v).toLocaleString("en-IN");
+    const neg   = (v: number) => v === 0 ? "—" : `(${money(Math.abs(v))})`;
+    const pct   = (num: number, den: number) => den === 0 ? "—" : `${((num / den) * 100).toFixed(1)}%`;
 
-    // Classify operating expenses: separate selling (marketing/packaging/shipping)
-    // from general & admin (everything else) for a proper multi-step P&L
+    // Classify expenses
     const sellingCats = ["marketing", "packaging", "shipping"];
-    let sellingExp = adExpenses; // ad spend always goes to selling
+    let sellingExp = adExpenses;
     let gaExp = 0;
+    const sellingLines: [string, number][] = [["Marketing & Advertising", adExpenses]];
+    const gaLines: [string, number][] = [];
     expenseByCategory.forEach(([cat, amt]) => {
-      if (sellingCats.some((s) => cat.toLowerCase().includes(s))) sellingExp += amt;
-      else gaExp += amt;
+      if (sellingCats.some((s) => cat.toLowerCase().includes(s))) {
+        sellingExp += amt;
+        sellingLines.push([cat, amt]);
+      } else {
+        gaExp += amt;
+        gaLines.push([cat, amt]);
+      }
     });
-    const totalOpEx = sellingExp + gaExp;
+    const totalOpEx    = sellingExp + gaExp;
+    const ebit         = grossProfit - totalOpEx;
+    const ebitda       = ebit; // no D&A
+    const ebt          = ebit; // no interest
+    const taxProvision = Math.max(0, rnd(ebt * 0.25));
+    const pat          = ebt - taxProvision;
+    const sc           = Math.max(0, rnd(socialContrib));
+    const retained     = pat - sc;
 
-    // EBIT = Gross Profit − Operating Expenses (no interest/tax for sole trader)
-    const ebit = grossProfit - totalOpEx;
-    // D&A: not tracked separately — disclose as nil
-    const depreciation = 0;
-    const ebitda = ebit + depreciation;
-    // Interest: no debt assumed
-    const interest = 0;
-    // EBT = EBIT − Interest
-    const ebt = ebit - interest;
-    // Nepal income tax: 25% flat on net profit for business (simplified disclosure)
-    const taxRate = 0.25;
-    const taxProvision = Math.max(0, Math.round(ebt * taxRate));
-    const profitAfterTax = ebt - taxProvision;
-    // Social contribution (already in netProfit but show explicitly)
-    const sc = Math.max(0, socialContrib);
+    // Row builders — 4-column CA style: particulars | note | sub-amount | total
+    const td = (txt: string, opts: { right?: boolean; bold?: boolean; italic?: boolean; pad?: string; border?: string; bg?: string; size?: string; color?: string } = {}) =>
+      `<td style="padding:${opts.pad ?? "4px 6px"};${opts.right ? "text-align:right;" : ""}${opts.bold ? "font-weight:bold;" : ""}${opts.italic ? "font-style:italic;" : ""}${opts.border ? `border-${opts.border}:1px solid #aaa;` : ""}${opts.bg ? `background:${opts.bg};` : ""}${opts.color ? `color:${opts.color};` : ""}font-size:${opts.size ?? "9.5pt"};">${txt}</td>`;
 
-    const R = (label: string, value: string, note = "", indent = false, bold = false, bg = "") =>
-      `<tr style="background:${bg};">
-        <td style="padding:5px 8px 5px ${indent ? "28px" : "8px"};border-bottom:1px solid #eee;${bold ? "font-weight:bold;" : ""}font-size:10pt;">
-          ${label}${note ? `<span style="font-size:7.5pt;color:#888;font-style:italic;margin-left:6px;">${note}</span>` : ""}
-        </td>
-        <td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;font-variant-numeric:tabular-nums;${bold ? "font-weight:bold;" : ""}font-size:10pt;">${value}</td>
+    // particulars | note# | sub | total
+    const row = (part: string, noteN: string, sub: string, total: string, opts: { bold?: boolean; italic?: boolean; bg?: string; topBorder?: boolean; doubleUnder?: boolean } = {}) =>
+      `<tr style="${opts.bg ? `background:${opts.bg};` : ""}${opts.topBorder ? "border-top:1px solid #999;" : ""}">
+        ${td(part, { bold: opts.bold, italic: opts.italic, pad: "4px 6px 4px 8px" })}
+        ${td(noteN, { italic: true, color: "#888", size: "8pt", right: true })}
+        ${td(sub,   { right: true, bold: opts.bold, border: sub && sub !== "&nbsp;" ? undefined : undefined })}
+        ${td(total, { right: true, bold: opts.bold, border: opts.doubleUnder ? "bottom" : undefined, bg: opts.bg })}
       </tr>`;
-    const KPI = (label: string, value: string, sub = "") =>
-      `<div style="flex:1;border:1px solid #ddd;border-radius:6px;padding:10px 14px;min-width:100px;">
-        <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:0.1em;color:#888;margin-bottom:3px;">${label}</div>
-        <div style="font-size:13pt;font-weight:bold;">${value}</div>
-        ${sub ? `<div style="font-size:8pt;color:#888;margin-top:2px;">${sub}</div>` : ""}
-      </div>`;
-    const HR = (thick = false) => `<tr><td colspan="2" style="padding:0;"><div style="border-top:${thick ? "2px solid #000" : "1px solid #ccc"};margin:4px 0;"></div></td></tr>`;
-    const SP = `<tr><td colspan="2" style="padding:3px 0;"></td></tr>`;
-    const HEAD = (label: string) =>
-      `<tr><td colspan="2" style="padding:10px 8px 3px;font-size:7.5pt;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:#555;border-bottom:2px solid #000;">${label}</td></tr>`;
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<title>Aavira — Statement of Profit and Loss FY ${fy} BS</title>
+    const blank = () => `<tr><td colspan="4" style="padding:2px 0;"></td></tr>`;
+    const rule  = (thick = false) => `<tr><td colspan="4" style="padding:0;border-top:${thick ? "1.5px solid #000" : "1px solid #ccc"};"></td></tr>`;
+    const head  = (label: string) => `<tr style="background:#111;">
+      <td colspan="4" style="padding:5px 8px;font-size:8pt;font-weight:bold;letter-spacing:0.1em;text-transform:uppercase;color:#fff;">${label}</td>
+    </tr>`;
+    const colrow = (part: string, noteN: string, sub: string, total: string, bold = false, bg = "") =>
+      row(part, noteN, sub, total, { bold, bg });
+
+    return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/>
+<title>The Aavira — Statement of Profit &amp; Loss FY ${fy} BS</title>
 <style>
-  @page { size: A4 portrait; margin: 18mm 20mm 16mm; }
-  * { box-sizing: border-box; }
-  body { font-family: 'Times New Roman', Times, serif; font-size: 10pt; color: #111; background: #fff; margin: 0; line-height: 1.4; }
+  @page { size: A4 portrait; margin: 16mm 18mm 14mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 9.5pt; color: #111; background: #fff; line-height: 1.45; }
   table { width: 100%; border-collapse: collapse; }
-  .kpi-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
-  .footer { margin-top: 28px; border-top: 1px solid #bbb; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #888; }
-  .sig-grid { display: flex; gap: 48px; margin-top: 36px; }
-  .sig-box { flex: 1; }
-  .sig-line { border-bottom: 1px solid #000; height: 26px; margin-bottom: 4px; }
-  .sig-name { font-size: 9pt; font-weight: bold; }
-  .sig-role { font-size: 8pt; color: #555; margin-top: 1px; }
-  .notes { font-size: 8pt; color: #555; margin-top: 14px; border-top: 1px solid #eee; padding-top: 8px; }
-  .notes p { margin: 3px 0; }
+  col.part  { width: 54%; }
+  col.note  { width: 8%; }
+  col.sub   { width: 19%; }
+  col.total { width: 19%; }
+  .kpi-table td { padding: 8px 12px; border: 1px solid #ddd; text-align: center; }
+  .kpi-label { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.08em; color: #777; }
+  .kpi-value { font-size: 12pt; font-weight: bold; margin-top: 2px; }
+  .kpi-sub   { font-size: 7.5pt; color: #888; margin-top: 1px; }
+  .notes-table td { padding: 3px 6px; font-size: 8pt; color: #444; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+  .sig-table td { padding: 0 20px 0 0; vertical-align: bottom; width: 50%; }
+  .sig-line { border-bottom: 1px solid #000; height: 28px; margin-bottom: 3px; }
+  .footer { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 5px; display: table; width: 100%; font-size: 7pt; color: #999; }
+  .footer-l { display: table-cell; }
+  .footer-r { display: table-cell; text-align: right; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-</style></head><body>
+</style>
+</head><body>
 
-<!-- Header -->
-<table style="margin-bottom:6px;">
+<!-- ── LETTERHEAD ─────────────────────────────────────── -->
+<table style="margin-bottom:8px;">
   <tr>
-    <td style="vertical-align:top;">
-      <div style="font-size:15pt;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;">The Aavira</div>
-      <div style="font-size:9pt;color:#555;margin-top:1px;">Fashion Retail &mdash; Sole Proprietorship &mdash; Nepal</div>
+    <td style="vertical-align:top;width:60%;">
+      <div style="font-size:18pt;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;line-height:1;">THE AAVIRA</div>
+      <div style="font-size:8pt;color:#666;margin-top:3px;letter-spacing:0.04em;">Fashion Retail &nbsp;&bull;&nbsp; Sole Proprietorship &nbsp;&bull;&nbsp; Nepal</div>
     </td>
-    <td style="text-align:right;vertical-align:top;font-size:8.5pt;color:#555;line-height:1.6;">
-      <strong style="font-size:10pt;color:#000;">Statement of Profit &amp; Loss</strong><br/>
-      Fiscal Year ${fy} BS<br/>
-      ${bsStart} &mdash; ${bsEnd}<br/>
-      (${dateStr(start)} &mdash; ${dateStr(end)})
+    <td style="text-align:right;vertical-align:top;font-size:8.5pt;color:#555;line-height:1.7;">
+      <div style="font-size:11pt;font-weight:bold;color:#000;margin-bottom:2px;">Statement of Profit &amp; Loss</div>
+      <div>For the year ended ${bsEnd}</div>
+      <div style="color:#888;">(${adEnd})</div>
+      <div>FY ${fy} BS</div>
     </td>
   </tr>
 </table>
-<div style="border-top:3px solid #000;border-bottom:1px solid #000;padding:2px 0;margin-bottom:10px;"></div>
+<div style="border-top:3px solid #000;margin-bottom:1px;"></div>
+<div style="border-top:1px solid #000;margin-bottom:12px;"></div>
 
-<!-- KPI Summary Bar -->
-<div class="kpi-row">
-  ${KPI("Net Revenue", n(netProductRevenue).toLocaleString(), "NRS")}
-  ${KPI("Gross Profit", n(grossProfit).toLocaleString(), `Margin: ${pct(grossProfit, netProductRevenue)}`)}
-  ${KPI("EBITDA", n(ebitda).toLocaleString(), `Margin: ${pct(ebitda, netProductRevenue)}`)}
-  ${KPI("EBIT", n(ebit).toLocaleString(), `Margin: ${pct(ebit, netProductRevenue)}`)}
-  ${KPI("Net Profit", n(profitAfterTax).toLocaleString(), `Margin: ${pct(profitAfterTax, netProductRevenue)}`)}
-</div>
-
-<!-- P&L Table -->
-<table>
-  ${HEAD("I. Revenue")}
-  ${R("Gross Revenue from Operations", n(grossRevenue).toLocaleString(), "sales + delivery + VAT collected")}
-  ${R("Less: Delivery charges (pass-through)", `(${n(totalDelivery).toLocaleString()})`, "", true)}
-  ${R("Less: Discounts &amp; promotional allowances", `(${n(totalDiscounts).toLocaleString()})`, "", true)}
-  ${totalVat > 0 ? R("Less: VAT collected (payable to IRD)", `(${n(totalVat).toLocaleString()})`, "excluded from income", true) : ""}
-  ${HR(true)}
-  ${R("Net Revenue", n(netProductRevenue).toLocaleString(), "", false, true, "#f5f5f5")}
-
-  ${SP}
-  ${HEAD("II. Cost of Goods Sold")}
-  ${R("Opening Stock (at cost)", n(openingStock).toLocaleString())}
-  ${R("Less: Closing Stock (at cost)", `(${n(closingStock).toLocaleString()})`, "refer Schedule 2a", true)}
-  ${HR(true)}
-  ${R("Cost of Goods Sold", n(cogs).toLocaleString(), "", false, true, "#f5f5f5")}
-
-  ${SP}
-  ${HR(true)}
-  ${R("Gross Profit", fmt(grossProfit), `Margin: ${pct(grossProfit, netProductRevenue)}`, false, true, "#f0f0f0")}
-  ${HR(true)}
-
-  ${SP}
-  ${HEAD("III. Operating Expenses")}
-  ${R("Selling &amp; Distribution Expenses", "")}
-  ${R("— Marketing &amp; Advertising", n(adExpenses).toLocaleString(), "", true)}
-  ${expenseByCategory.filter(([cat]) => sellingCats.some((s) => cat.toLowerCase().includes(s))).map(([cat, amt]) => R(`— ${cat}`, n(amt).toLocaleString(), "", true)).join("")}
-  ${R("General &amp; Administrative Expenses", "")}
-  ${expenseByCategory.filter(([cat]) => !sellingCats.some((s) => cat.toLowerCase().includes(s))).map(([cat, amt]) => R(`— ${cat}`, n(amt).toLocaleString(), "", true)).join("")}
-  ${R("Depreciation &amp; Amortisation", "—", "no fixed assets recorded", true)}
-  ${HR(true)}
-  ${R("Total Operating Expenses", n(totalOpEx).toLocaleString(), "", false, true, "#f5f5f5")}
-
-  ${SP}
-  ${HR(true)}
-  ${R("EBITDA", fmt(ebitda), `Earnings before interest, tax, D&amp;A &mdash; margin ${pct(ebitda, netProductRevenue)}`, false, true, "#e8f0e8")}
-  ${R("Less: Depreciation &amp; Amortisation", "—", "", true)}
-  ${HR()}
-  ${R("EBIT", fmt(ebit), `Earnings before interest &amp; tax &mdash; margin ${pct(ebit, netProductRevenue)}`, false, true, "#e8f0e8")}
-  ${R("Less: Finance Costs / Interest", "—", "no external debt", true)}
-  ${HR()}
-  ${R("EBT (Profit Before Tax)", fmt(ebt), `Earnings before tax`, false, true, "#f5f5f5")}
-  ${R("Less: Income Tax Provision (25%)", taxProvision > 0 ? `(${n(taxProvision).toLocaleString()})` : "—", "estimated; subject to IRD assessment", true)}
-  ${HR(true)}
-  ${R(profitAfterTax >= 0 ? "Net Profit After Tax" : "Net Loss After Tax", fmt(profitAfterTax), `Margin: ${pct(profitAfterTax, netProductRevenue)}`, false, true, "#000")}
-  ${HR(true)}
-  ${sc > 0 ? `${SP}${R("Social Impact Contribution (${impactPct}%)", `(${n(sc).toLocaleString()})`, "transferred to social fund", true)}${HR()}${R("Retained Profit", fmt(profitAfterTax - sc), "", false, true, "#f5f5f5")}` : ""}
+<!-- ── KPI SUMMARY ────────────────────────────────────── -->
+<table class="kpi-table" style="margin-bottom:14px;">
+  <tr>
+    <td><div class="kpi-label">Net Revenue</div><div class="kpi-value">NRS ${money(netProductRevenue)}</div><div class="kpi-sub">&nbsp;</div></td>
+    <td><div class="kpi-label">Gross Profit</div><div class="kpi-value">NRS ${money(grossProfit)}</div><div class="kpi-sub">Margin: ${pct(grossProfit, netProductRevenue)}</div></td>
+    <td><div class="kpi-label">EBITDA</div><div class="kpi-value">NRS ${money(ebitda)}</div><div class="kpi-sub">Margin: ${pct(ebitda, netProductRevenue)}</div></td>
+    <td><div class="kpi-label">EBIT</div><div class="kpi-value">NRS ${money(ebit)}</div><div class="kpi-sub">Margin: ${pct(ebit, netProductRevenue)}</div></td>
+    <td><div class="kpi-label">Net Profit (PAT)</div><div class="kpi-value">NRS ${money(pat)}</div><div class="kpi-sub">Margin: ${pct(pat, netProductRevenue)}</div></td>
+  </tr>
 </table>
 
-<!-- Notes -->
-<div class="notes">
-  <p><strong>Notes to the Statement:</strong></p>
-  <p>1. This statement is prepared on a cash/accrual basis for the Nepali fiscal year (Shrawan 1 &ndash; Ashadh end) under ${fy} BS.</p>
-  <p>2. The business is a sole proprietorship registered in Nepal. No corporate income tax applies; tax provision shown is indicative at 25% per Nepal Income Tax Act 2058.</p>
-  <p>3. VAT of NRS ${n(totalVat).toLocaleString()} collected from customers is excluded from revenue and is a liability payable in full to the Inland Revenue Department.</p>
-  <p>4. No depreciation or amortisation has been recorded as no fixed assets are currently capitalised on the books.</p>
-  <p>5. No external debt or finance costs exist. EBIT = EBITDA for this period.</p>
-  <p>6. Closing stock valuation is at cost price (refer Schedule 2a of the Annual Audit Report for full inventory breakdown).</p>
+<!-- ── COLUMN HEADERS ─────────────────────────────────── -->
+<table>
+  <colgroup><col class="part"/><col class="note"/><col class="sub"/><col class="total"/></colgroup>
+  <tr style="border-bottom:1.5px solid #000;border-top:1px solid #000;">
+    ${td("Particulars", { bold: true, pad: "4px 6px 4px 8px", size: "8.5pt" })}
+    ${td("Note", { bold: true, right: true, size: "8.5pt" })}
+    ${td("NRS", { bold: true, right: true, size: "8.5pt" })}
+    ${td("NRS", { bold: true, right: true, size: "8.5pt" })}
+  </tr>
+
+  <!-- I. REVENUE -->
+  ${blank()}
+  ${head("I.  Revenue from Operations")}
+  ${colrow("Gross Revenue from Operations", "1", money(grossRevenue), "")}
+  ${colrow("Less: Delivery charges (pass-through)", "", neg(totalDelivery), "", false)}
+  ${colrow("Less: Discounts &amp; promotional allowances", "", neg(totalDiscounts), "", false)}
+  ${totalVat > 0 ? colrow("Less: Output VAT collected (payable to IRD)", "2", neg(totalVat), "", false) : ""}
+  ${rule(true)}
+  ${colrow("Net Revenue from Operations", "", "", money(netProductRevenue), true, "#f2f2f2")}
+
+  <!-- II. COGS -->
+  ${blank()}
+  ${head("II.  Cost of Goods Sold")}
+  ${colrow("Opening Stock — at cost", "3", money(openingStock), "")}
+  ${colrow("Less: Closing Stock — at cost", "3", neg(closingStock), "")}
+  ${rule(true)}
+  ${colrow("Cost of Goods Sold", "", "", money(cogs), true, "#f2f2f2")}
+  ${blank()}
+  ${rule(true)}
+  ${colrow("Gross Profit", "", "", money(grossProfit), true, "#e6e6e6")}
+  ${rule(true)}
+
+  <!-- III. OPERATING EXPENSES -->
+  ${blank()}
+  ${head("III.  Operating Expenses")}
+  ${colrow("A.  Selling &amp; Distribution Expenses", "", "", "")}
+  ${sellingLines.map(([cat, amt]) => colrow(`&nbsp;&nbsp;&nbsp;&nbsp;${cat}`, "", money(amt), "")).join("")}
+  ${colrow("&nbsp;&nbsp;&nbsp;&nbsp;Sub-total — Selling", "", "", money(sellingExp), false, "#f9f9f9")}
+  ${blank()}
+  ${colrow("B.  General &amp; Administrative Expenses", "", "", "")}
+  ${gaLines.length > 0
+    ? gaLines.map(([cat, amt]) => colrow(`&nbsp;&nbsp;&nbsp;&nbsp;${cat}`, "", money(amt), "")).join("")
+    : colrow("&nbsp;&nbsp;&nbsp;&nbsp;Nil recorded for this period", "", "—", "")}
+  ${colrow("&nbsp;&nbsp;&nbsp;&nbsp;Sub-total — G&amp;A", "", "", money(gaExp), false, "#f9f9f9")}
+  ${blank()}
+  ${colrow("C.  Depreciation &amp; Amortisation", "4", "", "—")}
+  ${rule(true)}
+  ${colrow("Total Operating Expenses", "", "", money(totalOpEx), true, "#f2f2f2")}
+
+  <!-- EBITDA / EBIT / EBT -->
+  ${blank()}
+  ${rule(true)}
+  ${colrow("EBITDA  (Earnings Before Interest, Tax, D&A)", "", "", money(ebitda), true, "#eef3ee")}
+  ${colrow("Less: Depreciation &amp; Amortisation", "4", "", "—")}
+  ${rule()}
+  ${colrow("EBIT  (Earnings Before Interest &amp; Tax)", "", "", money(ebit), true, "#eef3ee")}
+  ${colrow("Less: Finance Costs / Interest Expense", "5", "", "—")}
+  ${rule()}
+  ${colrow("EBT  (Profit Before Tax)", "", "", money(ebt), true, "#f2f2f2")}
+  ${colrow("Less: Income Tax Provision @ 25%", "6", "", taxProvision > 0 ? neg(taxProvision) : "—")}
+  ${rule(true)}
+  ${row(pat >= 0 ? "Net Profit for the Year (PAT)" : "Net Loss for the Year", "", "", money(pat), { bold: true, bg: "#111", doubleUnder: false })}
+  ${rule(true)}
+
+  <!-- APPROPRIATION -->
+  ${sc > 0 ? `
+  ${blank()}
+  ${head("IV.  Appropriation of Profit")}
+  ${colrow("Net Profit After Tax (brought forward)", "", money(pat), "")}
+  ${colrow(`Less: Social Impact Contribution (${impactPct}%)`, "7", neg(sc), "")}
+  ${rule(true)}
+  ${colrow("Retained Profit transferred to Capital Account", "", "", money(retained), true, "#f2f2f2")}
+  ` : ""}
+
+</table>
+
+<!-- ── NOTES ──────────────────────────────────────────── -->
+<div style="margin-top:14px;border-top:1.5px solid #000;padding-top:8px;">
+  <div style="font-size:8.5pt;font-weight:bold;margin-bottom:5px;letter-spacing:0.05em;text-transform:uppercase;">Notes to the Financial Statement</div>
+  <table class="notes-table">
+    <tr>${td("1.", { bold: true, size: "8pt", pad: "3px 6px" })}${td("Basis of preparation: This statement is prepared on an accrual basis for the Nepali fiscal year ${fy} BS (Shrawan 1 &ndash; Ashadh end), in accordance with generally accepted accounting principles applicable to sole proprietorships in Nepal.", { size: "8pt", pad: "3px 6px" })}</tr>
+    <tr>${td("2.", { bold: true, size: "8pt", pad: "3px 6px" })}${td("VAT: Output VAT of NRS ${money(totalVat)} collected from customers is excluded from revenue. This amount constitutes a statutory liability payable in full to the Inland Revenue Department (IRD), Government of Nepal, and is not income of the business.", { size: "8pt", pad: "3px 6px" })}</tr>
+    <tr>${td("3.", { bold: true, size: "8pt", pad: "3px 6px" })}${td("Inventory: Stocks are valued at cost price on a first-in, first-out (FIFO) basis. Closing stock detail is set out in Schedule 2a of the Annual Audit Report for FY ${fy} BS.", { size: "8pt", pad: "3px 6px" })}</tr>
+    <tr>${td("4.", { bold: true, size: "8pt", pad: "3px 6px" })}${td("Depreciation &amp; Amortisation: The business holds no capitalised fixed assets during this period. Accordingly, no charge for depreciation or amortisation has been recognised. EBITDA equals EBIT.", { size: "8pt", pad: "3px 6px" })}</tr>
+    <tr>${td("5.", { bold: true, size: "8pt", pad: "3px 6px" })}${td("Finance costs: The business carries no external borrowings or finance leases. No interest expense has been incurred during the period.", { size: "8pt", pad: "3px 6px" })}</tr>
+    <tr>${td("6.", { bold: true, size: "8pt", pad: "3px 6px" })}${td("Taxation: The business is a sole proprietorship. Income tax is assessed on the proprietor's personal income at applicable slab rates under the Nepal Income Tax Act 2058. The provision shown at 25% is an indicative estimate only and is subject to final IRD assessment.", { size: "8pt", pad: "3px 6px" })}</tr>
+    ${sc > 0 ? `<tr>${td("7.", { bold: true, size: "8pt", pad: "3px 6px" })}${td(`Social Impact Contribution: The business voluntarily allocates ${impactPct}% of net profit to a social impact fund as part of its responsible business practice. This appropriation reduces retained profit transferred to the capital account.`, { size: "8pt", pad: "3px 6px" })}</tr>` : ""}
+  </table>
 </div>
 
-<!-- Signatures -->
-<div class="sig-grid">
-  <div class="sig-box">
-    <div class="sig-line"></div>
-    <div class="sig-name">Proprietor / Authorised Signatory</div>
-    <div class="sig-role">The Aavira &mdash; Fashion Retail, Nepal</div>
-    <div class="sig-role">Date: ___________________</div>
-  </div>
-  <div class="sig-box">
-    <div class="sig-line"></div>
-    <div class="sig-name">Accountant / Auditor</div>
-    <div class="sig-role">Name &amp; Designation: ___________________</div>
-    <div class="sig-role">Date: ___________________</div>
-  </div>
+<!-- ── SIGNATURES ─────────────────────────────────────── -->
+<div style="margin-top:20px;">
+  <table class="sig-table">
+    <tr>
+      <td>
+        <div class="sig-line"></div>
+        <div style="font-size:9pt;font-weight:bold;">Proprietor / Authorised Signatory</div>
+        <div style="font-size:8pt;color:#555;">The Aavira &mdash; Fashion Retail, Nepal</div>
+        <div style="font-size:8pt;color:#555;margin-top:2px;">Date: ___________________</div>
+      </td>
+      <td>
+        <div class="sig-line"></div>
+        <div style="font-size:9pt;font-weight:bold;">Prepared / Verified by</div>
+        <div style="font-size:8pt;color:#555;">Name &amp; Designation: ___________________</div>
+        <div style="font-size:8pt;color:#555;margin-top:2px;">Date: ___________________</div>
+      </td>
+    </tr>
+  </table>
 </div>
 
+<!-- ── FOOTER ─────────────────────────────────────────── -->
 <div class="footer">
-  <span>The Aavira &mdash; Statement of Profit &amp; Loss &mdash; FY ${fy} BS &mdash; CONFIDENTIAL</span>
-  <span>Prepared: ${new Date().toLocaleDateString("en-NP", { dateStyle: "medium" })} &nbsp;|&nbsp; All figures in NRS</span>
+  <span class="footer-l">The Aavira &mdash; Statement of Profit &amp; Loss &mdash; FY ${fy} BS &mdash; CONFIDENTIAL &amp; PRIVILEGED</span>
+  <span class="footer-r">Prepared: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} &nbsp;|&nbsp; All amounts in Nepalese Rupees (NRS)</span>
 </div>
 
-<script>window.onload=()=>{window.print();}</script>
+<script>window.onload = () => { window.print(); };</script>
 </body></html>`;
   };
 
