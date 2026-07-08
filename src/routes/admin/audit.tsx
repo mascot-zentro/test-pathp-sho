@@ -513,7 +513,7 @@ function AuditPage() {
     <div class="section-head">2. Cost of Goods Sold</div>
     <table class="data">
       <tr><td>Opening Stock (at cost)</td><td class="val">${fmt(openingStock)}</td></tr>
-      <tr class="indent"><td>Less: Closing Stock (at cost)</td><td class="val">(${fmt(closingStock)})</td></tr>
+      <tr class="indent"><td>Less: Closing Stock (at cost) <span style="font-size:8pt;color:#888;font-style:italic;">(refer Schedule 2a)</span></td><td class="val">(${fmt(closingStock)})</td></tr>
       <tr class="spacer"><td colspan="2"></td></tr>
       <tr class="bold"><td>Cost of Goods Sold</td><td class="val">${fmt(cogs)}</td></tr>
       <tr class="spacer"><td colspan="2"></td></tr>
