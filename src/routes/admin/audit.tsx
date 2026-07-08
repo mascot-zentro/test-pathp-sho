@@ -17,6 +17,7 @@
  *   impact_settings → social contribution %
  */
 
+import { NepaliDate, toBS } from "@zener/nepali-datepicker-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -345,34 +346,18 @@ function AuditPage() {
 
     const dateStr = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
-    // Convert AD date → BS date string using the fiscal year lookup table
-    // Works for dates within known SHRAWAN_1 range; falls back to approximate otherwise
+    // Convert AD date → BS date string using the Nepali Date API
     const adToBS = (d: Date): string => {
-      const bsYear = getFiscalYear(d);
-      const { start: fyStart } = fiscalYearRange(bsYear);
-      // BS months (Shrawan=4, Bhadra=5, ... Ashadh=3 of next year)
-      // Simple approach: compute day offset from Shrawan 1 of that BS year
-      const BS_MONTHS = ["बैशाख","जेठ","आषाढ","श्रावण","भाद्र","आश्विन","कार्तिक","मंसिर","पुष","माघ","फाल्गुन","चैत्र"];
-      const BS_MONTH_DAYS = [31,31,31,32,31,31,30,29,30,29,30,30]; // approximate
-      // Shrawan 1 is month index 3 (0-based: Baisakh=0)
-      let dayOffset = Math.floor((d.getTime() - fyStart.getTime()) / (1000 * 60 * 60 * 24));
-      let monthIdx = 3; // Shrawan (month 4, 0-based=3)
-      while (dayOffset >= BS_MONTH_DAYS[monthIdx]) {
-        dayOffset -= BS_MONTH_DAYS[monthIdx];
-        monthIdx = (monthIdx + 1) % 12;
-      }
-      const bsDay = dayOffset + 1;
-      // if month wrapped past Chaitra, increment BS year
-      const displayYear = monthIdx < 3 ? bsYear + 1 : bsYear;
-      return `${bsDay} ${BS_MONTHS[monthIdx]} ${displayYear} BS`;
+      const adStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const bs = toBS(adStr);
+      // toBS month is 0-based; construct NepaliDate with BS string (month+1)
+      const ndStr = `${bs.year}-${String(bs.month + 1).padStart(2, "0")}-${String(bs.date).padStart(2, "0")}`;
+      return new NepaliDate(ndStr).format("MMMM D, YYYY", "np");
     };
 
-    const todayBS = adToBS(new Date());
-    const endBS = adToBS(end);
-
-    // Nepali (BS) period label — Shrawan 1 to Ashadh end
-    const bsStart = `१ श्रावण ${selectedFY} BS`;
-    const bsEnd   = `आषाढ अन्त ${selectedFY + 1} BS`;
+    const todayBS  = adToBS(new Date());
+    const bsStart  = adToBS(start);
+    const bsEnd    = adToBS(end);
     const logoUrl = `${window.location.origin}/Aavira-logo.png`;
 
     return `<!DOCTYPE html>
@@ -554,7 +539,7 @@ function AuditPage() {
   <div class="sig-section">
     <div class="sig-title">Declaration &amp; Authorisation</div>
     <p style="font-size:9.5pt;margin-bottom:18px;color:#333;">
-      We, the undersigned, confirm that the financial statements and figures contained in this report are, to the best of our knowledge, accurate and complete for the fiscal year ending ${dateStr(end)} (${endBS}).
+      We, the undersigned, confirm that the financial statements and figures contained in this report are, to the best of our knowledge, accurate and complete for the fiscal year ending ${dateStr(end)} (${bsEnd}).
     </p>
     <div class="sig-grid">
       <div class="sig-box">
