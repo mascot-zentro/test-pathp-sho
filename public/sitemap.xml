@@ -3,40 +3,71 @@
 
   <!-- Static pages -->
   <url>
-    <loc>https://YOUR_DOMAIN/</loc>
+    <loc>https://www.theaavira.com/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://YOUR_DOMAIN/sale</loc>
+    <loc>https://www.theaavira.com/sale</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://YOUR_DOMAIN/faq</loc>
+    <loc>https://www.theaavira.com/impact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/faq</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://YOUR_DOMAIN/track</loc>
+    <loc>https://www.theaavira.com/track</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://YOUR_DOMAIN/terms</loc>
+    <loc>https://www.theaavira.com/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
-  <!--
-    Product pages: /product/<slug>
-    Replace the example below with one <url> block per active product.
-    Run scripts/generate-sitemap.mjs to regenerate automatically from Supabase.
-  -->
-  <!-- <url>
-    <loc>https://YOUR_DOMAIN/product/example-product-name</loc>
+  <!-- Product pages (7 active products) -->
+  <url>
+    <loc>https://www.theaavira.com/product/dress-1</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-  </url> -->
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/product/dress-2</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/product/dress-3</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/product/dress-4</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/product/dress-5</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/product/dress-6</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.theaavira.com/product/dress-7</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
 
 </urlset>

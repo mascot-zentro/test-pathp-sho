@@ -14,22 +14,23 @@ export const ServerRoute = createServerFileRoute("/sitemap.xml").methods({
 
     const [{ data: settings }, { data: products }] = await Promise.all([
       supabaseAdmin.from("app_settings").select("key,value").in("key", ["site_url"]),
-      supabaseAdmin.from("products").select("name,updated_at").eq("active", true),
+      supabaseAdmin.from("products").select("name").eq("active", true),
     ]);
 
     const obj: Record<string, string> = {};
     (settings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) obj[r.key] = r.value; });
-    const base = (obj.site_url ?? "https://YOUR_DOMAIN").replace(/\/$/, "");
+    const base = (obj.site_url ?? "https://www.theaavira.com").replace(/\/$/, "");
 
     const staticPages = [
-      { path: "/",      changefreq: "daily",   priority: "1.0" },
-      { path: "/sale",  changefreq: "daily",   priority: "0.9" },
-      { path: "/faq",   changefreq: "monthly", priority: "0.5" },
-      { path: "/track", changefreq: "monthly", priority: "0.4" },
-      { path: "/terms", changefreq: "yearly",  priority: "0.3" },
+      { path: "/",       changefreq: "daily",   priority: "1.0" },
+      { path: "/sale",   changefreq: "daily",   priority: "0.9" },
+      { path: "/impact", changefreq: "monthly", priority: "0.7" },
+      { path: "/faq",    changefreq: "monthly", priority: "0.5" },
+      { path: "/track",  changefreq: "monthly", priority: "0.4" },
+      { path: "/terms",  changefreq: "yearly",  priority: "0.3" },
     ];
 
-    const productUrls = (products ?? []).map((p: { name: string; updated_at?: string }) =>
+    const productUrls = (products ?? []).map((p: { name: string }) =>
       url(`${base}/product/${slugify(p.name)}`, "weekly", "0.8")
     );
 

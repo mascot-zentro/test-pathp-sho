@@ -50,12 +50,15 @@ export const Route = createFileRoute("/product/$slug")({
     const meta = await fetchProductMeta({ data: params.slug });
     return { meta };
   },
-  head: ({ loaderData }) => {
+  head: ({ loaderData, params }) => {
     const p = loaderData?.meta;
     if (!p) return {};
     const price = p.on_sale && p.sale_price ? p.sale_price : p.price;
-    const title = `${p.name} — NRS ${price}`;
-    const desc = p.description ?? `Shop ${p.name} — NRS ${price}. Cash on delivery across Nepal.`;
+    const title = `${p.name} — NRS ${price} | The Aavira`;
+    const desc = p.description
+      ? p.description.slice(0, 155)
+      : `Buy ${p.name} for NRS ${price}. Women's tops & kurtas, cash on delivery across Nepal.`;
+    const pageUrl = `https://www.theaavira.com/product/${params.slug}`;
     return {
       meta: [
         { title },
@@ -63,6 +66,9 @@ export const Route = createFileRoute("/product/$slug")({
         { property: "og:title", content: title },
         { property: "og:description", content: desc },
         { property: "og:type", content: "product" },
+        { property: "og:url", content: pageUrl },
+        { property: "og:site_name", content: "The Aavira" },
+        { property: "og:locale", content: "en_US" },
         ...(p.image_url ? [
           { property: "og:image", content: p.image_url },
           { name: "twitter:image", content: p.image_url },
@@ -70,6 +76,9 @@ export const Route = createFileRoute("/product/$slug")({
         ] : []),
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: desc },
+      ],
+      links: [
+        { rel: "canonical", href: pageUrl },
       ],
     };
   },
@@ -99,17 +108,28 @@ function useProductSEO(product: { name: string; description: string | null; pric
     set('meta[property="og:title"]', "content", title);
     set('meta[property="og:description"]', "content", desc);
     set('meta[property="og:type"]', "content", "product");
+    set('meta[property="og:url"]', "content", window.location.href);
+    set('meta[property="og:site_name"]', "content", "The Aavira");
     if (image) set('meta[property="og:image"]', "content", image);
     set('meta[name="twitter:title"]', "content", title);
     set('meta[name="twitter:description"]', "content", desc);
     if (image) set('meta[name="twitter:image"]', "content", image);
+
+    // canonical
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = window.location.href.split("?")[0];
 
     // JSON-LD Product schema — helps Google show price + availability in results
     const availability = product.stock_quantity === 0
       ? "https://schema.org/OutOfStock"
       : "https://schema.org/InStock";
 
-    const jsonLd = {
+    const productJsonLd = {
       "@context": "https://schema.org",
       "@type": "Product",
       name: product.name,
@@ -127,17 +147,34 @@ function useProductSEO(product: { name: string; description: string | null; pric
       },
     };
 
-    const id = "product-jsonld";
-    let script = document.getElementById(id) as HTMLScriptElement | null;
-    if (!script) {
-      script = document.createElement("script");
-      script.id = id;
-      script.type = "application/ld+json";
-      document.head.appendChild(script);
-    }
-    script.textContent = JSON.stringify(jsonLd);
+    const breadcrumbJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+        ...(product.category ? [{ "@type": "ListItem", position: 2, name: product.category, item: siteUrl }] : []),
+        { "@type": "ListItem", position: product.category ? 3 : 2, name: product.name, item: window.location.href },
+      ],
+    };
 
-    return () => { document.getElementById(id)?.remove(); };
+    const setScript = (id: string, data: object) => {
+      let script = document.getElementById(id) as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement("script");
+        script.id = id;
+        script.type = "application/ld+json";
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(data);
+    };
+
+    setScript("product-jsonld", productJsonLd);
+    setScript("breadcrumb-jsonld", breadcrumbJsonLd);
+
+    return () => {
+      document.getElementById("product-jsonld")?.remove();
+      document.getElementById("breadcrumb-jsonld")?.remove();
+    };
   }, [product]);
 }
 
@@ -182,6 +219,8 @@ function ProductPage() {
   const [aiSizeLoading, setAiSizeLoading] = useState(false);
   const [aiRecommendedIds, setAiRecommendedIds] = useState<string[]>([]);
 
+  const [vatEnabled, setVatEnabled] = useState(false);
+
   // Social proof state
   const [viewerCount, setViewerCount] = useState(0);
   const [ordersToday, setOrdersToday] = useState(0);
@@ -190,6 +229,9 @@ function ProductPage() {
 
   useEffect(() => {
     // Fetch product + whatsapp setting in parallel, then batch variant queries
+    supabase.from("app_settings").select("key,value").eq("key", "vat_enabled").maybeSingle()
+      .then(({ data }) => { setVatEnabled((data as { key: string; value: string | null } | null)?.value === "true"); });
+
     Promise.all([
       supabase.from("products").select("*").eq("active", true),
       supabase.from("app_settings").select("value").eq("key", "whatsapp_number").maybeSingle(),
@@ -439,7 +481,7 @@ function ProductPage() {
               {images.map((url, i) => (
                 <button key={i} type="button" onClick={() => setActiveImage(i)}
                   className={`size-16 rounded-lg overflow-hidden border-2 shrink-0 transition-all duration-200 flex-none ${i === activeImage ? "border-accent shadow-sm" : "border-transparent opacity-60 hover:opacity-100"}`}>
-                  <img src={url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                  <img src={url} alt={`${product?.name ?? ""} — view ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -469,6 +511,9 @@ function ProductPage() {
               <span className="text-2xl font-light tabular-nums">NRS {product.price}</span>
             )}
           </div>
+          {vatEnabled && (
+            <p className="mt-1 text-xs text-muted-foreground">Price exclusive of VAT. VAT will be added at checkout.</p>
+          )}
 
           {outOfStock && <p className="mt-3 text-sm font-medium text-destructive tracking-wide">Sold out</p>}
           {!outOfStock && lowStock && (

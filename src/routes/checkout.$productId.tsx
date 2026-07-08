@@ -44,6 +44,8 @@ function Checkout() {
   const [promo, setPromo] = useState<{ code: string; discountPercent: number } | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
+  const [vatEnabled, setVatEnabled] = useState(false);
+  const [vatPct, setVatPct] = useState(13);
 
   const checkPromo = useServerFn(previewPromoCode);
 
@@ -54,6 +56,12 @@ function Checkout() {
   const fetchDeliveryEstimate = useServerFn(getDeliveryEstimate);
 
   useEffect(() => {
+    supabase.from("app_settings").select("key,value").in("key", ["vat_enabled", "vat_percentage"]).then(({ data }) => {
+      const m: Record<string, string> = {};
+      (data ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) m[r.key] = r.value; });
+      setVatEnabled(m.vat_enabled === "true");
+      if (m.vat_percentage) setVatPct(Number(m.vat_percentage));
+    });
     supabase.from("products").select("id,name,price,sale_price,on_sale,weight,image_url").eq("id", productId).maybeSingle()
       .then(({ data }) => setProduct(data as Product | null));
     fetchCities().then((res: unknown) => {
@@ -132,9 +140,11 @@ function Checkout() {
   const subtotal = Number(unit) * qty;
   const discountAmount = promo ? Math.round(subtotal * (promo.discountPercent / 100) * 100) / 100 : 0;
   const discountedSubtotal = subtotal - discountAmount;
+  const vatAmount = vatEnabled ? Math.round(discountedSubtotal * (vatPct / 100) * 100) / 100 : 0;
+  const subtotalWithVat = discountedSubtotal + vatAmount;
   // Delivery fee must be known before the order can be placed — it is added
   // to the Pathao amount_to_collect so we receive the full amount on delivery.
-  const grandTotal = deliveryFee !== null ? discountedSubtotal + deliveryFee : null;
+  const grandTotal = deliveryFee !== null ? subtotalWithVat + deliveryFee : null;
   const deliveryReady = deliveryFee !== null; // city + zone selected and fee fetched
 
   const applyPromo = async () => {
@@ -315,6 +325,9 @@ function Checkout() {
           {discountAmount > 0 && (
             <div className="flex justify-between text-sm text-emerald-600"><span>Discount</span><span>− NRS {discountAmount}</span></div>
           )}
+          {vatEnabled && vatAmount > 0 && (
+            <div className="flex justify-between text-sm text-muted-foreground"><span>VAT ({vatPct}%)</span><span>NRS {vatAmount}</span></div>
+          )}
           <div className="flex justify-between text-sm mt-1">
             <span className="text-muted-foreground">Delivery</span>
             {deliveryFeeLoading ? (
@@ -335,7 +348,7 @@ function Checkout() {
           )}
           <div className="text-xs text-muted-foreground mt-2">
             {grandTotal !== null
-              ? `Cash on delivery — you pay NRS ${grandTotal} when your order arrives.`
+              ? `Cash on delivery — you pay NRS ${grandTotal} when your order arrives.${vatEnabled ? ` (incl. ${vatPct}% VAT on products)` : ""}`
               : "Select your city and zone to see the delivery fee and total."}
           </div>
         </aside>

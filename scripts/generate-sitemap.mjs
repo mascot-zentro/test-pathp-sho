@@ -7,26 +7,24 @@
  */
 
 import { writeFileSync } from "fs";
-import { createClient } from "@supabase/supabase-js";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
 // ── Configure ──────────────────────────────────────────────────────────────
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? "https://YOUR_PROJECT.supabase.co";
-const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "YOUR_ANON_KEY";
-const SITE_URL     = (process.env.SITE_URL ?? "https://YOUR_DOMAIN").replace(/\/$/, "");
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? "https://debrdfpejtzcuubhpyam.supabase.co";
+const SUPABASE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlYnJkZnBlanR6Y3V1YmhweWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzI1NDUsImV4cCI6MjA5NzQ0ODU0NX0.lNePAAEwReO3WuvDyn8DXYpfdUZuGVjiux5K9IVW6Wg";
+const SITE_URL     = (process.env.SITE_URL ?? "https://www.theaavira.com").replace(/\/$/, "");
 // ──────────────────────────────────────────────────────────────────────────
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
 const STATIC_PAGES = [
-  { path: "/",      changefreq: "daily",   priority: "1.0" },
-  { path: "/sale",  changefreq: "daily",   priority: "0.9" },
-  { path: "/faq",   changefreq: "monthly", priority: "0.5" },
-  { path: "/track", changefreq: "monthly", priority: "0.4" },
-  { path: "/terms", changefreq: "yearly",  priority: "0.3" },
+  { path: "/",       changefreq: "daily",   priority: "1.0" },
+  { path: "/sale",   changefreq: "daily",   priority: "0.9" },
+  { path: "/impact", changefreq: "monthly", priority: "0.7" },
+  { path: "/faq",    changefreq: "monthly", priority: "0.5" },
+  { path: "/track",  changefreq: "monthly", priority: "0.4" },
+  { path: "/terms",  changefreq: "yearly",  priority: "0.3" },
 ];
 
 function slugify(name) {
@@ -38,19 +36,18 @@ function urlBlock({ loc, changefreq, priority }) {
 }
 
 async function main() {
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("name,updated_at")
-    .eq("active", true)
-    .order("name");
-
-  if (error) { console.error("Supabase error:", error.message); process.exit(1); }
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/products?select=name,created_at&active=eq.true&order=name`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+  );
+  if (!res.ok) { console.error("Supabase error:", res.status, await res.text()); process.exit(1); }
+  const products = await res.json();
 
   const staticBlocks = STATIC_PAGES.map((p) =>
     urlBlock({ loc: `${SITE_URL}${p.path}`, changefreq: p.changefreq, priority: p.priority })
   );
 
-  const productBlocks = (products ?? []).map((p) =>
+  const productBlocks = products.map((p) =>
     urlBlock({
       loc: `${SITE_URL}/product/${slugify(p.name)}`,
       changefreq: "weekly",

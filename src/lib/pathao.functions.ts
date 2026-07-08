@@ -466,7 +466,17 @@ export const createOrder = createServerFn({ method: "POST" })
       if (discountPercent === null) throw new Error("That promo code isn't valid, or has expired or been used up.");
       discountAmount = Math.round(subtotal * (Number(discountPercent) / 100) * 100) / 100;
     }
-    const total = subtotal - discountAmount + data.deliveryFee;
+    const discountedSubtotal = subtotal - discountAmount;
+
+    // VAT: applied to product subtotal only, not delivery fee
+    const { data: vatSettings } = await supabaseAdmin.from("app_settings").select("key,value").in("key", ["vat_enabled", "vat_percentage"]);
+    const vatMap: Record<string, string> = {};
+    (vatSettings ?? []).forEach((r: { key: string; value: string | null }) => { if (r.value) vatMap[r.key] = r.value; });
+    const vatEnabled = vatMap.vat_enabled === "true";
+    const vatPct = vatEnabled ? Number(vatMap.vat_percentage ?? "13") : 0;
+    const vatAmount = vatEnabled ? Math.round(discountedSubtotal * (vatPct / 100) * 100) / 100 : 0;
+
+    const total = discountedSubtotal + vatAmount + data.deliveryFee;
 
     // Basic anti-spam: cap how many orders one phone number can place in a
     // short window. Cheapest check first, before touching stock or inserting.

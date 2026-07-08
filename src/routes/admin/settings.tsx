@@ -294,6 +294,56 @@ function SettingsPage() {
           </div>
         </div>
 
+        {/* VAT */}
+        <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+          <div>
+            <h3 className="font-medium">VAT</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              When enabled, VAT is added to the product subtotal at checkout. It does <strong>not</strong> apply to the delivery fee.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={vals.vat_enabled === "true"}
+              onClick={() => {
+                const next = vals.vat_enabled === "true" ? "false" : "true";
+                setVals((p) => ({ ...p, vat_enabled: next }));
+                saveValue("vat_enabled", next);
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                vals.vat_enabled === "true" ? "bg-accent" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  vals.vat_enabled === "true" ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className="text-sm">{vals.vat_enabled === "true" ? "VAT enabled" : "VAT disabled"}</span>
+          </div>
+          {vals.vat_enabled === "true" && (
+            <div className="space-y-1">
+              <Label>VAT percentage (%)</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={vals.vat_percentage ?? "13"}
+                  onChange={(e) => setVals({ ...vals, vat_percentage: e.target.value })}
+                  className="max-w-32"
+                />
+                <Button onClick={() => save("vat_percentage")}>Save</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Nepal standard VAT is 13%. Applied to product subtotal only, not delivery.</p>
+            </div>
+          )}
+        </div>
+
         {field("store_name", "Store name", "Shown in the browser tab, OG share cards, and search results.")}
         {field("site_url", "Site URL", "Your full domain e.g. https://mystore.com — used in sitemap and share links. No trailing slash.")}
         {field("site_description", "Store description", "One sentence shown in Google search results and link previews.")}

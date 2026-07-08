@@ -11,8 +11,47 @@ import { Truck, ShieldCheck, RotateCcw, Sparkles, ArrowRight, Heart } from "luci
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "The Aavira — Premium Women's Fashion Nepal" },
-      { name: "description", content: "Curated premium women's fashion. Cash on delivery across Nepal." },
+      { title: "The Aavira — Women's Tops & Kurtas | Cash on Delivery Nepal" },
+      { name: "description", content: "Shop women's tops, kurtas, and ethnic wear in Nepal. Premium quality, cash on delivery across Kathmandu and nationwide. New arrivals weekly." },
+      { property: "og:title", content: "The Aavira — Women's Tops & Kurtas | Cash on Delivery Nepal" },
+      { property: "og:description", content: "Shop women's tops, kurtas, and ethnic wear in Nepal. Premium quality, cash on delivery across Kathmandu and nationwide." },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "The Aavira" },
+      { property: "og:locale", content: "en_US" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "The Aavira",
+          url: "https://www.theaavira.com",
+          description: "Women's tops, kurtas, and ethnic wear in Nepal. Cash on delivery.",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://www.theaavira.com/?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "The Aavira",
+          url: "https://www.theaavira.com",
+          logo: "https://www.theaavira.com/Aavira.png",
+          sameAs: ["https://www.instagram.com/theaavira"],
+          contactPoint: {
+            "@type": "ContactPoint",
+            contactType: "customer service",
+            availableLanguage: ["English", "Nepali"],
+          },
+        }),
+      },
     ],
   }),
   component: Index,
